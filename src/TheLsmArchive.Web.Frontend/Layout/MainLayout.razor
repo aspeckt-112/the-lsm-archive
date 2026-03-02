@@ -1,0 +1,136 @@
+﻿@using TheLsmArchive.Web.Frontend.Services
+
+@inherits LayoutComponentBase
+
+@implements IDisposable
+
+@inject IBreadcrumbService BreadcrumbService
+@inject NavigationManager NavigationManager
+
+<MudThemeProvider Theme="@_theme" IsDarkMode="true"/>
+<MudPopoverProvider/>
+<MudDialogProvider/>
+<MudSnackbarProvider/>
+<MudLayout>
+    <MudAppBar Elevation="0" Class="glass-appbar px-4">
+        <MudContainer MaxWidth="MaxWidth.Large" Class="d-flex align-center gap-3">
+            <MudLink Href="/" Underline="Underline.None">
+                <MudText Typo="Typo.h5" Class="mud-text-primary fw-bold">The LSM Archive</MudText>
+            </MudLink>
+            <MudSpacer/>
+            <MudIconButton Href="https://github.com/aspeckt-112/the-lsm-archive"
+                           Target="_blank"
+                           Icon="@Icons.Custom.Brands.GitHub"
+                           Color="Color.Default"
+                           Class="opacity-70" />
+        </MudContainer>
+    </MudAppBar>
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="py-12 min-h-screen d-flex flex-column">
+            @if (NavigationManager.ToBaseRelativePath(NavigationManager.Uri) != string.Empty)
+            {
+                <MudBreadcrumbs Items="@BreadcrumbService.Breadcrumbs.ToList()" MaxItems="10" Class="mb-6 px-0 breadcrumb-nav">
+                    <SeparatorTemplate>
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Class="mx-1 opacity-50" />
+                    </SeparatorTemplate>
+                    <ItemTemplate Context="item">
+                        <MudLink Href="@item.Href" Underline="Underline.None" Disabled="@item.Disabled" Class="@(item.Href == null ? "breadcrumb-item-active" : "breadcrumb-item-link")">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                @if (!string.IsNullOrEmpty(item.Icon))
+                                {
+                                    <MudIcon Icon="@item.Icon" Size="Size.Small" />
+                                }
+                                <MudText Typo="Typo.body2">@item.Text</MudText>
+                            </MudStack>
+                        </MudLink>
+                    </ItemTemplate>
+                </MudBreadcrumbs>
+            }
+            <div class="flex-grow-1">
+                @Body
+            </div>
+            
+            <footer class="mt-16 pb-8">
+                <MudDivider Class="mb-6 opacity-20" />
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.body2" Class="opacity-50">
+                        This is a fan-run website and is not officially affiliated with or endorsed by Last Stand Media.
+                    </MudText>
+                    <MudText Typo="Typo.body2" Class="opacity-50">
+                        Built with ❤️ by a 🦞 back in 🇬🇧
+                    </MudText>
+                </MudStack>
+            </footer>
+        </MudContainer>
+    </MudMainContent>
+    <MudScrollToTop>
+        <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowUpward" />
+    </MudScrollToTop>
+</MudLayout>
+
+@code {
+
+    private MudTheme? _theme;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        BreadcrumbService.OnBreadcrumbsChanged += HandleBreadcrumbsChanged;
+        NavigationManager.LocationChanged += HandleLocationChanged;
+
+        _theme = new MudTheme
+        {
+            PaletteDark = _darkPalette,
+            LayoutProperties = new LayoutProperties()
+            {
+                DefaultBorderRadius = "12px"
+            }
+        };
+    }
+
+
+    private void HandleBreadcrumbsChanged(object? sender, EventArgs e) => InvokeAsync(StateHasChanged);
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e) => StateHasChanged();
+
+    public void Dispose()
+    {
+        BreadcrumbService.OnBreadcrumbsChanged -= HandleBreadcrumbsChanged;
+        NavigationManager.LocationChanged -= HandleLocationChanged;
+    }
+
+
+    private readonly PaletteDark _darkPalette = new()
+    {
+        Primary = "#6366f1",
+        Secondary = "#10b981",
+        Tertiary = "#f59e0b",
+        Surface = "#0f172a",
+        Background = "#020617",
+        BackgroundGray = "#0f172a",
+        AppbarText = "#f8fafc",
+        AppbarBackground = "rgba(2,6,23,0.8)",
+        DrawerBackground = "#0f172a",
+        ActionDefault = "#94a3b8",
+        ActionDisabled = "#4755694d",
+        ActionDisabledBackground = "#3341554d",
+        TextPrimary = "#f8fafc",
+        TextSecondary = "#94a3b8",
+        TextDisabled = "#64748b80",
+        DrawerIcon = "#94a3b8",
+        DrawerText = "#94a3b8",
+        GrayLight = "#1e293b",
+        GrayLighter = "#0f172a",
+        Info = "#3b82f6",
+        Success = "#22c55e",
+        Warning = "#f59e0b",
+        Error = "#ef4444",
+        LinesDefault = "#1e293b",
+        TableLines = "#1e293b",
+        Divider = "#1e293b",
+        OverlayLight = "#0f172a80"
+    };
+
+}
+

@@ -1,0 +1,18 @@
+@inject NavigationManager NavigationManager
+
+<MudCard Class="h-100 card-hover hover-primary entity-card clickable-card flex-grow-1">
+    <MudCardContent @onclick='() => NavigationManager.NavigateTo($"/Episode/{Episode.Id}")'>
+        <MudText Typo="Typo.body1" Class="fw-bold mb-2">@Episode.Title</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Color="Color.Primary" Size="Size.Small"/>
+            <MudText Typo="Typo.body2" Color="Color.Default">@Episode.ReleaseDate.ToLongDateString()</MudText>
+        </MudStack>
+    </MudCardContent>
+</MudCard>
+
+@code {
+
+    [Parameter, EditorRequired]
+    public Episode Episode { get; set; } = default!;
+
+}
