@@ -30,6 +30,6 @@ public sealed class SystemService : ISystemService
             .OrderByDescending(p => p.Published)
             .Where(p => p.EpisodeId != null)
             .Select(p => p.Published)
-            .FirstOrDefaultAsync(cancellationToken);
+            .FirstAsync(cancellationToken);
     }
 }
