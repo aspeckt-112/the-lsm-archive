@@ -132,9 +132,14 @@ public interface ILsmArchiveClientService
         int episodeId,
         CancellationToken cancellationToken);
 
-    /// <summary> Gets the date and time of the last data synchronization.
-    /// </summary> <param name="cancellationToken">The cancellation token.</param>
+    /// <summary>
+    /// Gets the date and time of the last data synchronization.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The date and time of the last data synchronization.</returns>
-    /// <remarks>This method is used to determine when the archive was last synchronized with the source data, which can be useful for caching and data freshness purposes.</remarks
+    /// <remarks>
+    /// This method is used to determine when the archive was last synchronized with the source data,
+    /// which can be useful for caching and data freshness purposes.
+    /// </remarks>
     public Task<Result<DateTimeOffset>> GetLastDataSyncDateTimeAsync(CancellationToken cancellationToken);
 }
