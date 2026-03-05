@@ -21,6 +21,8 @@ public class LsmArchiveClientService : ILsmArchiveClientService
 
     private const string EpisodesRoute = "episode";
 
+    private const string SystemRoute = "system";
+
     private readonly ILogger<LsmArchiveClientService> _logger;
 
     private readonly HttpClient _httpClient;
@@ -275,6 +277,20 @@ public class LsmArchiveClientService : ILsmArchiveClientService
         return ExecuteRequestAsync<List<Topic>>(
             requestMessage,
             hasContent: result => result is not null && result.Count > 0,
+            cancellationToken
+        );
+    }
+
+    /// <inheritdoc />
+    public Task<Result<DateTimeOffset>> GetLastDataSyncDateTimeAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Getting the date and time of the last data synchronization.");
+
+        HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{SystemRoute}/last-data-sync");
+
+        return ExecuteRequestAsync<DateTimeOffset>(
+            requestMessage,
+            hasContent: result => result != default,
             cancellationToken
         );
     }

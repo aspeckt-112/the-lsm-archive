@@ -35,6 +35,12 @@
             {
                 <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="search-loader" />
             }
+            @if (_lastDataSyncDateTime.HasValue)
+            {
+                <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-4 opacity-70">
+                    Last updated: @_lastDataSyncDateTime.Value.LocalDateTime
+                </MudText>
+            }
             <MudGrid Spacing="3" Justify="Justify.Center" Class="mt-4">
                 <MudItem xs="12" sm="12" md="8" lg="8">
                     <MudTextField
@@ -146,10 +152,30 @@
 
     private CancellationTokenSource? _searchRequestCts;
 
-    protected override void OnInitialized()
+    private DateTimeOffset? _lastDataSyncDateTime;
+
+    protected override async Task OnInitializedAsync()
     {
-        base.OnInitialized();
         BreadcrumbService.Reset();
+        await LoadLastDataSyncDateTimeAsync();
+    }
+
+    private async Task LoadLastDataSyncDateTimeAsync()
+    {
+        var result = await ClientService.GetLastDataSyncDateTimeAsync(CancellationToken.None);
+
+        await HandleResult(
+            result,
+            onSuccess: dateTime =>
+            {
+                _lastDataSyncDateTime = dateTime;
+                return Task.CompletedTask;
+            },
+            onNoContent: () =>
+            {
+                _lastDataSyncDateTime = null;
+                return Task.CompletedTask;
+            });
     }
 
     private async Task OnSearchTermChanged(string value)
