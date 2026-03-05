@@ -4,6 +4,7 @@ using TheLsmArchive.Database;
 using TheLsmArchive.Web.Api.Features.Episodes;
 using TheLsmArchive.Web.Api.Features.Persons;
 using TheLsmArchive.Web.Api.Features.Search;
+using TheLsmArchive.Web.Api.Features.System;
 using TheLsmArchive.Web.Api.Features.Topics;
 using TheLsmArchive.Web.Api.Infrastructure;
 
@@ -16,6 +17,7 @@ builder.Services
     .AddScoped<IEpisodeService, EpisodeService>()
     .AddScoped<IPersonService, PersonService>()
     .AddScoped<ITopicService, TopicService>()
+    .AddScoped<ISystemService, SystemService>()
     .AddExceptionHandler<GlobalExceptionHandler>()
     .AddCors(options =>
     {
@@ -63,6 +65,7 @@ app
     .AddSearchEndpoints()
     .AddEpisodeEndpoints()
     .AddTopicEndpoints()
-    .AddPersonEndpoints();
+    .AddPersonEndpoints()
+    .AddSystemEndpoints();
 
 await app.RunAsync();
