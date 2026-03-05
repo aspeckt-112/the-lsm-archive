@@ -12,6 +12,7 @@ public sealed class SystemService : ISystemService
     /// Initializes a new instance of the <see cref="SystemService"/> class.
     /// </summary>
     /// <param name="logger">The logger.</param>
+    /// <param name="readOnlyDbContext">The read-only database context.</param>
     public SystemService(
         ILogger<SystemService> logger,
         ReadOnlyDbContext readOnlyDbContext)
