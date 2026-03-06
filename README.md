@@ -37,7 +37,7 @@ Several projects require sensitive configuration. Use `dotnet user-secrets` to s
 #### Database Connection
 Set the connection string in both `TheLsmArchive.Web.Api` and `TheLsmArchive.Patreon.Ingestion`:
 ```bash
-dotnet user-secrets set "ConnectionStrings:thelsmarchive" "Host=localhost;Port=20984;Database=thelsmarchive;Username=postgres;Password=postgres"
+dotnet user-secrets set "ConnectionStrings:thelsmarchive" "Host=localhost;Port=20984;Database=thelsmarchive;Username=sa;Password=YourStrong@Passw0rd"
 ```
 
 #### Patreon Ingestion
