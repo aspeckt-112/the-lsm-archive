@@ -74,6 +74,12 @@ Run the Ingestion tool:
 dotnet run --project src/TheLsmArchive.Patreon.Ingestion
 ```
 
+Run the Frontend:
+```bash
+dotnet run --project src/TheLsmArchive.Web.Frontend
+```
+*Note: The frontend is pre-configured to connect to the API at `https://localhost:7229` (the default HTTPS profile). Ensure the API is running before launching the frontend.*
+
 ## Testing
 
 Tests utilize **Testcontainers** to run against a real PostgreSQL instance. Ensure Docker is running before executing tests.
