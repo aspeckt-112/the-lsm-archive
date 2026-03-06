@@ -37,7 +37,10 @@ Several projects require sensitive configuration. Use `dotnet user-secrets` to s
 #### Database Connection
 Set the connection string in both `TheLsmArchive.Web.Api` and `TheLsmArchive.Patreon.Ingestion`:
 ```bash
-dotnet user-secrets set "ConnectionStrings:thelsmarchive" "Host=localhost;Port=20984;Database=thelsmarchive;Username=sa;Password=YourStrong@Passw0rd"
+dotnet user-secrets set "ConnectionStrings:thelsmarchive" "Host=localhost;Port=20984;Database=thelsmarchive;Username=sa;Password=YourStrong@Passw0rd" --project src/TheLsmArchive.Web.Api
+```
+```bash
+dotnet user-secrets set "ConnectionStrings:thelsmarchive" "Host=localhost;Port=20984;Database=thelsmarchive;Username=sa;Password=YourStrong@Passw0rd" --project src/TheLsmArchive.Patreon.Ingestion
 ```
 
 #### Patreon Ingestion
@@ -51,7 +54,7 @@ dotnet user-secrets set "GeminiOptions:ApiKey" "YOUR_GEMINI_API_KEY" --project s
 **RSS Feeds:**
 The feeds are configured as a list of `RssFeedSource` objects. You can set them via JSON in user secrets:
 ```bash
-dotnet user-secrets set "RssFeedSources" '[{"Name": "Sacred Symbols", "Url": "https://www.patreon.com/rss/..."}, {"Name": "Defining Duke", "Url": "..."}]' --project src/TheLsmArchive.Patreon.Ingestion
+dotnet user-secrets set "RssFeedSources" '[{"Name": "YOUR_RSS_FEED_NAME", "Url": "YOUR_PRIVATE_RSS_URL"}, {"Name": "ANOTHER_RSS_FEED_NAME", "Url": "YOUR_PRIVATE_RSS_URL"}]' --project src/TheLsmArchive.Patreon.Ingestion
 ```
 
 ### 3. Build & Run
