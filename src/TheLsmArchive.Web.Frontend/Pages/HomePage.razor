@@ -1,0 +1,337 @@
+@page "/"
+
+@using TheLsmArchive.ApiClient
+@using TheLsmArchive.ApiClient.Services.Abstractions
+@using TheLsmArchive.Models.Enums
+@using TheLsmArchive.Models.Request
+@using TheLsmArchive.Web.Frontend.Pages.Abstractions
+
+@inherits BasePage
+
+@implements IDisposable
+
+@inject ILogger<HomePage> Logger
+@inject ILsmArchiveClientService ClientService
+@inject NavigationManager NavigationManager
+@inject IBreadcrumbService BreadcrumbService
+
+<PageTitle>The LSM Archive</PageTitle>
+
+<MudGrid Spacing="3">
+    <MudItem xs="12">
+        <MudPaper Class="pa-8 page-header" Elevation="4">
+            <MudStack AlignItems="AlignItems.Center" Spacing="4">
+                <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-2">Greetings and salutations!</MudText>
+                <MudText Typo="Typo.body1" Align="Align.Center" Class="home-subtitle">
+                    The LSM Archive is a fan-made repository dedicated to preserving and sharing the rich history of Last Stand Media.
+                    Explore our collection of episodes, people, and topics from LSM's vast library.
+                </MudText>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12">
+        <MudPaper Class="pa-6 search-container" Elevation="4">
+            @if (_isLoading)
+            {
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="search-loader" />
+            }
+            @if (_lastDataSyncDateTime.HasValue)
+            {
+                <MudText Typo="Typo.caption" Align="Align.Center" Class="mt-4 opacity-70">
+                    Last updated: @_lastDataSyncDateTime.Value.LocalDateTime
+                </MudText>
+            }
+            <MudGrid Spacing="3" Justify="Justify.Center" Class="mt-4">
+                <MudItem xs="12" sm="12" md="8" lg="8">
+                    <MudTextField
+                        T="string"
+                        Variant="Variant.Outlined"
+                        Placeholder="Search the archive..."
+                        Adornment="Adornment.Start"
+                        AdornmentIcon="@Icons.Material.Filled.Search"
+                        AdornmentColor="Color.Primary"
+                        Value="_searchTerm"
+                        ValueChanged="OnSearchTermChanged"
+                        Immediate="true"
+                        FullWidth="true"
+                        Clearable="true"
+                        Margin="Margin.None" />
+                </MudItem>
+                <MudItem xs="12" sm="12" md="4" lg="4" Class="d-flex align-center justify-center">
+                    <MudChipSet T="EntityType"
+                                SelectedValue="_searchType"
+                                SelectedValueChanged="OnSearchTypeChanged"
+                                SelectionMode="SelectionMode.SingleSelection"
+                                CheckMark="true"
+                                Variant="Variant.Text">
+                        @foreach (var type in Enum.GetValues<EntityType>())
+                        {
+                            <MudChip Value="type" Text="@type.ToString()" Color="@GetEntityColor(type)" />
+                        }
+                    </MudChipSet>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    </MudItem>
+
+    @if (_hasSearched)
+    {
+        @if (_isLoading && (_searchResults == null || _searchResults.Count == 0))
+        {
+            <MudItem xs="12">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="200px" Height="32px" Class="mb-4 rounded-lg" />
+            </MudItem>
+            @for (int i = 0; i < 8; i++)
+            {
+                <MudItem xs="12" sm="6" md="4" lg="3" Class="d-flex">
+                    <MudPaper Class="pa-4 flex-grow-1" Elevation="2">
+                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="100%" Height="24px" Class="mb-2" />
+                        <MudSkeleton SkeletonType="SkeletonType.Text" Width="60%" />
+                    </MudPaper>
+                </MudItem>
+            }
+        }
+        else if (_searchResults != null)
+        {
+            if (_searchResults.Count == 0)
+            {
+                <MudItem xs="12">
+                    <MudPaper Class="pa-12 d-flex flex-column align-center justify-center empty-state" Elevation="0">
+                        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Color="Color.Secondary" Style="font-size: 5rem;" Class="mb-4 opacity-50" />
+                        <MudText Typo="Typo.h5" Class="fw-bold mb-2">No results found</MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">
+                            We couldn't find any matches for "<strong>@_searchTerm</strong>".
+                        </MudText>
+                        <MudText Typo="Typo.body2" Align="Align.Center" Class="mt-2 opacity-70">
+                            Try checking your spelling or using more general search terms.
+                        </MudText>
+                    </MudPaper>
+                </MudItem>
+            }
+            else
+            {
+                @foreach (var searchResult in _searchResults.GroupBy(x => x.EntityType))
+                {
+                    <MudItem xs="12" Class="mt-4">
+                        <SectionHeader Icon="@GetEntityIcon(searchResult.Key)" Color="@GetEntityColor(searchResult.Key)" Title="@searchResult.Key.ToString()"/>
+                    </MudItem>
+                    @foreach (var result in searchResult)
+                    {
+                        <MudItem xs="12" sm="6" md="4" lg="3" Class="d-flex">
+                            <MudCard Class="@($"h-100 card-hover {GetEntityHoverClass(result.EntityType)} entity-card clickable-card flex-grow-1")">
+                                <MudCardContent @onclick="(() => OnViewClicked(result.Id, result.EntityType))">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@GetEntityIcon(result.EntityType)" Color="@GetEntityColor(result.EntityType)" Size="Size.Small"/>
+                                        <MudText Typo="Typo.body1" Class="fw-bold">@result.Matched</MudText>
+                                    </MudStack>
+                                </MudCardContent>
+                            </MudCard>
+                        </MudItem>
+                    }
+                }
+            }
+        }
+    }
+</MudGrid>
+
+@code {
+
+    private const int SearchDebounceMs = 350;
+
+    private string _searchTerm = string.Empty;
+
+    private EntityType _searchType = EntityType.All;
+
+    private bool _hasSearched;
+
+    private bool _isLoading;
+
+    private List<SearchResult>? _searchResults;
+
+    private CancellationTokenSource? _searchDebounceCts;
+
+    private CancellationTokenSource? _searchRequestCts;
+
+    private DateTimeOffset? _lastDataSyncDateTime;
+
+    protected override async Task OnInitializedAsync()
+    {
+        BreadcrumbService.Reset();
+        await LoadLastDataSyncDateTimeAsync();
+    }
+
+    private async Task LoadLastDataSyncDateTimeAsync()
+    {
+        var result = await ClientService.GetLastDataSyncDateTimeAsync(CancellationToken.None);
+
+        await HandleResult(
+            result,
+            onSuccess: dateTime =>
+            {
+                _lastDataSyncDateTime = dateTime;
+                return Task.CompletedTask;
+            },
+            onNoContent: () =>
+            {
+                _lastDataSyncDateTime = null;
+                return Task.CompletedTask;
+            });
+    }
+
+    private async Task OnSearchTermChanged(string value)
+    {
+        _searchTerm = value;
+
+        if (string.IsNullOrWhiteSpace(_searchTerm))
+        {
+            CancelPendingOperations();
+            _searchResults = null;
+            SetSearchState(hasSearched: false, isLoading: false);
+            return;
+        }
+
+        _isLoading = true;
+        await DebouncedSearchAsync();
+    }
+
+    private async Task OnSearchTypeChanged(EntityType value)
+    {
+        _searchType = value;
+
+        if (string.IsNullOrWhiteSpace(_searchTerm))
+        {
+            return;
+        }
+
+        _isLoading = true;
+        await DebouncedSearchAsync();
+    }
+
+    private async Task DebouncedSearchAsync()
+    {
+        _searchDebounceCts?.Cancel();
+        _searchDebounceCts = new CancellationTokenSource();
+        var token = _searchDebounceCts.Token;
+
+        try
+        {
+            await Task.Delay(SearchDebounceMs, token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await RunSearchAsync();
+    }
+
+    private async Task RunSearchAsync()
+    {
+        _searchRequestCts?.Cancel();
+        _searchRequestCts = new CancellationTokenSource();
+        var token = _searchRequestCts.Token;
+
+        SetSearchState(hasSearched: true, isLoading: true);
+
+        try
+        {
+            Result<List<SearchResult>> result = await ClientService.Search(
+                new SearchRequest(_searchTerm, _searchType),
+                token);
+
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
+
+            await HandleResult(
+                result,
+                onSuccess: searchResults =>
+                {
+                    _searchResults = searchResults;
+                    return Task.CompletedTask;
+                },
+                onNoContent: () =>
+                {
+                    _searchResults = [];
+                    return Task.CompletedTask;
+                });
+        }
+        catch (OperationCanceledException)
+        {
+            // Ignore cancellation
+        }
+        finally
+        {
+            if (!token.IsCancellationRequested)
+            {
+                _isLoading = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void SetSearchState(bool hasSearched, bool isLoading)
+    {
+        _hasSearched = hasSearched;
+        _isLoading = isLoading;
+        StateHasChanged();
+    }
+
+    private void CancelPendingOperations()
+    {
+        _searchDebounceCts?.Cancel();
+        _searchDebounceCts?.Dispose();
+        _searchDebounceCts = null;
+
+        _searchRequestCts?.Cancel();
+        _searchRequestCts?.Dispose();
+        _searchRequestCts = null;
+    }
+
+    private void OnViewClicked(int id, EntityType entityType)
+    {
+        Logger.LogInformation("Navigating to {EntityType} with ID {Id}", entityType, id);
+
+        var url = entityType switch
+        {
+            EntityType.Person => $"/Person/{id}",
+            EntityType.Topic => $"/Topic/{id}",
+            EntityType.Episode => $"/Episode/{id}",
+            _ => throw new ArgumentOutOfRangeException(nameof(entityType), $"Unhandled entity type: {entityType}")
+        };
+
+        NavigationManager.NavigateTo(url);
+    }
+
+    private static string GetEntityIcon(EntityType type) => type switch
+    {
+        EntityType.Episode => Icons.Material.Filled.Headphones,
+        EntityType.Person => Icons.Material.Filled.People,
+        EntityType.Topic => Icons.Material.Filled.Tag,
+        _ => Icons.Material.Filled.Search
+    };
+
+    private static Color GetEntityColor(EntityType type) => type switch
+    {
+        EntityType.Episode => Color.Primary,
+        EntityType.Person => Color.Secondary,
+        EntityType.Topic => Color.Tertiary,
+        _ => Color.Default
+    };
+
+    private static string GetEntityHoverClass(EntityType type) => type switch
+    {
+        EntityType.Episode => "hover-primary",
+        EntityType.Person => "hover-secondary",
+        EntityType.Topic => "hover-tertiary",
+        _ => string.Empty
+    };
+
+    public void Dispose()
+    {
+        CancelPendingOperations();
+    }
+
+}
+
