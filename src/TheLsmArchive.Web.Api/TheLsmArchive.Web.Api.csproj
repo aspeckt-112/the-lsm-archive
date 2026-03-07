@@ -26,4 +26,8 @@
         <Using Include="TheLsmArchive.Database.DbContext" />
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="TheLsmArchive.Web.Api.Tests" />
+    </ItemGroup>
+
 </Project>
