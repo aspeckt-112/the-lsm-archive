@@ -78,7 +78,7 @@ Run the Frontend:
 ```bash
 dotnet run --project src/TheLsmArchive.Web.Frontend
 ```
-*Note: The frontend is pre-configured to connect to the API at `https://localhost:7229` (the default HTTPS profile). Ensure the API is running before launching the frontend.*
+*Note: The frontend is pre-configured to connect to the API at `https://localhost:7229` (the default HTTPS profile). Ensure the API is running before launching the frontend. If you're using VS Code, you can use the provided `launch.json` to run the API and Frontend together. The recommended scenario is to run the ingestion tool first to get data in the database, then run the API and Frontend to develop features and test against real data.*
 
 ## Testing
 
