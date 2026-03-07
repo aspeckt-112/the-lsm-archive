@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:13.22-alpine3.22
+    container_name: thelsmarchive-postgres
+    environment:
+      POSTGRES_USER: sa
+      POSTGRES_PASSWORD: YourStrong@Passw0rd
+      POSTGRES_DB: thelsmarchive
+    ports:
+      - "20984:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ${HOME}/postgres-backups/the-lsm-archive:/backups
+    restart: always
+
+volumes:
+  postgres-data:

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <RootNamespace>TheLsmArchive.Web.Api.Tests</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\src\TheLsmArchive.Web.Api\TheLsmArchive.Web.Api.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Testcontainers.PostgreSql" />
+    </ItemGroup>
+    
+</Project>

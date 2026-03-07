@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "TheLsmArchive.Patreon.Ingestion": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}

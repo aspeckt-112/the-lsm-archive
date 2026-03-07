@@ -1,0 +1,20 @@
+<MudStack Spacing="2" Class="mb-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+        <MudIcon Icon="@Icon" Color="@Color" Size="Size.Medium"/>
+        <MudText Typo="Typo.h5" Class="fw-bold">@Title</MudText>
+    </MudStack>
+    <MudDivider DividerType="DividerType.FullWidth" Light="true" />
+</MudStack>
+
+@code {
+
+    [Parameter, EditorRequired]
+    public string Icon { get; set; } = default!;
+
+    [Parameter]
+    public Color Color { get; set; } = Color.Primary;
+
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = default!;
+
+}

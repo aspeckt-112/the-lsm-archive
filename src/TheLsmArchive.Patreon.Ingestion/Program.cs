@@ -1,0 +1,109 @@
+using System.Net.Http.Headers;
+using System.Threading.RateLimiting;
+
+using Google.GenAI.Types;
+
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+
+using Polly;
+using Polly.RateLimiting;
+using Polly.Retry;
+using Polly.Timeout;
+
+using TheLsmArchive.Database;
+using TheLsmArchive.Patreon.Ingestion.Options;
+using TheLsmArchive.Patreon.Ingestion.Services;
+using TheLsmArchive.Patreon.Ingestion.Services.Abstractions;
+
+HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
+
+builder.Configuration.AddUserSecrets<Program>();
+
+builder.Services
+    .AddOptionsWithValidateOnStart<GeminiOptions>()
+    .BindConfiguration(nameof(GeminiOptions))
+    .ValidateDataAnnotations();
+
+builder.Services.AddOptionsWithValidateOnStart<RssFeedSources>()
+    .BindConfiguration(nameof(RssFeedSources))
+    .ValidateDataAnnotations();
+
+builder.Services.AddOptionsWithValidateOnStart<UserAgentOptions>()
+    .BindConfiguration(nameof(UserAgentOptions))
+    .ValidateDataAnnotations();
+
+builder.Services
+    .AddSingleton<IAiSummaryService, GeminiSummaryService>()
+    .AddHostedService<PatreonIngestionService>()
+    .AddSingleton<PatreonRssParser>()
+    .AddSingleton<PromptService>();
+
+builder.Services.AddResiliencePipeline(
+    TheLsmArchive.Patreon.Ingestion.Constants.AiSummaryPipelineName,
+    resiliencePipelineBuilder =>
+    {
+        resiliencePipelineBuilder
+            .AddRateLimiter(new SlidingWindowRateLimiter(
+                new SlidingWindowRateLimiterOptions
+                {
+                    Window = TimeSpan.FromMinutes(1),
+                    SegmentsPerWindow = 60, // 60 segments of 1 second each
+                    PermitLimit = 1000, // Max 1000 requests per minute (Gemini Flash limit)
+                    QueueLimit = 100
+                }))
+            .AddTimeout(TimeSpan.FromSeconds(3600)) // 1 hour timeout
+            .AddRetry(new RetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                BackoffType = DelayBackoffType.Exponential,
+                Delay = TimeSpan.FromSeconds(1),
+                UseJitter = true,
+                ShouldHandle = new PredicateBuilder()
+                    .Handle<HttpRequestException>()
+                    .Handle<InvalidOperationException>()
+                    .Handle<TimeoutRejectedException>()
+                    .Handle<RateLimiterRejectedException>() // Retry on rate limit rejections
+            });
+    });
+
+builder.Services
+    .AddHttpClient<PatreonRssParser>(client =>
+    {
+        client.DefaultRequestHeaders.UserAgent.Clear();
+
+        UserAgentOptions userAgentOptions =
+            builder.Configuration.GetSection(nameof(UserAgentOptions)).Get<UserAgentOptions>()
+            ?? throw new InvalidOperationException("UserAgentOptions section is missing in configuration.");
+
+        client.DefaultRequestHeaders.UserAgent.Add(
+            new ProductInfoHeaderValue(
+                userAgentOptions.UserAgent,
+                userAgentOptions.Version));
+
+        client.DefaultRequestHeaders.Accept.ParseAdd("application/rss+xml, application/xml;q=0.9, */*;q=0.8");
+    });
+
+builder.Services.AddSingleton(sp =>
+{
+    IOptions<GeminiOptions> options = sp.GetRequiredService<IOptions<GeminiOptions>>();
+    GeminiOptions optionsValue = options.Value;
+
+    // const int fiveMinutesInMilliseconds = 300_000;
+    const int oneHourInMilliseconds = 3_600_000;
+
+    HttpOptions httpOptions = new()
+    {
+        Timeout = oneHourInMilliseconds
+    };
+
+    return new Google.GenAI.Client(apiKey: optionsValue.ApiKey, httpOptions: httpOptions);
+});
+
+builder.Services.AddDbContext(builder.Configuration, ServiceLifetime.Singleton);
+
+IHost host = builder.Build();
+
+await host.RunAsync();
