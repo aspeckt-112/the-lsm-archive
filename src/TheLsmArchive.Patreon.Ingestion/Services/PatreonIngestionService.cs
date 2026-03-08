@@ -413,6 +413,7 @@ public sealed partial class PatreonIngestionService : BackgroundService
 
     private async Task<TopicEntity> GetOrCreateTopicAsync(string name, CancellationToken cancellationToken)
     {
+        name = name.Trim();
         // 1. Try exact match first (case-insensitive)
         TopicEntity? topicEntity = await _readWriteDbContext.Topics
             .FirstOrDefaultAsync(t => EF.Functions.ILike(t.Name, name), cancellationToken);
