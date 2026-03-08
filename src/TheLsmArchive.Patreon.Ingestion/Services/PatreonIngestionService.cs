@@ -339,10 +339,15 @@ public sealed partial class PatreonIngestionService : BackgroundService
         // 2. Get recent topics for this show (context for ongoing discussions)
         List<string> topics = await _readWriteDbContext.TopicEpisodes
             .Where(te => te.Episode.ShowId == showId)
-            .OrderByDescending(te => te.Episode.ReleaseDateUtc)
-            .Select(te => te.Topic.Name)
-            .Distinct()
+            .GroupBy(te => te.Topic.Name)
+            .Select(g => new
+            {
+                TopicName = g.Key,
+                LastUsedAt = g.Max(te => te.Episode.ReleaseDateUtc)
+            })
+            .OrderByDescending(x => x.LastUsedAt)
             .Take(100)
+            .Select(x => x.TopicName)
             .ToListAsync(cancellationToken);
 
         return (hosts, topics);
