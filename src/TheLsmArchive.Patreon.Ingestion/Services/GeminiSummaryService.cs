@@ -157,27 +157,13 @@ public sealed partial class GeminiSummaryService : IAiSummaryService
             return new AiSummary(
                 resultDto.Hosts,
                 resultDto.Guests,
-                [.. resultDto.Topics.Select(CleanTopic)]);
+                resultDto.Topics);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to generate summary for post {Title}", patreonPost.Title);
             throw;
         }
-    }
-
-    private static string CleanTopic(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return string.Empty;
-        }
-
-        // Replace punctuation with spaces
-        string cleaned = PunctuationRegex().Replace(input, " ");
-
-        // Normalize whitespace
-        return WhitespaceRegex().Replace(cleaned, " ").Trim();
     }
 
     private static string StripHtml(string input)
@@ -204,7 +190,4 @@ public sealed partial class GeminiSummaryService : IAiSummaryService
 
     [GeneratedRegex("<.*?>")]
     private static partial Regex HtmlTagRegex();
-
-    [GeneratedRegex(@"[^\w\s]")]
-    private static partial Regex PunctuationRegex();
 }
