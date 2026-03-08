@@ -356,17 +356,19 @@ public sealed class PatreonIngestionService : BackgroundService
     private async Task<PersonEntity> GetOrCreatePersonAsync(string name, CancellationToken cancellationToken)
     {
         name = name.Trim();
+        string normalizedName = NormalizeLookupKey(name);
 
-        // 1. Try exact match first (case-insensitive)
+        // 1. Try exact match first using canonical normalized form.
         PersonEntity? personEntity = await _readWriteDbContext.Persons
-            .FirstOrDefaultAsync(p => EF.Functions.ILike(p.Name, name), cancellationToken);
+            .FirstOrDefaultAsync(p => p.NormalizedName == normalizedName, cancellationToken);
 
         if (personEntity is not null)
         {
             _logger.LogInformation(
-                "Person '{Person}' already exists in the database with ID {PersonEntityId}",
+                "Person '{Person}' already exists in the database with ID {PersonEntityId} (normalized key: {NormalizedName})",
                 name,
-                personEntity.Id);
+                personEntity.Id,
+                normalizedName);
 
             return personEntity;
         }
@@ -388,7 +390,7 @@ public sealed class PatreonIngestionService : BackgroundService
             return personEntity;
         }
 
-        personEntity = new PersonEntity { Name = name };
+        personEntity = new PersonEntity { Name = name, NormalizedName = normalizedName };
         _readWriteDbContext.Persons.Add(personEntity);
 
         return personEntity;
@@ -419,16 +421,19 @@ public sealed class PatreonIngestionService : BackgroundService
     private async Task<TopicEntity> GetOrCreateTopicAsync(string name, CancellationToken cancellationToken)
     {
         name = name.Trim();
-        // 1. Try exact match first (case-insensitive)
+        string normalizedName = NormalizeLookupKey(name);
+
+        // 1. Try exact match first using canonical normalized form.
         TopicEntity? topicEntity = await _readWriteDbContext.Topics
-            .FirstOrDefaultAsync(t => EF.Functions.ILike(t.Name, name), cancellationToken);
+            .FirstOrDefaultAsync(t => t.NormalizedName == normalizedName, cancellationToken);
 
         if (topicEntity is not null)
         {
             _logger.LogInformation(
-                "Topic '{TopicName}' already exists in the database with ID {TopicEntityId}",
+                "Topic '{TopicName}' already exists in the database with ID {TopicEntityId} (normalized key: {NormalizedName})",
                 name,
-                topicEntity.Id);
+                topicEntity.Id,
+                normalizedName);
 
             return topicEntity;
         }
@@ -452,7 +457,7 @@ public sealed class PatreonIngestionService : BackgroundService
             return topicEntity;
         }
 
-        topicEntity = new TopicEntity { Name = name };
+        topicEntity = new TopicEntity { Name = name, NormalizedName = normalizedName };
         _readWriteDbContext.Topics.Add(topicEntity);
 
         return topicEntity;
@@ -508,5 +513,21 @@ public sealed class PatreonIngestionService : BackgroundService
     {
         showEntity.LastSyncedAt = DateTimeOffset.UtcNow;
         await _readWriteDbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static string NormalizeLookupKey(string value)
+    {
+        string trimmed = value.Trim();
+
+        char[] alphanumericLowered =
+        [
+            .. trimmed
+                .Where(char.IsLetterOrDigit)
+                .Select(char.ToLowerInvariant)
+        ];
+
+        return alphanumericLowered.Length == 0
+            ? trimmed.ToLowerInvariant()
+            : new string(alphanumericLowered);
     }
 }

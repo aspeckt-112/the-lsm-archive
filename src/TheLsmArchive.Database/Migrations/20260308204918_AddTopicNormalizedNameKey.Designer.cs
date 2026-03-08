@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TheLsmArchive.Database.DbContext;
@@ -11,9 +12,11 @@ using TheLsmArchive.Database.DbContext;
 namespace TheLsmArchive.Database.Migrations
 {
     [DbContext(typeof(ReadWriteDbContext))]
-    partial class ReadWriteDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260308204918_AddTopicNormalizedNameKey")]
+    partial class AddTopicNormalizedNameKey
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -141,22 +144,12 @@ namespace TheLsmArchive.Database.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
 
-                    b.Property<string>("NormalizedName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("normalized_name");
-
                     b.HasKey("Id")
                         .HasName("pk_persons");
 
                     b.HasIndex("Name")
                         .IsUnique()
                         .HasDatabaseName("ix_persons_name");
-
-                    b.HasIndex("NormalizedName")
-                        .IsUnique()
-                        .HasDatabaseName("ix_persons_normalized_name");
 
                     b.ToTable("persons", (string)null);
                 });
