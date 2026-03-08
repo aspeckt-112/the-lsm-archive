@@ -18,7 +18,7 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 /// <summary>
 /// The service responsible for orchestrating Patreon RSS feed ingestion and processing.
 /// </summary>
-public sealed partial class PatreonIngestionService : BackgroundService
+public sealed class PatreonIngestionService : BackgroundService
 {
     private readonly ILogger<PatreonIngestionService> _logger;
     private readonly IHostApplicationLifetime _appLifetime;
