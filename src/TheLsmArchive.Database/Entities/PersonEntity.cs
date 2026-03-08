@@ -6,6 +6,8 @@ public class PersonEntity : BaseEntity
 {
     public string Name { get; set; } = null!;
 
+    public string NormalizedName { get; set; } = null!;
+
     public ICollection<PersonEpisodeEntity> PersonEpisodes { get; set; } = [];
 
     public ICollection<PersonTopicEntity> PersonTopics { get; set; } = [];

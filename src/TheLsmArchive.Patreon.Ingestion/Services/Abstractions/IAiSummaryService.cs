@@ -18,9 +18,13 @@ public interface IAiSummaryService
     /// <param name="show">The show entity.</param>
     /// <param name="patreonPost">The Patreon post entity.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="knownHosts">Optional list of known hosts for context.</param>
+    /// <param name="knownTopics">Optional list of known topics for context.</param>
     /// <returns>The generated AI summary.</returns>
     public Task<AiSummary> GenerateAiSummaryFromPatreonPost(
         ShowEntity show,
         PatreonPostEntity patreonPost,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        IEnumerable<string>? knownHosts = null,
+        IEnumerable<string>? knownTopics = null);
 }

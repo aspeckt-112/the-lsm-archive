@@ -15,7 +15,16 @@ public class PersonEntityConfiguration : BaseEntityConfiguration<PersonEntity>
             .HasMaxLength(200);
 
         builder
+            .Property(x => x.NormalizedName)
+            .IsRequired()
+            .HasMaxLength(200);
+
+        builder
             .HasIndex(x => x.Name)
+            .IsUnique();
+
+        builder
+            .HasIndex(x => x.NormalizedName)
             .IsUnique();
     }
 }
