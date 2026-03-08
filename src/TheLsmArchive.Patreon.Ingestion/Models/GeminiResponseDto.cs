@@ -11,6 +11,11 @@ internal class GeminiResponseDto
     public string[] Hosts { get; set; } = [];
 
     /// <summary>
+    /// The guests mentioned in the podcast episode.
+    /// </summary>
+    public string[] Guests { get; set; } = [];
+
+    /// <summary>
     /// The topics discussed in the podcast episode.
     /// </summary>
     public string[] Topics { get; set; } = [];

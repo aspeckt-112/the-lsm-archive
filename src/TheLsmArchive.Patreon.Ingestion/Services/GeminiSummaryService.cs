@@ -26,6 +26,7 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 public sealed partial class GeminiSummaryService : IAiSummaryService
 {
     private const string HostsPropertyName = "hosts";
+    private const string GuestsPropertyName = "guests";
     private const string TopicsPropertyName = "topics";
 
     private readonly ILogger<GeminiSummaryService> _logger;
@@ -43,9 +44,10 @@ public sealed partial class GeminiSummaryService : IAiSummaryService
         Properties = new Dictionary<string, Schema>
         {
             { HostsPropertyName, new Schema { Type = GenAI.Type.ARRAY, Items = new Schema { Type = GenAI.Type.STRING } } },
+            { GuestsPropertyName, new Schema { Type = GenAI.Type.ARRAY, Items = new Schema { Type = GenAI.Type.STRING } } },
             { TopicsPropertyName, new Schema { Type = GenAI.Type.ARRAY, Items = new Schema { Type = GenAI.Type.STRING } } }
         },
-        Required = [HostsPropertyName, TopicsPropertyName]
+        Required = [HostsPropertyName, GuestsPropertyName, TopicsPropertyName]
     };
 
     private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
@@ -77,11 +79,16 @@ public sealed partial class GeminiSummaryService : IAiSummaryService
     public async Task<AiSummary> GenerateAiSummaryFromPatreonPost(
         ShowEntity show,
         PatreonPostEntity patreonPost,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IEnumerable<string>? knownHosts = null,
+        IEnumerable<string>? knownTopics = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string systemPromptText = _promptService.GetSummarySystemPrompt(show.Name);
+        string systemPromptText = _promptService.GetSummarySystemPrompt(
+            show.Name,
+            knownHosts,
+            knownTopics);
 
         var systemInstruction = new Content { Parts = [new Part { Text = systemPromptText }] };
 
@@ -104,7 +111,7 @@ public sealed partial class GeminiSummaryService : IAiSummaryService
                     ResponseMimeType = MediaTypeNames.Application.Json,
                     ResponseSchema = _responseSchema,
                     SystemInstruction = systemInstruction,
-                    Temperature = 0.1f // Low temp = more deterministic/factual extraction
+                    Temperature = 0.4f
                 });
 
             // Safe response parsing with guards
@@ -147,13 +154,30 @@ public sealed partial class GeminiSummaryService : IAiSummaryService
                 throw new InvalidOperationException("Failed to deserialize Gemini response.");
             }
 
-            return new AiSummary(resultDto.Hosts, resultDto.Topics);
+            return new AiSummary(
+                resultDto.Hosts,
+                resultDto.Guests,
+                resultDto.Topics.Select(CleanTopic).ToList());
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to generate summary for post {Title}", patreonPost.Title);
             throw;
         }
+    }
+
+    private static string CleanTopic(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return string.Empty;
+        }
+
+        // Replace punctuation with spaces
+        string cleaned = PunctuationRegex().Replace(input, " ");
+
+        // Normalize whitespace
+        return WhitespaceRegex().Replace(cleaned, " ").Trim();
     }
 
     private static string StripHtml(string input)
@@ -179,4 +203,6 @@ public sealed partial class GeminiSummaryService : IAiSummaryService
     private static partial Regex WhitespaceRegex();
     [GeneratedRegex("<.*?>")]
     private static partial Regex HtmlTagRegex();
+    [GeneratedRegex(@"[^\w\s]")]
+    private static partial Regex PunctuationRegex();
 }

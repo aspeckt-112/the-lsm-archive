@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Hosting;
@@ -18,7 +20,7 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 /// <summary>
 /// The service responsible for orchestrating Patreon RSS feed ingestion and processing.
 /// </summary>
-public sealed class PatreonIngestionService : BackgroundService
+public sealed partial class PatreonIngestionService : BackgroundService
 {
     private readonly ILogger<PatreonIngestionService> _logger;
     private readonly IHostApplicationLifetime _appLifetime;
@@ -145,6 +147,10 @@ public sealed class PatreonIngestionService : BackgroundService
             {
                 ResilienceContext resilienceContext = ResilienceContextPool.Shared.Get(cancellationToken);
 
+                // Fetch context (hosts and recent topics for this show)
+                (List<string> knownHosts, List<string> knownTopics) =
+                    await GetKnownContextAsync(showEntity.Id, cancellationToken);
+
                 // Generate AI summary
                 AiSummary aiSummary;
 
@@ -152,8 +158,12 @@ public sealed class PatreonIngestionService : BackgroundService
                 {
                     aiSummary = await _aiSummaryPipeline.ExecuteAsync(
                         context => new ValueTask<AiSummary>(
-                            _aiSummaryService.GenerateAiSummaryFromPatreonPost(showEntity, postEntity,
-                                context.CancellationToken)),
+                            _aiSummaryService.GenerateAiSummaryFromPatreonPost(
+                                showEntity,
+                                postEntity,
+                                context.CancellationToken,
+                                knownHosts,
+                                knownTopics)),
                         resilienceContext);
                 }
                 finally
@@ -164,14 +174,15 @@ public sealed class PatreonIngestionService : BackgroundService
                 // Create the episode
                 EpisodeEntity episodeEntity = await GetOrCreateEpisodeAsync(showEntity, postEntity, cancellationToken);
 
-                // Process hosts
+                // Process hosts and guests
                 List<PersonEntity> personEntities = [];
+                IEnumerable<string> allPeople = aiSummary.Hosts.Concat(aiSummary.Guests).Distinct();
 
-                foreach (string host in aiSummary.Hosts)
+                foreach (string personName in allPeople)
                 {
-                    _logger.LogInformation("Processing person '{Person}'", host);
+                    _logger.LogInformation("Processing person '{Person}'", personName);
 
-                    PersonEntity personEntity = await GetOrCreatePersonAsync(host, cancellationToken);
+                    PersonEntity personEntity = await GetOrCreatePersonAsync(personName, cancellationToken);
 
                     await CreatePersonEpisodeRelationshipIfNotExistsAsync(personEntity, episodeEntity,
                         cancellationToken);
@@ -314,9 +325,36 @@ public sealed class PatreonIngestionService : BackgroundService
         return episodeEntity;
     }
 
+    private async Task<(List<string> Hosts, List<string> Topics)> GetKnownContextAsync(
+        int showId,
+        CancellationToken cancellationToken)
+    {
+        // 1. Get persons associated with this show (hosts/frequent guests)
+        List<string> hosts = await _readWriteDbContext.PersonEpisodes
+            .Where(pe => pe.Episode.ShowId == showId)
+            .GroupBy(pe => pe.Person.Name)
+            .OrderByDescending(g => g.Count())
+            .Take(25)
+            .Select(g => g.Key)
+            .ToListAsync(cancellationToken);
+
+        // 2. Get recent topics for this show (context for ongoing discussions)
+        List<string> topics = await _readWriteDbContext.TopicEpisodes
+            .Where(te => te.Episode.ShowId == showId)
+            .OrderByDescending(te => te.Episode.ReleaseDateUtc)
+            .Select(te => te.Topic.Name)
+            .Distinct()
+            .Take(100)
+            .ToListAsync(cancellationToken);
+
+        return (hosts, topics);
+    }
+
     private async Task<PersonEntity> GetOrCreatePersonAsync(string name, CancellationToken cancellationToken)
     {
         name = name.Trim();
+
+        // 1. Try exact match first (case-insensitive)
         PersonEntity? personEntity = await _readWriteDbContext.Persons
             .FirstOrDefaultAsync(p => EF.Functions.ILike(p.Name, name), cancellationToken);
 
@@ -325,6 +363,23 @@ public sealed class PatreonIngestionService : BackgroundService
             _logger.LogInformation(
                 "Person '{Person}' already exists in the database with ID {PersonEntityId}",
                 name,
+                personEntity.Id);
+
+            return personEntity;
+        }
+
+        // 2. Try fuzzy match (Postgres trigram similarity)
+        personEntity = await _readWriteDbContext.Persons
+            .Where(p => EF.Functions.TrigramsSimilarity(p.Name, name) > 0.8)
+            .OrderByDescending(p => EF.Functions.TrigramsSimilarity(p.Name, name))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (personEntity is not null)
+        {
+            _logger.LogInformation(
+                "Fuzzy matched person '{InputName}' to existing person '{MatchedName}' (ID {PersonEntityId})",
+                name,
+                personEntity.Name,
                 personEntity.Id);
 
             return personEntity;
@@ -341,7 +396,7 @@ public sealed class PatreonIngestionService : BackgroundService
     {
         PersonEpisodeEntity? existingPersonEpisode = await _readWriteDbContext.PersonEpisodes
             .FirstOrDefaultAsync(
-                pe => pe.Person.Id == personEntity.Id && pe.Episode.Id == episodeEntity.Id,
+                pe => pe.PersonId == personEntity.Id && pe.EpisodeId == episodeEntity.Id,
                 cancellationToken);
 
         if (existingPersonEpisode is not null)
@@ -360,7 +415,7 @@ public sealed class PatreonIngestionService : BackgroundService
 
     private async Task<TopicEntity> GetOrCreateTopicAsync(string name, CancellationToken cancellationToken)
     {
-        name = name.Trim();
+        name = CleanName(name);
 
         // 1. Try exact match first (case-insensitive)
         TopicEntity? topicEntity = await _readWriteDbContext.Topics
@@ -377,7 +432,8 @@ public sealed class PatreonIngestionService : BackgroundService
         }
 
         // 2. Try fuzzy match (Postgres trigram similarity)
-        // A threshold of 0.8 is quite high, ensuring we don't match completely different things.
+        // A threshold of 0.8 ensures high similarity while allowing for punctuation/typo differences.
+        // This prevents distinct topics like "Game Name" and "Game Name Remaster" from being merged.
         topicEntity = await _readWriteDbContext.Topics
             .Where(t => EF.Functions.TrigramsSimilarity(t.Name, name) > 0.8)
             .OrderByDescending(t => EF.Functions.TrigramsSimilarity(t.Name, name))
@@ -405,7 +461,7 @@ public sealed class PatreonIngestionService : BackgroundService
     {
         TopicEpisodeEntity? existingTopicEpisode = await _readWriteDbContext.TopicEpisodes
             .FirstOrDefaultAsync(
-                te => te.Topic.Id == topicEntity.Id && te.Episode.Id == episodeEntity.Id,
+                te => te.TopicId == topicEntity.Id && te.EpisodeId == episodeEntity.Id,
                 cancellationToken);
 
         if (existingTopicEpisode is not null)
@@ -429,7 +485,7 @@ public sealed class PatreonIngestionService : BackgroundService
     {
         PersonTopicEntity? existingPersonTopic = await _readWriteDbContext.PersonTopics
             .FirstOrDefaultAsync(
-                pt => pt.Person.Id == personEntity.Id && pt.Topic.Id == topicEntity.Id,
+                pt => pt.PersonId == personEntity.Id && pt.TopicId == topicEntity.Id,
                 cancellationToken);
 
         if (existingPersonTopic is not null)
@@ -451,4 +507,24 @@ public sealed class PatreonIngestionService : BackgroundService
         showEntity.LastSyncedAt = DateTimeOffset.UtcNow;
         await _readWriteDbContext.SaveChangesAsync(cancellationToken);
     }
+
+    private static string CleanName(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return string.Empty;
+        }
+
+        // Replace punctuation with spaces
+        string cleaned = PunctuationRegex().Replace(input, " ");
+
+        // Normalize whitespace
+        return WhitespaceRegex().Replace(cleaned, " ").Trim();
+    }
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhitespaceRegex();
+
+    [GeneratedRegex(@"[^\w\s]")]
+    private static partial Regex PunctuationRegex();
 }
