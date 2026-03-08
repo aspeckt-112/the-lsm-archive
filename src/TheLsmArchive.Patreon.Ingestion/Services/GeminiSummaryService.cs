@@ -157,7 +157,7 @@ public sealed partial class GeminiSummaryService : IAiSummaryService
             return new AiSummary(
                 resultDto.Hosts,
                 resultDto.Guests,
-                resultDto.Topics.Select(CleanTopic).ToList());
+                [.. resultDto.Topics.Select(CleanTopic)]);
         }
         catch (Exception ex)
         {
@@ -201,8 +201,10 @@ public sealed partial class GeminiSummaryService : IAiSummaryService
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex WhitespaceRegex();
+
     [GeneratedRegex("<.*?>")]
     private static partial Regex HtmlTagRegex();
+
     [GeneratedRegex(@"[^\w\s]")]
     private static partial Regex PunctuationRegex();
 }

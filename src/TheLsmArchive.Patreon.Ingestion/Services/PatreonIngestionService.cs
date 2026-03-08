@@ -415,8 +415,6 @@ public sealed partial class PatreonIngestionService : BackgroundService
 
     private async Task<TopicEntity> GetOrCreateTopicAsync(string name, CancellationToken cancellationToken)
     {
-        name = CleanName(name);
-
         // 1. Try exact match first (case-insensitive)
         TopicEntity? topicEntity = await _readWriteDbContext.Topics
             .FirstOrDefaultAsync(t => EF.Functions.ILike(t.Name, name), cancellationToken);
@@ -507,24 +505,4 @@ public sealed partial class PatreonIngestionService : BackgroundService
         showEntity.LastSyncedAt = DateTimeOffset.UtcNow;
         await _readWriteDbContext.SaveChangesAsync(cancellationToken);
     }
-
-    private static string CleanName(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return string.Empty;
-        }
-
-        // Replace punctuation with spaces
-        string cleaned = PunctuationRegex().Replace(input, " ");
-
-        // Normalize whitespace
-        return WhitespaceRegex().Replace(cleaned, " ").Trim();
-    }
-
-    [GeneratedRegex(@"\s+")]
-    private static partial Regex WhitespaceRegex();
-
-    [GeneratedRegex(@"[^\w\s]")]
-    private static partial Regex PunctuationRegex();
 }
