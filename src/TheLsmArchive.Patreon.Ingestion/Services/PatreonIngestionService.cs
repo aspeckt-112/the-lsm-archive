@@ -174,24 +174,22 @@ public sealed class PatreonIngestionService : BackgroundService
                 EpisodeEntity episodeEntity =
                     await GetOrCreateEpisodeAsync(showEntity, postEntity, cancellationToken);
 
-                // Fetch context (hosts and recent topics for this show)
-                (List<string> knownHosts, List<string> knownTopics) =
-                    await GetKnownContextAsync(showEntity.Id, cancellationToken);
-
-                // Generate AI summary
-                AiSummary aiSummary;
+                // Resolve all unique persons, deduplicated by normalized name to avoid
+                // creating duplicate entities when the AI returns case/spelling variants.
+                var resolvedPersons = new Dictionary<string, PersonEntity>();
 
                 foreach (string personName in aiSummary.Hosts.Concat(aiSummary.Guests))
                 {
-                    aiSummary = await _aiSummaryPipeline.ExecuteAsync(
-                        context => new ValueTask<AiSummary>(
-                            _aiSummaryService.GenerateAiSummaryFromPatreonPost(
-                                showEntity,
-                                postEntity,
-                                context.CancellationToken,
-                                knownHosts,
-                                knownTopics)),
-                        resilienceContext);
+                    string normalized = NormalizeLookupKey(personName);
+
+                    if (resolvedPersons.ContainsKey(normalized))
+                    {
+                        continue;
+                    }
+
+                    _logger.LogInformation("Processing person '{Person}'", personName);
+                    resolvedPersons[normalized] =
+                        await GetOrCreatePersonAsync(personName, cancellationToken);
                 }
 
                 // Resolve all unique topics, same deduplication strategy.
@@ -206,15 +204,16 @@ public sealed class PatreonIngestionService : BackgroundService
                         continue;
                     }
 
-                // Process hosts and guests
-                List<PersonEntity> personEntities = [];
-                IEnumerable<string> allPeople = aiSummary.Hosts.Concat(aiSummary.Guests).Distinct();
+                    _logger.LogInformation("Processing topic '{Topic}'", topicName);
+                    resolvedTopics[normalized] =
+                        await GetOrCreateTopicAsync(topicName, cancellationToken);
+                }
 
-                foreach (string personName in allPeople)
-                {
-                    _logger.LogInformation("Processing person '{Person}'", personName);
+                // Clear any previous processing error
+                postEntity.ProcessingError = null;
 
-                    PersonEntity personEntity = await GetOrCreatePersonAsync(personName, cancellationToken);
+                // Flush new entities so they receive database-generated IDs.
+                await _readWriteDbContext.SaveChangesAsync(cancellationToken);
 
                 // Upsert all relationships via INSERT … ON CONFLICT DO NOTHING.
                 // This is idempotent — duplicates from fuzzy-match collisions or
@@ -439,31 +438,6 @@ public sealed class PatreonIngestionService : BackgroundService
         return personEntity;
     }
 
-    private async Task CreatePersonEpisodeRelationshipIfNotExistsAsync(PersonEntity personEntity,
-        EpisodeEntity episodeEntity, CancellationToken cancellationToken)
-    {
-        PersonEpisodeEntity? existingPersonEpisode = await _readWriteDbContext.PersonEpisodes
-            .FirstOrDefaultAsync(
-                pe => pe.PersonId == personEntity.Id && pe.EpisodeId == episodeEntity.Id,
-                cancellationToken);
-
-        if (personEntity is not null)
-        {
-            _logger.LogInformation(
-                "Fuzzy matched person '{InputName}' to existing person '{MatchedName}' (ID {PersonEntityId})",
-                name,
-                personEntity.Name,
-                personEntity.Id);
-
-            return personEntity;
-        }
-
-        personEntity = new PersonEntity { Name = name, NormalizedName = normalizedName };
-        _readWriteDbContext.Persons.Add(personEntity);
-
-        return personEntity;
-    }
-
     private async Task<TopicEntity> GetOrCreateTopicAsync(string name, CancellationToken cancellationToken)
     {
         name = name.Trim();
@@ -507,52 +481,6 @@ public sealed class PatreonIngestionService : BackgroundService
         _readWriteDbContext.Topics.Add(topicEntity);
 
         return topicEntity;
-    }
-
-    private async Task CreateTopicEpisodeRelationshipIfNotExistsAsync(TopicEntity topicEntity,
-        EpisodeEntity episodeEntity, CancellationToken cancellationToken)
-    {
-        TopicEpisodeEntity? existingTopicEpisode = await _readWriteDbContext.TopicEpisodes
-            .FirstOrDefaultAsync(
-                te => te.TopicId == topicEntity.Id && te.EpisodeId == episodeEntity.Id,
-                cancellationToken);
-
-        if (existingTopicEpisode is not null)
-        {
-            _logger.LogInformation(
-                "Topic '{TopicName}' is already associated with episode '{EpisodeTitle}'",
-                topicEntity.Name,
-                episodeEntity.Title);
-
-            return;
-        }
-
-        var topicEpisodeEntity = new TopicEpisodeEntity { Episode = episodeEntity, Topic = topicEntity };
-        _readWriteDbContext.TopicEpisodes.Add(topicEpisodeEntity);
-    }
-
-    private async Task CreatePersonTopicRelationshipIfNotExistsAsync(
-        PersonEntity personEntity,
-        TopicEntity topicEntity,
-        CancellationToken cancellationToken)
-    {
-        PersonTopicEntity? existingPersonTopic = await _readWriteDbContext.PersonTopics
-            .FirstOrDefaultAsync(
-                pt => pt.PersonId == personEntity.Id && pt.TopicId == topicEntity.Id,
-                cancellationToken);
-
-        if (existingPersonTopic is not null)
-        {
-            _logger.LogInformation(
-                "Person '{Person}' is already associated with topic '{TopicName}'",
-                personEntity.Name,
-                topicEntity.Name);
-
-            return;
-        }
-
-        var personTopicEntity = new PersonTopicEntity { Person = personEntity, Topic = topicEntity };
-        _readWriteDbContext.PersonTopics.Add(personTopicEntity);
     }
 
     private async Task UpdateShowLastSyncedAtAsync(ShowEntity showEntity, CancellationToken cancellationToken)
