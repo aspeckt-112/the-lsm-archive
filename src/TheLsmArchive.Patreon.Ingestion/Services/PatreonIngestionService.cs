@@ -133,7 +133,34 @@ public sealed class PatreonIngestionService : BackgroundService
                 postEntity.ProcessingError);
         }
 
-        // Use the execution strategy to support retry with transactions
+        // Gather context and generate AI summary outside the execution strategy so
+        // transient-retry doesn't re-invoke the expensive Gemini call.
+        ResilienceContext resilienceContext = ResilienceContextPool.Shared.Get(cancellationToken);
+
+        (List<string> knownHosts, List<string> knownTopics) =
+            await GetKnownContextAsync(showEntity.Id, cancellationToken);
+
+        AiSummary aiSummary;
+
+        try
+        {
+            aiSummary = await _aiSummaryPipeline.ExecuteAsync(
+                context => new ValueTask<AiSummary>(
+                    _aiSummaryService.GenerateAiSummaryFromPatreonPost(
+                        showEntity,
+                        postEntity,
+                        context.CancellationToken,
+                        knownHosts,
+                        knownTopics)),
+                resilienceContext);
+        }
+        finally
+        {
+            ResilienceContextPool.Shared.Return(resilienceContext);
+        }
+
+        // Wrap all DB mutations in the execution strategy so the
+        // NpgsqlRetryingExecutionStrategy can retry transient failures.
         IExecutionStrategy strategy = _readWriteDbContext.Database.CreateExecutionStrategy();
 
         await strategy.ExecuteAsync(async () =>
@@ -143,80 +170,96 @@ public sealed class PatreonIngestionService : BackgroundService
 
             try
             {
-                ResilienceContext resilienceContext = ResilienceContextPool.Shared.Get(cancellationToken);
-
-                // Fetch context (hosts and recent topics for this show)
-                (List<string> knownHosts, List<string> knownTopics) =
-                    await GetKnownContextAsync(showEntity.Id, cancellationToken);
-
-                // Generate AI summary
-                AiSummary aiSummary;
-
-                try
-                {
-                    aiSummary = await _aiSummaryPipeline.ExecuteAsync(
-                        context => new ValueTask<AiSummary>(
-                            _aiSummaryService.GenerateAiSummaryFromPatreonPost(
-                                showEntity,
-                                postEntity,
-                                context.CancellationToken,
-                                knownHosts,
-                                knownTopics)),
-                        resilienceContext);
-                }
-                finally
-                {
-                    ResilienceContextPool.Shared.Return(resilienceContext);
-                }
-
                 // Create the episode
-                EpisodeEntity episodeEntity = await GetOrCreateEpisodeAsync(showEntity, postEntity, cancellationToken);
+                EpisodeEntity episodeEntity =
+                    await GetOrCreateEpisodeAsync(showEntity, postEntity, cancellationToken);
 
-                // Process hosts and guests
-                List<PersonEntity> personEntities = [];
-                IEnumerable<string> allPeople = aiSummary.Hosts.Concat(aiSummary.Guests).Distinct();
+                // Resolve all unique persons, deduplicated by normalized name to avoid
+                // creating duplicate entities when the AI returns case/spelling variants.
+                var resolvedPersons = new Dictionary<string, PersonEntity>();
 
-                foreach (string personName in allPeople)
+                foreach (string personName in aiSummary.Hosts.Concat(aiSummary.Guests))
                 {
+                    string normalized = NormalizeLookupKey(personName);
+
+                    if (resolvedPersons.ContainsKey(normalized))
+                    {
+                        continue;
+                    }
+
                     _logger.LogInformation("Processing person '{Person}'", personName);
-
-                    PersonEntity personEntity = await GetOrCreatePersonAsync(personName, cancellationToken);
-
-                    await CreatePersonEpisodeRelationshipIfNotExistsAsync(personEntity, episodeEntity,
-                        cancellationToken);
-
-                    personEntities.Add(personEntity);
+                    resolvedPersons[normalized] =
+                        await GetOrCreatePersonAsync(personName, cancellationToken);
                 }
 
-                // Process topics
-                foreach (string topic in aiSummary.Topics)
+                // Resolve all unique topics, same deduplication strategy.
+                var resolvedTopics = new Dictionary<string, TopicEntity>();
+
+                foreach (string topicName in aiSummary.Topics)
                 {
-                    _logger.LogInformation("Processing topic '{Topic}'", topic);
+                    string normalized = NormalizeLookupKey(topicName);
 
-                    TopicEntity topicEntity = await GetOrCreateTopicAsync(topic, cancellationToken);
-                    await CreateTopicEpisodeRelationshipIfNotExistsAsync(topicEntity, episodeEntity, cancellationToken);
-
-                    // Link topic to people
-                    foreach (PersonEntity personEntity in personEntities)
+                    if (resolvedTopics.ContainsKey(normalized))
                     {
-                        await CreatePersonTopicRelationshipIfNotExistsAsync(personEntity, topicEntity,
-                            cancellationToken);
+                        continue;
                     }
+
+                    _logger.LogInformation("Processing topic '{Topic}'", topicName);
+                    resolvedTopics[normalized] =
+                        await GetOrCreateTopicAsync(topicName, cancellationToken);
                 }
 
                 // Clear any previous processing error
                 postEntity.ProcessingError = null;
 
-                // Save to generate IDs for all new entities (episode, persons, topics, etc.)
+                // Flush new entities so they receive database-generated IDs.
                 await _readWriteDbContext.SaveChangesAsync(cancellationToken);
 
-                // Now set the episode ID on the post (episode.Id is now generated)
+                // Upsert all relationships via INSERT … ON CONFLICT DO NOTHING.
+                // This is idempotent — duplicates from fuzzy-match collisions or
+                // retries are silently ignored by the database.
+                foreach (PersonEntity person in resolvedPersons.Values)
+                {
+                    await _readWriteDbContext.Database.ExecuteSqlInterpolatedAsync(
+                        $"""
+                         INSERT INTO person_episodes (person_id, episode_id)
+                         VALUES ({person.Id}, {episodeEntity.Id})
+                         ON CONFLICT (person_id, episode_id) DO NOTHING
+                         """,
+                        cancellationToken);
+                }
+
+                foreach (TopicEntity topic in resolvedTopics.Values)
+                {
+                    await _readWriteDbContext.Database.ExecuteSqlInterpolatedAsync(
+                        $"""
+                         INSERT INTO topic_episodes (topic_id, episode_id)
+                         VALUES ({topic.Id}, {episodeEntity.Id})
+                         ON CONFLICT (topic_id, episode_id) DO NOTHING
+                         """,
+                        cancellationToken);
+                }
+
+                foreach (PersonEntity person in resolvedPersons.Values)
+                {
+                    foreach (TopicEntity topic in resolvedTopics.Values)
+                    {
+                        await _readWriteDbContext.Database.ExecuteSqlInterpolatedAsync(
+                            $"""
+                             INSERT INTO person_topics (person_id, topic_id)
+                             VALUES ({person.Id}, {topic.Id})
+                             ON CONFLICT (person_id, topic_id) DO NOTHING
+                             """,
+                            cancellationToken);
+                    }
+                }
+
+                // Set the episode ID on the post (episode.Id is now generated)
                 postEntity.EpisodeId = episodeEntity.Id;
 
                 // Save the updated post and commit the transaction
                 await _readWriteDbContext.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
-
 
                 _logger.LogInformation("Successfully processed post '{PostTitle}'", postEntity.Title);
             }
@@ -234,7 +277,6 @@ public sealed class PatreonIngestionService : BackgroundService
                 postEntity.ProcessingError = ex.Message;
                 await _readWriteDbContext.SaveChangesAsync(cancellationToken);
 
-                // Re-throw to allow the execution strategy to handle retries if needed
                 throw;
             }
         });
@@ -396,28 +438,6 @@ public sealed class PatreonIngestionService : BackgroundService
         return personEntity;
     }
 
-    private async Task CreatePersonEpisodeRelationshipIfNotExistsAsync(PersonEntity personEntity,
-        EpisodeEntity episodeEntity, CancellationToken cancellationToken)
-    {
-        PersonEpisodeEntity? existingPersonEpisode = await _readWriteDbContext.PersonEpisodes
-            .FirstOrDefaultAsync(
-                pe => pe.PersonId == personEntity.Id && pe.EpisodeId == episodeEntity.Id,
-                cancellationToken);
-
-        if (existingPersonEpisode is not null)
-        {
-            _logger.LogInformation(
-                "Person '{Person}' is already associated with episode '{EpisodeTitle}'",
-                personEntity.Name,
-                episodeEntity.Title);
-
-            return;
-        }
-
-        var personEpisodeEntity = new PersonEpisodeEntity { Episode = episodeEntity, Person = personEntity };
-        _readWriteDbContext.PersonEpisodes.Add(personEpisodeEntity);
-    }
-
     private async Task<TopicEntity> GetOrCreateTopicAsync(string name, CancellationToken cancellationToken)
     {
         name = name.Trim();
@@ -461,52 +481,6 @@ public sealed class PatreonIngestionService : BackgroundService
         _readWriteDbContext.Topics.Add(topicEntity);
 
         return topicEntity;
-    }
-
-    private async Task CreateTopicEpisodeRelationshipIfNotExistsAsync(TopicEntity topicEntity,
-        EpisodeEntity episodeEntity, CancellationToken cancellationToken)
-    {
-        TopicEpisodeEntity? existingTopicEpisode = await _readWriteDbContext.TopicEpisodes
-            .FirstOrDefaultAsync(
-                te => te.TopicId == topicEntity.Id && te.EpisodeId == episodeEntity.Id,
-                cancellationToken);
-
-        if (existingTopicEpisode is not null)
-        {
-            _logger.LogInformation(
-                "Topic '{TopicName}' is already associated with episode '{EpisodeTitle}'",
-                topicEntity.Name,
-                episodeEntity.Title);
-
-            return;
-        }
-
-        var topicEpisodeEntity = new TopicEpisodeEntity { Episode = episodeEntity, Topic = topicEntity };
-        _readWriteDbContext.TopicEpisodes.Add(topicEpisodeEntity);
-    }
-
-    private async Task CreatePersonTopicRelationshipIfNotExistsAsync(
-        PersonEntity personEntity,
-        TopicEntity topicEntity,
-        CancellationToken cancellationToken)
-    {
-        PersonTopicEntity? existingPersonTopic = await _readWriteDbContext.PersonTopics
-            .FirstOrDefaultAsync(
-                pt => pt.PersonId == personEntity.Id && pt.TopicId == topicEntity.Id,
-                cancellationToken);
-
-        if (existingPersonTopic is not null)
-        {
-            _logger.LogInformation(
-                "Person '{Person}' is already associated with topic '{TopicName}'",
-                personEntity.Name,
-                topicEntity.Name);
-
-            return;
-        }
-
-        var personTopicEntity = new PersonTopicEntity { Person = personEntity, Topic = topicEntity };
-        _readWriteDbContext.PersonTopics.Add(personTopicEntity);
     }
 
     private async Task UpdateShowLastSyncedAtAsync(ShowEntity showEntity, CancellationToken cancellationToken)
