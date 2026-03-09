@@ -13,11 +13,11 @@ public class PromptService
     /// Gets the summary system prompt for the given show name.
     /// </summary>
     /// <param name="showName">The show name.</param>
-    /// <param name="knownHosts">Optional list of known hosts for context.</param>
+    /// <param name="knownPersons">Optional list of known persons (hosts and frequent guests) for context.</param>
     /// <param name="knownTopics">Optional list of known topics for context.</param>
     public string GetSummarySystemPrompt(
         string showName,
-        IEnumerable<string>? knownHosts = null,
+        IEnumerable<string>? knownPersons = null,
         IEnumerable<string>? knownTopics = null)
     {
         var sb = new StringBuilder();
@@ -34,12 +34,12 @@ public class PromptService
         sb.AppendLine("Ensure that the host and guest first names and surnames are capitalized and separated (e.g., 'Colin Moriarty' not 'colin' or 'ColinDagan').");
         sb.AppendLine("Use full names for known people where possible (e.g., 'Colin Moriarty' instead of 'Colin', 'Dagan Moriarty' instead of 'Dagan').");
 
-        if (knownHosts != null && knownHosts.Any())
+        if (knownPersons != null && knownPersons.Any())
         {
             sb.AppendLine("To ensure data quality, refer to the following list of known people frequently associated with this show (hosts and frequent guests). If a person in the description matches or is very similar to someone on this list, ALWAYS use the name from this list:");
-            foreach (string host in knownHosts.OrderBy(h => h))
+            foreach (string person in knownPersons.OrderBy(p => p))
             {
-                sb.AppendLine($"- {host}");
+                sb.AppendLine($"- {person}");
             }
         }
 

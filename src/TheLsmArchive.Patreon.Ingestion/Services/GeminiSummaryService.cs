@@ -80,14 +80,14 @@ public sealed partial class GeminiSummaryService : IAiSummaryService
         ShowEntity show,
         PatreonPostEntity patreonPost,
         CancellationToken cancellationToken,
-        IEnumerable<string>? knownHosts = null,
+        IEnumerable<string>? knownPersons = null,
         IEnumerable<string>? knownTopics = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         string systemPromptText = _promptService.GetSummarySystemPrompt(
             show.Name,
-            knownHosts,
+            knownPersons,
             knownTopics);
 
         var systemInstruction = new Content { Parts = [new Part { Text = systemPromptText }] };
