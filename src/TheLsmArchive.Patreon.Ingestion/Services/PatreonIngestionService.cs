@@ -137,7 +137,7 @@ public sealed class PatreonIngestionService : BackgroundService
         // transient-retry doesn't re-invoke the expensive Gemini call.
         ResilienceContext resilienceContext = ResilienceContextPool.Shared.Get(cancellationToken);
 
-        (List<string> knownHosts, List<string> knownTopics) =
+        (List<string> knownPersons, List<string> knownTopics) =
             await GetKnownContextAsync(showEntity.Id, cancellationToken);
 
         AiSummary aiSummary;
@@ -150,7 +150,7 @@ public sealed class PatreonIngestionService : BackgroundService
                         showEntity,
                         postEntity,
                         context.CancellationToken,
-                        knownHosts,
+                        knownPersons,
                         knownTopics)),
                 resilienceContext);
         }
@@ -273,9 +273,15 @@ public sealed class PatreonIngestionService : BackgroundService
                 // Rollback the transaction
                 await transaction.RollbackAsync(cancellationToken);
 
-                // Save the error in a separate operation
+                // Record the error via raw SQL, bypassing the change tracker.
+                // After a rollback the tracker may contain entities in Added state
+                // (e.g. a new EpisodeEntity created before the first SaveChangesAsync).
+                // Using SaveChangesAsync here would inadvertently persist those stale
+                // entities outside the transaction.
                 postEntity.ProcessingError = ex.Message;
-                await _readWriteDbContext.SaveChangesAsync(cancellationToken);
+                await _readWriteDbContext.Database.ExecuteSqlInterpolatedAsync(
+                    $"UPDATE patreon_posts SET processing_error = {ex.Message} WHERE id = {postEntity.Id}",
+                    cancellationToken);
 
                 throw;
             }
@@ -340,7 +346,7 @@ public sealed class PatreonIngestionService : BackgroundService
         PatreonPostEntity post, CancellationToken cancellationToken)
     {
         EpisodeEntity? existingEpisodeEntity = await _readWriteDbContext.Episodes
-            .FirstOrDefaultAsync(e => e.PatreonPost.Id == post.Id, cancellationToken);
+            .FirstOrDefaultAsync(e => e.PatreonPostId == post.Id, cancellationToken);
 
         if (existingEpisodeEntity is not null)
         {
@@ -365,12 +371,12 @@ public sealed class PatreonIngestionService : BackgroundService
         return episodeEntity;
     }
 
-    private async Task<(List<string> Hosts, List<string> Topics)> GetKnownContextAsync(
+    private async Task<(List<string> Persons, List<string> Topics)> GetKnownContextAsync(
         int showId,
         CancellationToken cancellationToken)
     {
         // 1. Get persons associated with this show (hosts/frequent guests)
-        List<string> hosts = await _readWriteDbContext.PersonEpisodes
+        List<string> persons = await _readWriteDbContext.PersonEpisodes
             .Where(pe => pe.Episode.ShowId == showId)
             .GroupBy(pe => pe.Person.Name)
             .OrderByDescending(g => g.Count())
@@ -392,7 +398,7 @@ public sealed class PatreonIngestionService : BackgroundService
             .Select(x => x.TopicName)
             .ToListAsync(cancellationToken);
 
-        return (hosts, topics);
+        return (persons, topics);
     }
 
     private async Task<PersonEntity> GetOrCreatePersonAsync(string name, CancellationToken cancellationToken)
