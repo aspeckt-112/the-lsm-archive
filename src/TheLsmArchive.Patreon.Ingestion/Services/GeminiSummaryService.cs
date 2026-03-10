@@ -111,7 +111,7 @@ public sealed partial class GeminiSummaryService : IAiSummaryService
                     ResponseMimeType = MediaTypeNames.Application.Json,
                     ResponseSchema = _responseSchema,
                     SystemInstruction = systemInstruction,
-                    Temperature = 0.4f
+                    Temperature = 0.5f
                 });
 
             // Safe response parsing with guards

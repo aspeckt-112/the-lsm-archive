@@ -49,12 +49,15 @@ public class PromptService
 
         if (knownTopics != null && knownTopics.Any())
         {
-            sb.AppendLine("To ensure data consistency, refer to the following list of topics recently discussed on this show. If a topic in the description is very similar to one on this list, ALWAYS use the name from this list:");
+            sb.AppendLine("To ensure data consistency, refer to the following list of topics recently discussed on this show. If a topic in the description is a direct match or a synonymous variation of one on this list (e.g. 'PlayStation 5' vs 'PS5'), use the name from this list.");
+            sb.AppendLine("However, ensure that distinct entries like sequels, specific versions, or adaptations (e.g., 'Fallout' vs 'Fallout 3', or 'The Last of Us' vs 'The Last of Us HBO') remain separate and specific.");
             foreach (string topic in knownTopics.OrderBy(t => t))
             {
                 sb.AppendLine($"- {topic}");
             }
         }
+
+        sb.AppendLine("Don't shy away from extracting less common or more niche topics if they are clearly mentioned in the title or description. Be comprehensive but avoid overgeneralization.");
 
         sb.AppendLine("If specific data is missing, return empty arrays.");
 
