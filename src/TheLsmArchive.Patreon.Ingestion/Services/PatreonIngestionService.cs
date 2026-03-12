@@ -380,7 +380,7 @@ public sealed class PatreonIngestionService : BackgroundService
             .Where(pe => pe.Episode.ShowId == showId)
             .GroupBy(pe => pe.Person.Name)
             .OrderByDescending(g => g.Count())
-            .Take(25)
+            .Take(50) // 50 because Summon Sign has a lot of unique guests.
             .Select(g => g.Key)
             .ToListAsync(cancellationToken);
 
@@ -394,7 +394,7 @@ public sealed class PatreonIngestionService : BackgroundService
                 LastUsedAt = g.Max(te => te.Episode.ReleaseDateUtc)
             })
             .OrderByDescending(x => x.LastUsedAt)
-            .Take(100)
+            .Take(150)
             .Select(x => x.TopicName)
             .ToListAsync(cancellationToken);
 
