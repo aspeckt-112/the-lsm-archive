@@ -1,0 +1,34 @@
+{
+    "configurations": [
+        {
+            "name": "C#: TheLsmArchive.Web.Frontend [https]",
+            "type": "dotnet",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}/src/TheLsmArchive.Web.Frontend/TheLsmArchive.Web.Frontend.csproj",
+            "launchConfigurationId": "TargetFramework=;https"
+        },
+        {
+            "name": "C#: TheLsmArchive.Web.Api [https]",
+            "type": "dotnet",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}/src/TheLsmArchive.Web.Api/TheLsmArchive.Web.Api.csproj",
+            "launchConfigurationId": "TargetFramework=;https"
+        },
+        {
+            "name": "C#: TheLsmArchive.Patreon.Ingestion",
+            "type": "dotnet",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}/src/TheLsmArchive.Patreon.Ingestion/TheLsmArchive.Patreon.Ingestion.csproj",
+            "launchConfigurationId": "TargetFramework=;TheLsmArchive.Patreon.Ingestion"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "TheLsmArchive.Web",
+            "configurations": [
+                "C#: TheLsmArchive.Web.Frontend [https]",
+                "C#: TheLsmArchive.Web.Api [https]"
+            ]
+        }
+    ]
+}

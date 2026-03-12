@@ -1,0 +1,362 @@
+@page "/Person/{Id:int}"
+
+@using TheLsmArchive.ApiClient.Services.Abstractions
+@using TheLsmArchive.Models.Request
+@using TheLsmArchive.Web.Frontend.Pages.Abstractions
+
+@inherits BasePage
+
+@implements IDisposable
+
+@inject ILogger<PersonPage> Logger
+@inject ILsmArchiveClientService ClientService
+@inject NavigationManager NavigationManager
+@inject IBreadcrumbService BreadcrumbService
+
+<MudGrid Spacing="5">
+    @if (_person != null && _personDetails != null)
+    {
+        <MudItem xs="12">
+            <MudPaper Class="pa-6 page-header header-secondary" Elevation="4">
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" lg="7">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
+                            <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Secondary" Size="Size.Large" />
+                            <MudText Typo="Typo.h4" Class="fw-bold">@_person.Name</MudText>
+                        </MudStack>
+                    </MudItem>
+                    <MudItem xs="12" lg="5">
+                        <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="flex-wrap">
+                            <MudChip T="string"
+                                     Icon="@Icons.Material.Filled.CalendarToday"
+                                     Color="Color.Default"
+                                     Variant="Variant.Text"
+                                     Class="pa-4">
+                                First Appeared: <strong>@_personDetails.FirstAppeared.ToShortDateString()</strong>
+                            </MudChip>
+                            <MudChip T="string"
+                                     Icon="@Icons.Material.Filled.Update"
+                                     Color="Color.Default"
+                                     Variant="Variant.Text"
+                                     Class="pa-4">
+                                Last Appeared: <strong>@_personDetails.LastAppeared.ToShortDateString()</strong>
+                            </MudChip>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12">
+            <SectionHeader Icon="@Icons.Material.Filled.Tag" Color="Color.Tertiary" Title="Topics" />
+            <MudTextField
+                T="string"
+                Variant="Variant.Outlined"
+                Placeholder="Search topics..."
+                Adornment="Adornment.Start"
+                AdornmentIcon="@Icons.Material.Filled.Search"
+                AdornmentColor="Color.Tertiary"
+                Value="_topicSearchTerm"
+                ValueChanged="OnTopicSearchTermChanged"
+                Immediate="true"
+                FullWidth="true"
+                Clearable="true"
+                Margin="Margin.Dense"
+                Class="mb-4" />
+            @if (_isLoadingTopics)
+            {
+                <MudProgressLinear Color="Color.Tertiary" Indeterminate="true" Class="mb-4" />
+            }
+            @if (_topicsResponse is { Items.Count: > 0 })
+            {
+                <MudGrid Spacing="3">
+                    @foreach (var topic in _topicsResponse.Items)
+                    {
+                        <MudItem xs="12" sm="6" md="4" lg="3" Class="d-flex">
+                            <TopicCard Topic="topic" />
+                        </MudItem>
+                    }
+                </MudGrid>
+                @if (_topicsResponse.TotalPages > 1)
+                {
+                    <MudStack Row="true" Justify="Justify.Center" Class="mt-4">
+                        <MudPagination Count="@_topicsResponse.TotalPages"
+                                       Selected="@_currentTopicPage"
+                                       SelectedChanged="OnTopicPageChanged"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       BoundaryCount="1"
+                                       MiddleCount="3"
+                                       ShowFirstButton="true"
+                                       ShowLastButton="true" />
+                    </MudStack>
+                }
+            }
+            else if (_topicsResponse is not null)
+            {
+                <MudText Typo="Typo.body2" Class="mt-2" Style="opacity: 0.6;">No topics found.</MudText>
+            }
+            else
+            {
+                <MudContainer Class="d-flex justify-center py-4">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Small" />
+                </MudContainer>
+            }
+        </MudItem>
+
+        <MudItem xs="12">
+            <SectionHeader Icon="@Icons.Material.Filled.Headphones" Color="Color.Primary" Title="Episodes" />
+            <MudTextField
+                T="string"
+                Variant="Variant.Outlined"
+                Placeholder="Search episodes..."
+                Adornment="Adornment.Start"
+                AdornmentIcon="@Icons.Material.Filled.Search"
+                AdornmentColor="Color.Primary"
+                Value="_episodeSearchTerm"
+                ValueChanged="OnEpisodeSearchTermChanged"
+                Immediate="true"
+                FullWidth="true"
+                Clearable="true"
+                Margin="Margin.Dense"
+                Class="mb-4" />
+            @if (_isLoadingEpisodes)
+            {
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+            }
+            @if (_episodesResponse is { Items.Count: > 0 })
+            {
+                <MudGrid Spacing="3">
+                    @foreach (var episode in _episodesResponse.Items)
+                    {
+                        <MudItem xs="12" sm="6" md="4" lg="3" Class="d-flex">
+                            <EpisodeCard Episode="episode" />
+                        </MudItem>
+                    }
+                </MudGrid>
+                @if (_episodesResponse.TotalPages > 1)
+                {
+                    <MudStack Row="true" Justify="Justify.Center" Class="mt-4">
+                        <MudPagination Count="@_episodesResponse.TotalPages"
+                                       Selected="@_currentEpisodePage"
+                                       SelectedChanged="OnEpisodePageChanged"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       BoundaryCount="1"
+                                       MiddleCount="3"
+                                       ShowFirstButton="true"
+                                       ShowLastButton="true" />
+                    </MudStack>
+                }
+            }
+            else if (_episodesResponse is not null)
+            {
+                <MudText Typo="Typo.body2" Class="mt-2" Style="opacity: 0.6;">No episodes found.</MudText>
+            }
+            else
+            {
+                <MudContainer Class="d-flex justify-center py-4">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Small" />
+                </MudContainer>
+            }
+        </MudItem>
+    }
+    else
+    {
+        <MudItem xs="12">
+            <MudPaper Class="pa-6 rounded-lg" Elevation="4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
+                    <MudSkeleton SkeletonType="SkeletonType.Circle" Width="48px" Height="48px" />
+                    <MudSkeleton SkeletonType="SkeletonType.Text" Width="60%" Height="48px" />
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    private const int PageSize = 50;
+    private const int SearchDebounceMs = 350;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    private Person? _person;
+    private PersonDetails? _personDetails;
+    private PagedResponse<Topic>? _topicsResponse;
+    private PagedResponse<Episode>? _episodesResponse;
+    private int _currentTopicPage = 1;
+    private int _currentEpisodePage = 1;
+    private string _topicSearchTerm = string.Empty;
+    private string _episodeSearchTerm = string.Empty;
+    private bool _isLoadingTopics;
+    private bool _isLoadingEpisodes;
+    private CancellationTokenSource? _topicSearchDebounceCts;
+    private CancellationTokenSource? _episodeSearchDebounceCts;
+
+    /// <inheritdoc />
+    protected override async Task OnInitializedAsync()
+    {
+        BreadcrumbService.Push("Loading...", NavigationManager.Uri, Icons.Material.Filled.Person);
+
+        using CancellationTokenSource cts = new();
+
+        var getPersonTask = GetPerson(cts.Token);
+        var getPersonDetailsTask = GetPersonDetails(cts.Token);
+        var getPersonTopicsTask = GetPersonTopics(_currentTopicPage, cts.Token);
+        var getPersonEpisodesTask = GetPersonEpisodes(_currentEpisodePage, cts.Token);
+
+        await Task.WhenAll(getPersonTask, getPersonDetailsTask, getPersonTopicsTask, getPersonEpisodesTask);
+    }
+
+    private async Task OnTopicSearchTermChanged(string value)
+    {
+        _topicSearchTerm = value;
+        _currentTopicPage = 1;
+        _isLoadingTopics = true;
+
+        _topicSearchDebounceCts?.Cancel();
+        _topicSearchDebounceCts = new CancellationTokenSource();
+        var token = _topicSearchDebounceCts.Token;
+
+        try
+        {
+            await Task.Delay(SearchDebounceMs, token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await GetPersonTopics(_currentTopicPage, token);
+        _isLoadingTopics = false;
+        StateHasChanged();
+    }
+
+    private async Task OnEpisodeSearchTermChanged(string value)
+    {
+        _episodeSearchTerm = value;
+        _currentEpisodePage = 1;
+        _isLoadingEpisodes = true;
+
+        _episodeSearchDebounceCts?.Cancel();
+        _episodeSearchDebounceCts = new CancellationTokenSource();
+        var token = _episodeSearchDebounceCts.Token;
+
+        try
+        {
+            await Task.Delay(SearchDebounceMs, token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await GetPersonEpisodes(_currentEpisodePage, token);
+        _isLoadingEpisodes = false;
+        StateHasChanged();
+    }
+
+    private async Task OnTopicPageChanged(int page)
+    {
+        _currentTopicPage = page;
+        using CancellationTokenSource cts = new();
+        await GetPersonTopics(page, cts.Token);
+        StateHasChanged();
+    }
+
+    private async Task OnEpisodePageChanged(int page)
+    {
+        _currentEpisodePage = page;
+        using CancellationTokenSource cts = new();
+        await GetPersonEpisodes(page, cts.Token);
+        StateHasChanged();
+    }
+
+    private async Task GetPerson(CancellationToken cancellationToken)
+    {
+        var personResult = await ClientService.GetPersonById(Id, cancellationToken);
+
+        await HandleResult(
+            personResult,
+            person =>
+            {
+                _person = person;
+                BreadcrumbService.ReplaceLast(person.Name);
+                return Task.CompletedTask;
+            },
+            () =>
+            {
+                // TODO Figure out how to handle no content (e.g., show a "not found" message)
+                Logger.LogWarning("No person found with ID {Id}.", Id);
+                return Task.CompletedTask;
+            });
+    }
+
+    private async Task GetPersonDetails(CancellationToken cancellationToken)
+    {
+        var personDetailsResult = await ClientService.GetPersonDetailsById(Id, cancellationToken);
+
+        await HandleResult(
+            personDetailsResult,
+            personDetails =>
+            {
+                _personDetails = personDetails;
+                return Task.CompletedTask;
+            },
+            () =>
+            {
+                // TODO Figure out how to handle no content (e.g., show a "not found" message)
+                Logger.LogWarning("No person details found for person ID {Id}.", Id);
+                return Task.CompletedTask;
+            });
+    }
+
+    private async Task GetPersonTopics(int pageNumber, CancellationToken cancellationToken)
+    {
+        string? searchTerm = string.IsNullOrWhiteSpace(_topicSearchTerm) ? null : _topicSearchTerm;
+        PagedItemRequest pagedRequest = new(pageNumber, PageSize, searchTerm);
+        var personTopicsResult = await ClientService.GetTopicsByPersonId(Id, pagedRequest, cancellationToken);
+
+        await HandleResult(
+            personTopicsResult,
+            topicsResponse =>
+            {
+                _topicsResponse = topicsResponse;
+                return Task.CompletedTask;
+            },
+            () =>
+            {
+                _topicsResponse = new PagedResponse<Topic>([], 0, pageNumber, PageSize);
+                return Task.CompletedTask;
+            });
+    }
+
+    private async Task GetPersonEpisodes(int pageNumber, CancellationToken cancellationToken)
+    {
+        string? searchTerm = string.IsNullOrWhiteSpace(_episodeSearchTerm) ? null : _episodeSearchTerm;
+        PagedItemRequest pagedRequest = new(pageNumber, PageSize, searchTerm);
+        var personEpisodesResult = await ClientService.GetEpisodesByPersonId(Id, pagedRequest, cancellationToken);
+
+        await HandleResult(
+            personEpisodesResult,
+            episodesResponse =>
+            {
+                _episodesResponse = episodesResponse;
+                return Task.CompletedTask;
+            },
+            () =>
+            {
+                _episodesResponse = new PagedResponse<Episode>([], 0, pageNumber, PageSize);
+                return Task.CompletedTask;
+            });
+    }
+
+    public void Dispose()
+    {
+        _topicSearchDebounceCts?.Cancel();
+        _topicSearchDebounceCts?.Dispose();
+        _episodeSearchDebounceCts?.Cancel();
+        _episodeSearchDebounceCts?.Dispose();
+    }
+}

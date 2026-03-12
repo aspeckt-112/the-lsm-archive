@@ -1,0 +1,204 @@
+@page "/Topic/{Id:int}"
+
+@using TheLsmArchive.ApiClient.Services.Abstractions
+@using TheLsmArchive.Web.Frontend.Pages.Abstractions
+
+@inherits BasePage
+
+@inject ILogger<TopicPage> Logger
+@inject ILsmArchiveClientService ClientService
+@inject NavigationManager NavigationManager
+@inject IBreadcrumbService BreadcrumbService
+
+<MudGrid Spacing="5">
+    @if (_topic != null && _topicDetails != null)
+    {
+        <MudItem xs="12">
+            <MudPaper Class="pa-6 page-header header-tertiary" Elevation="4">
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" lg="7">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
+                            <MudIcon Icon="@Icons.Material.Filled.Tag" Color="Color.Tertiary" Size="Size.Large"/>
+                            <MudText Typo="Typo.h4" Class="fw-bold">@_topic.Name</MudText>
+                        </MudStack>
+                    </MudItem>
+                    <MudItem xs="12" lg="5">
+                        <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="flex-wrap">
+                            <MudChip T="string"
+                                     Icon="@Icons.Material.Filled.CalendarToday"
+                                     Color="Color.Default"
+                                     Variant="Variant.Text"
+                                     Class="pa-4">
+                                First Discussed: <strong>@_topicDetails.FirstDiscussed.ToShortDateString()</strong>
+                            </MudChip>
+                            <MudChip T="string"
+                                     Icon="@Icons.Material.Filled.Update"
+                                     Color="Color.Default"
+                                     Variant="Variant.Text"
+                                     Class="pa-4">
+                                Last Discussed: <strong>@_topicDetails.LastDiscussed.ToShortDateString()</strong>
+                            </MudChip>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+
+        @if (_episodes?.Count > 0)
+        {
+            <MudItem xs="12">
+                <SectionHeader Icon="@Icons.Material.Filled.Headphones" Color="Color.Primary" Title="Episodes"/>
+                <MudGrid Spacing="3">
+                    @foreach (var episode in _episodes)
+                    {
+                        <MudItem xs="12" sm="6" md="4" lg="3" Class="d-flex">
+                            <EpisodeCard Episode="episode"/>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudItem>
+        }
+
+        @if (_persons?.Count > 0)
+        {
+            <MudItem xs="12">
+                <SectionHeader Icon="@Icons.Material.Filled.People" Color="Color.Secondary" Title="People"/>
+                <MudGrid Spacing="3">
+                    @foreach (var person in _persons)
+                    {
+                        <MudItem xs="12" sm="6" md="4" lg="3" Class="d-flex">
+                            <PersonCard Person="person"/>
+                        </MudItem>
+                    }
+                </MudGrid>
+            </MudItem>
+        }
+    }
+    else
+    {
+        <MudItem xs="12">
+            <MudPaper Class="pa-6 rounded-lg" Elevation="4">
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" lg="7">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
+                            <MudSkeleton SkeletonType="SkeletonType.Circle" Width="48px" Height="48px"/>
+                            <MudSkeleton SkeletonType="SkeletonType.Text" Width="60%" Height="48px"/>
+                        </MudStack>
+                    </MudItem>
+                    <MudItem xs="12" lg="5">
+                        <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="flex-wrap">
+                            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="180px" Height="36px" Class="rounded-pill"/>
+                            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="180px" Height="36px" Class="rounded-pill"/>
+                        </MudStack>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+
+    [Parameter]
+    public int Id { get; set; }
+
+    private Topic? _topic;
+
+    private TopicDetails? _topicDetails;
+
+    private List<Episode>? _episodes;
+
+    private List<Person>? _persons;
+
+    /// <inheritdoc />
+    protected override async Task OnInitializedAsync()
+    {
+        BreadcrumbService.Push("Loading...", NavigationManager.Uri, Icons.Material.Filled.Tag);
+
+        using CancellationTokenSource cts = new();
+
+        var getTopicTask = GetTopic(cts.Token);
+        var getTopicDetailsTask = GetTopicDetails(cts.Token);
+        var getEpisodesTask = GetEpisodes(cts.Token);
+        var getPersonsTask = GetPersons(cts.Token);
+
+        await Task.WhenAll(getTopicTask, getTopicDetailsTask, getEpisodesTask, getPersonsTask);
+    }
+
+    private async Task GetTopic(CancellationToken cancellationToken)
+    {
+        var topicResult = await ClientService.GetTopicById(Id, cancellationToken);
+
+        await HandleResult(
+            topicResult,
+            topic =>
+            {
+                _topic = topic;
+                BreadcrumbService.ReplaceLast(topic.Name);
+                return Task.CompletedTask;
+            },
+            () =>
+            {
+                // TODO Figure out how to handle no content (e.g., show a "not found" message)
+                Logger.LogWarning("No topic found with ID {Id}.", Id);
+                return Task.CompletedTask;
+            });
+    }
+
+    private async Task GetTopicDetails(CancellationToken cancellationToken)
+    {
+        var topicDetailsResult = await ClientService.GetTopicDetailsById(Id, cancellationToken);
+
+        await HandleResult(
+            topicDetailsResult,
+            topicDetails =>
+            {
+                _topicDetails = topicDetails;
+                return Task.CompletedTask;
+            },
+            () =>
+            {
+                // TODO Figure out how to handle no content (e.g., show a "not found" message)
+                Logger.LogWarning("No topic details found for topic ID {Id}.", Id);
+                return Task.CompletedTask;
+            });
+    }
+
+    private async Task GetEpisodes(CancellationToken cancellationToken)
+    {
+        var episodesResult = await ClientService.GetEpisodesByTopicId(Id, cancellationToken);
+
+        await HandleResult(
+            episodesResult,
+            episodes =>
+            {
+                _episodes = episodes;
+                return Task.CompletedTask;
+            },
+            () =>
+            {
+                // TODO Figure out how to handle no content (e.g., show a "not found" message)
+                Logger.LogWarning("No episodes found for topic ID {Id}.", Id);
+                return Task.CompletedTask;
+            });
+    }
+
+    private async Task GetPersons(CancellationToken cancellationToken)
+    {
+        var personsResult = await ClientService.GetPersonsByTopicId(Id, cancellationToken);
+
+        await HandleResult(
+            personsResult,
+            persons =>
+            {
+                _persons = persons;
+                return Task.CompletedTask;
+            },
+            () =>
+            {
+                // TODO Figure out how to handle no content (e.g., show a "not found" message)
+                Logger.LogWarning("No persons found for topic ID {Id}.", Id);
+                return Task.CompletedTask;
+            });
+    }
+}

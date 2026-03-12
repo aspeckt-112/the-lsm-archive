@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, "issue/**"]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore
+
+      - name: Test
+        run: dotnet test --no-build --logger "trx;LogFileName=test-results.trx"
+
+  build-images:
+    name: Build Docker Images
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: web-api
+            dockerfile: src/TheLsmArchive.Web.Api/Dockerfile
+          - name: web-frontend
+            dockerfile: src/TheLsmArchive.Web.Frontend/Dockerfile
+          - name: patreon-ingestion
+            dockerfile: src/TheLsmArchive.Patreon.Ingestion/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -f ${{ matrix.dockerfile }} -t thelsmarchive/${{ matrix.name }}:${{ github.sha }} .
+
+      - name: Save Docker image
+        run: docker save thelsmarchive/${{ matrix.name }}:${{ github.sha }} -o ${{ matrix.name }}.tar
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-${{ matrix.name }}
+          path: ${{ matrix.name }}.tar
+          retention-days: 3

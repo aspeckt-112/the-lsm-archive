@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>  
+        <UserSecretsId>a963e9e6-fdd6-4c28-b893-64ad05ab112f</UserSecretsId>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\TheLsmArchive.Models\TheLsmArchive.Models.csproj" />
+        <ProjectReference Include="..\TheLsmArchive.Database\TheLsmArchive.Database.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Microsoft.AspNetCore.Http.HttpResults" />
+        <Using Include="Microsoft.AspNetCore.Mvc" />
+        <Using Include="TheLsmArchive.Models.Enums" />
+        <Using Include="TheLsmArchive.Models.Request" />
+        <Using Include="TheLsmArchive.Models.Response" />
+        <Using Include="Microsoft.EntityFrameworkCore" />
+        <Using Include="TheLsmArchive.Database.DbContext" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="TheLsmArchive.Web.Api.Tests" />
+    </ItemGroup>
+
+</Project>
