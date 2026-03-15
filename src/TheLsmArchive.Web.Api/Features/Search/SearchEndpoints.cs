@@ -18,7 +18,11 @@ internal static class SearchEndpoints
             search.MapGet("/", Search)
                 .WithName(nameof(Search))
                 .WithSummary("Searches the archive.")
-                .WithDescription("Performs a search across the archive based on the provided query parameters.")
+                .WithDescription(
+                    "Performs a search across the archive based on the provided query parameters. " +
+                    "When searching all entity types, episode results are only included when the " +
+                    "search term is at least 5 characters long. Use the Episode entity type filter " +
+                    "to search episodes regardless of term length.")
                 .Produces<Ok<PagedResponse<SearchResult>>>()
                 .Produces<NoContent>()
                 .Produces<BadRequest>();
