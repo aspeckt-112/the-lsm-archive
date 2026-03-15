@@ -215,6 +215,10 @@
         _searchDebounceCts = new CancellationTokenSource();
         var token = _searchDebounceCts.Token;
 
+        _searchRequestCts?.Cancel();
+        _searchRequestCts?.Dispose();
+        _searchRequestCts = null;
+
         try
         {
             await Task.Delay(SearchDebounceMs, token);
