@@ -285,13 +285,19 @@
         }
     }
 
+    private const int MaxPagesToFetch = 10;
+
     private async Task<List<SearchResult>?> FetchAllPagesAsync(
         PagedResponse<SearchResult> firstPage,
         CancellationToken cancellationToken)
     {
         List<SearchResult> allResults = [.. firstPage.Items];
 
-        for (int page = 2; page <= firstPage.TotalPages; page++)
+        int totalPagesToFetch = firstPage.TotalPages > MaxPagesToFetch
+            ? MaxPagesToFetch
+            : firstPage.TotalPages;
+
+        for (int page = 2; page <= totalPagesToFetch; page++)
         {
             Result<PagedResponse<SearchResult>> pageResult = await ClientService.Search(
                 new SearchRequest(_searchTerm, _searchType, page, SearchPageSize),
