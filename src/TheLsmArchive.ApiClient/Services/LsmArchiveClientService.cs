@@ -51,7 +51,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     }
 
     /// <inheritdoc />
-    public Task<Result<List<SearchResult>>> Search(
+    public Task<Result<PagedResponse<SearchResult>>> Search(
         SearchRequest request,
         CancellationToken cancellationToken)
     {
@@ -61,9 +61,9 @@ public class LsmArchiveClientService : ILsmArchiveClientService
             SearchRoute,
             request.ToQueryString());
 
-        return ExecuteRequestAsync<List<SearchResult>>(
+        return ExecuteRequestAsync<PagedResponse<SearchResult>>(
             requestMessage,
-            hasContent: result => result is not null && result.Count > 0,
+            hasContent: result => result is { Items.Count: > 0 },
             cancellationToken
         );
     }
