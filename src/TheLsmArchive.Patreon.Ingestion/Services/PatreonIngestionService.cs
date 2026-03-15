@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Hosting;
@@ -499,9 +502,13 @@ public sealed class PatreonIngestionService : BackgroundService
     {
         string trimmed = value.Trim();
 
+        // 1. Decompose characters with accents into base + mark (e.g. 'é' -> 'e' + '´')
+        string normalizedString = trimmed.Normalize(NormalizationForm.FormD);
+
+        // 2. Filter out the non-spacing marks (accents) and keep only alphanumeric chars
         char[] alphanumericLowered =
         [
-            .. trimmed
+            .. normalizedString
                 .Where(char.IsLetterOrDigit)
                 .Select(char.ToLowerInvariant)
         ];
