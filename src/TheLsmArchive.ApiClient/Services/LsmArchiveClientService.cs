@@ -63,7 +63,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
 
         return ExecuteRequestAsync<PagedResponse<SearchResult>>(
             requestMessage,
-            hasContent: result => result is not null && result.TotalCount > 0,
+            hasContent: result => result is { Items.Count: > 0 },
             cancellationToken
         );
     }
