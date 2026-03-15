@@ -507,9 +507,8 @@ public sealed class PatreonIngestionService : BackgroundService
         char[] alphanumericLowered =
         [
             .. normalizedString
-                .Where(c => char.IsLetterOrDigit(c))
+                .Where(char.IsLetterOrDigit)
                 .Select(char.ToLowerInvariant)
-        ];
         ];
 
         return alphanumericLowered.Length == 0
