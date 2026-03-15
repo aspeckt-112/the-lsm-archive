@@ -138,6 +138,8 @@
 
     private const int SearchDebounceMs = 350;
 
+    private const int SearchPageSize = 50;
+
     private string _searchTerm = string.Empty;
 
     private EntityType _searchType = EntityType.All;
@@ -235,8 +237,8 @@
 
         try
         {
-            Result<List<SearchResult>> result = await ClientService.Search(
-                new SearchRequest(_searchTerm, _searchType),
+            Result<PagedResponse<SearchResult>> pagedResult = await ClientService.Search(
+                new SearchRequest(_searchTerm, _searchType, PageNumber: 1, PageSize: SearchPageSize),
                 token);
 
             if (token.IsCancellationRequested)
@@ -244,18 +246,30 @@
                 return;
             }
 
-            await HandleResult(
-                result,
-                onSuccess: searchResults =>
-                {
-                    _searchResults = searchResults;
-                    return Task.CompletedTask;
-                },
-                onNoContent: () =>
-                {
-                    _searchResults = [];
-                    return Task.CompletedTask;
-                });
+            if (pagedResult is Result<PagedResponse<SearchResult>>.NoContent)
+            {
+                _searchResults = [];
+                return;
+            }
+
+            if (pagedResult is not Result<PagedResponse<SearchResult>>.Success successResultFirstPage)
+            {
+                await HandleResult(
+                    pagedResult,
+                    _ => Task.CompletedTask,
+                    () => Task.CompletedTask);
+
+                return;
+            }
+
+            List<SearchResult>? allResults = await FetchAllPagesAsync(successResultFirstPage.Data, token);
+
+            if (allResults is null || token.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _searchResults = allResults;
         }
         catch (OperationCanceledException)
         {
@@ -269,6 +283,45 @@
                 StateHasChanged();
             }
         }
+    }
+
+    private async Task<List<SearchResult>?> FetchAllPagesAsync(
+        PagedResponse<SearchResult> firstPage,
+        CancellationToken cancellationToken)
+    {
+        List<SearchResult> allResults = [.. firstPage.Items];
+
+        for (int page = 2; page <= firstPage.TotalPages; page++)
+        {
+            Result<PagedResponse<SearchResult>> pageResult = await ClientService.Search(
+                new SearchRequest(_searchTerm, _searchType, page, SearchPageSize),
+                cancellationToken);
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return null;
+            }
+
+            if (pageResult is Result<PagedResponse<SearchResult>>.NoContent)
+            {
+                continue;
+            }
+
+            if (pageResult is Result<PagedResponse<SearchResult>>.Success pageSuccess)
+            {
+                allResults.AddRange(pageSuccess.Data.Items);
+                continue;
+            }
+
+            await HandleResult(
+                pageResult,
+                _ => Task.CompletedTask,
+                () => Task.CompletedTask);
+
+            return null;
+        }
+
+        return allResults;
     }
 
     private void SetSearchState(bool hasSearched, bool isLoading)

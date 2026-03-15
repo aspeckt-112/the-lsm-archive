@@ -19,7 +19,7 @@ internal static class SearchEndpoints
                 .WithName(nameof(Search))
                 .WithSummary("Searches the archive.")
                 .WithDescription("Performs a search across the archive based on the provided query parameters.")
-                .Produces<Ok<List<SearchResult>>>()
+                .Produces<Ok<PagedResponse<SearchResult>>>()
                 .Produces<NoContent>()
                 .Produces<BadRequest>();
 
@@ -27,14 +27,14 @@ internal static class SearchEndpoints
         }
     }
 
-    private static async Task<Results<Ok<List<SearchResult>>, NoContent>> Search(
+    private static async Task<Results<Ok<PagedResponse<SearchResult>>, NoContent>> Search(
         [AsParameters] SearchRequest searchRequest,
         [FromServices] ISearchService searchService,
         CancellationToken cancellationToken)
     {
-        List<SearchResult> result = await searchService.RunSearchAsync(searchRequest, cancellationToken);
+        PagedResponse<SearchResult> result = await searchService.RunSearchAsync(searchRequest, cancellationToken);
 
-        return result.Count == 0
+        return result.TotalCount == 0
             ? TypedResults.NoContent()
             : TypedResults.Ok(result);
     }

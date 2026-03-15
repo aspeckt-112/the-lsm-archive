@@ -10,8 +10,8 @@ public interface ISearchService
     /// </summary>
     /// <param name="searchRequest">The search request.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The list of search results.</returns>
-    public Task<List<SearchResult>> RunSearchAsync(
+    /// <returns>A paged response containing search results.</returns>
+    public Task<PagedResponse<SearchResult>> RunSearchAsync(
         SearchRequest searchRequest,
          CancellationToken cancellationToken);
 }

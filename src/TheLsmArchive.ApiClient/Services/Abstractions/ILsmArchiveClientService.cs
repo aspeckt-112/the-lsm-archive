@@ -13,8 +13,8 @@ public interface ILsmArchiveClientService
     /// </summary>
     /// <param name="request">The search request.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A <see cref="Result{T}"/> of <see cref="List{T}"/> of <see cref="SearchResult"/>.</returns>
-    public Task<Result<List<SearchResult>>> Search(
+    /// <returns>A <see cref="Result{T}"/> of <see cref="PagedResponse{T}"/> of <see cref="SearchResult"/>.</returns>
+    public Task<Result<PagedResponse<SearchResult>>> Search(
         SearchRequest request,
         CancellationToken cancellationToken);
 
