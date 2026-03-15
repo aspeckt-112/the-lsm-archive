@@ -507,12 +507,9 @@ public sealed class PatreonIngestionService : BackgroundService
         char[] alphanumericLowered =
         [
             .. normalizedString
-                .Where(c =>
-                {
-                    UnicodeCategory uc = CharUnicodeInfo.GetUnicodeCategory(c);
-                    return uc != UnicodeCategory.NonSpacingMark && char.IsLetterOrDigit(c);
-                })
+                .Where(c => char.IsLetterOrDigit(c))
                 .Select(char.ToLowerInvariant)
+        ];
         ];
 
         return alphanumericLowered.Length == 0
