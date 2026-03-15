@@ -500,8 +500,10 @@ public sealed class PatreonIngestionService : BackgroundService
 
     private static string NormalizeLookupKey(string value)
     {
+        string trimmed = value.Trim();
+
         // 1. Decompose characters with accents into base + mark (e.g. 'é' -> 'e' + '´')
-        string normalizedString = value.Normalize(NormalizationForm.FormD);
+        string normalizedString = trimmed.Normalize(NormalizationForm.FormD);
 
         // 2. Filter out the non-spacing marks (accents) and keep only alphanumeric chars
         char[] alphanumericLowered =
@@ -512,7 +514,7 @@ public sealed class PatreonIngestionService : BackgroundService
         ];
 
         return alphanumericLowered.Length == 0
-            ? value.Trim().ToLowerInvariant()
+            ? trimmed.ToLowerInvariant()
             : new string(alphanumericLowered);
     }
 }
