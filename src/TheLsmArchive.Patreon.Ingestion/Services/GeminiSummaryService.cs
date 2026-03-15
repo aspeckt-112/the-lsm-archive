@@ -40,12 +40,12 @@ public sealed partial class GeminiSummaryService : IAiSummaryService
 
     private static readonly Schema _responseSchema = new()
     {
-        Type = GenAI.Type.OBJECT,
+        Type = GenAI.Type.Object,
         Properties = new Dictionary<string, Schema>
         {
-            { HostsPropertyName, new Schema { Type = GenAI.Type.ARRAY, Items = new Schema { Type = GenAI.Type.STRING } } },
-            { GuestsPropertyName, new Schema { Type = GenAI.Type.ARRAY, Items = new Schema { Type = GenAI.Type.STRING } } },
-            { TopicsPropertyName, new Schema { Type = GenAI.Type.ARRAY, Items = new Schema { Type = GenAI.Type.STRING } } }
+            { HostsPropertyName, new Schema { Type = GenAI.Type.Array, Items = new Schema { Type = GenAI.Type.String } } },
+            { GuestsPropertyName, new Schema { Type = GenAI.Type.Array, Items = new Schema { Type = GenAI.Type.String } } },
+            { TopicsPropertyName, new Schema { Type = GenAI.Type.Array, Items = new Schema { Type = GenAI.Type.String } } }
         },
         Required = [HostsPropertyName, GuestsPropertyName, TopicsPropertyName]
     };
