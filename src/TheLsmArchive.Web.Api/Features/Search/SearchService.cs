@@ -57,6 +57,10 @@ public sealed class SearchService : ISearchService
         };
     }
 
+    /// <summary>
+    /// Searches all entity types. Episodes are only included when the search term is at least
+    /// 5 characters long to avoid expensive full-text scans on very short, high-cardinality terms.
+    /// </summary>
     private Task<PagedResponse<SearchResult>> SearchAll(
         string pattern,
         PagedRequest request,
@@ -65,6 +69,9 @@ public sealed class SearchService : ISearchService
         IQueryable<SearchProjection> union = QueryPersons(pattern)
             .Union(QueryTopics(pattern));
 
+        // Episodes are searched only when the term is long enough to produce meaningful, targeted
+        // results. Short terms (< 5 characters) match far too many episode titles and summaries,
+        // causing disproportionately slow queries; use EntityType.Episode directly to bypass this.
         if (request is SearchRequest { SearchTerm.Length: >= 5 })
         {
             union = union.Union(QueryEpisodes(pattern));
