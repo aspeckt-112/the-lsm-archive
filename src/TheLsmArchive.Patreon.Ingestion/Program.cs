@@ -14,6 +14,7 @@ using Polly.Retry;
 using Polly.Timeout;
 
 using TheLsmArchive.Database;
+using TheLsmArchive.Patreon.Ingestion;
 using TheLsmArchive.Patreon.Ingestion.Options;
 using TheLsmArchive.Patreon.Ingestion.Services;
 using TheLsmArchive.Patreon.Ingestion.Services.Abstractions;
@@ -35,6 +36,10 @@ builder.Services.AddOptionsWithValidateOnStart<UserAgentOptions>()
     .BindConfiguration(nameof(UserAgentOptions))
     .ValidateDataAnnotations();
 
+builder.Services.AddOptionsWithValidateOnStart<PatreonIngestionOptions>()
+    .BindConfiguration(nameof(PatreonIngestionOptions))
+    .ValidateDataAnnotations();
+
 builder.Services
     .AddSingleton<IAiSummaryService, GeminiSummaryService>()
     .AddHostedService<PatreonIngestionService>()
@@ -42,7 +47,7 @@ builder.Services
     .AddSingleton<PromptService>();
 
 builder.Services.AddResiliencePipeline(
-    TheLsmArchive.Patreon.Ingestion.Constants.AiSummaryPipelineName,
+   Constants.AiSummaryPipelineName,
     resiliencePipelineBuilder =>
     {
         resiliencePipelineBuilder
@@ -91,7 +96,6 @@ builder.Services.AddSingleton(sp =>
     IOptions<GeminiOptions> options = sp.GetRequiredService<IOptions<GeminiOptions>>();
     GeminiOptions optionsValue = options.Value;
 
-    // const int fiveMinutesInMilliseconds = 300_000;
     const int oneHourInMilliseconds = 3_600_000;
 
     HttpOptions httpOptions = new()

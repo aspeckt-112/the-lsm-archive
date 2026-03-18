@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 
 using Microsoft.EntityFrameworkCore;
@@ -24,101 +23,127 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 public sealed class PatreonIngestionService : BackgroundService
 {
     private readonly ILogger<PatreonIngestionService> _logger;
-    private readonly IHostApplicationLifetime _appLifetime;
     private readonly PatreonRssParser _rssParser;
     private readonly IAiSummaryService _aiSummaryService;
     private readonly ReadWriteDbContext _readWriteDbContext;
     private readonly ResiliencePipeline _aiSummaryPipeline;
     private readonly List<RssFeedSource> _sources;
+    private readonly TimeSpan _ingestionInterval;
 
     public PatreonIngestionService(
         ILogger<PatreonIngestionService> logger,
-        IHostApplicationLifetime appLifetime,
         PatreonRssParser rssParser,
         IAiSummaryService aiSummaryService,
         ResiliencePipelineProvider<string> pipelineProvider,
         IOptions<RssFeedSources> feedOptions,
+        IOptions<PatreonIngestionOptions> ingestionOptions,
         ReadWriteDbContext readWriteDbContext)
     {
         _logger = logger;
-        _appLifetime = appLifetime;
         _rssParser = rssParser;
         _aiSummaryService = aiSummaryService;
         _readWriteDbContext = readWriteDbContext;
         _aiSummaryPipeline = pipelineProvider.GetPipeline(Constants.AiSummaryPipelineName);
         _sources = feedOptions.Value;
+        _ingestionInterval = TimeSpan.FromMinutes(ingestionOptions.Value.RefreshIntervalInMinutes);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (PatreonFeed feed in _rssParser.ParseFeedsAsync(_sources, stoppingToken))
+        while (!stoppingToken.IsCancellationRequested)
         {
+            _logger.LogInformation(
+                "Starting Patreon ingestion cycle. Next run in {IntervalMinutes} minutes.",
+                _ingestionInterval.TotalMinutes);
+
             try
             {
-                _logger.LogInformation("Processing feed '{FeedTitle}'", feed.Title);
-
-                ShowEntity showEntity = await GetOrCreateShowAsync(feed.Title, stoppingToken);
-
-                await IngestPostsAsync(showEntity, feed, stoppingToken);
-
-                // Get all posts needing processing (new posts + posts with previous errors)
-                List<PatreonPostEntity> postsToProcess =
-                    await GetPostsNeedingProcessingAsync(showEntity.Id, stoppingToken);
-
-                // Log retry attempts
-                int retryCount = postsToProcess.Count(p => p.ProcessingError != null);
-
-                if (retryCount > 0)
-                {
-                    _logger.LogInformation(
-                        "Retrying {RetryCount} posts with previous processing errors",
-                        retryCount);
-                }
-
-                // Process each post sequentially
-                int successCount = 0;
-                int errorCount = 0;
-
-                foreach (PatreonPostEntity post in postsToProcess)
+                await foreach (PatreonFeed feed in _rssParser.ParseFeedsAsync(_sources, stoppingToken))
                 {
                     try
                     {
-                        await ProcessPostAsync(showEntity, post, stoppingToken);
-                        successCount++;
+                        _logger.LogInformation("Processing feed '{FeedTitle}'", feed.Title);
+
+                        ShowEntity showEntity = await GetOrCreateShowAsync(feed.Title, stoppingToken);
+
+                        await IngestPostsAsync(showEntity, feed, stoppingToken);
+
+                        // Get all posts needing processing (new posts + posts with previous errors)
+                        List<PatreonPostEntity> postsToProcess =
+                            await GetPostsNeedingProcessingAsync(showEntity.Id, stoppingToken);
+
+                        // Log retry attempts
+                        int retryCount = postsToProcess.Count(p => p.ProcessingError != null);
+
+                        if (retryCount > 0)
+                        {
+                            _logger.LogInformation(
+                                "Retrying {RetryCount} posts with previous processing errors",
+                                retryCount);
+                        }
+
+                        // Process each post sequentially
+                        int successCount = 0;
+                        int errorCount = 0;
+
+                        foreach (PatreonPostEntity post in postsToProcess)
+                        {
+                            try
+                            {
+                                await ProcessPostAsync(showEntity, post, stoppingToken);
+                                successCount++;
+                            }
+                            catch (Exception postEx)
+                            {
+                                _logger.LogError(postEx, "Failed to process post '{PostTitle}'", post.Title);
+                                errorCount++;
+                            }
+                        }
+
+                        // Only update last synced timestamp if all posts were processed successfully
+                        if (errorCount == 0)
+                        {
+                            await UpdateShowLastSyncedAtAsync(showEntity, stoppingToken);
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "Skipping LastSyncedAt update for show '{ShowName}' due to {ErrorCount} failed posts",
+                                showEntity.Name,
+                                errorCount);
+                        }
+
+                        _logger.LogInformation(
+                            "Completed processing feed '{FeedTitle}': {SuccessCount} successful, {ErrorCount} failed",
+                            feed.Title,
+                            successCount,
+                            errorCount);
                     }
-                    catch (Exception postEx)
+                    catch (Exception ex)
                     {
-                        _logger.LogError(postEx, "Failed to process post '{PostTitle}'", post.Title);
-                        errorCount++;
+                        _logger.LogError(ex, "Error processing feed '{FeedTitle}'", feed.Title);
                     }
                 }
-
-                // Only update last synced timestamp if all posts were processed successfully
-                if (errorCount == 0)
-                {
-                    await UpdateShowLastSyncedAtAsync(showEntity, stoppingToken);
-                }
-                else
-                {
-                    _logger.LogWarning(
-                        "Skipping LastSyncedAt update for show '{ShowName}' due to {ErrorCount} failed posts",
-                        showEntity.Name,
-                        errorCount);
-                }
-
-                _logger.LogInformation(
-                    "Completed processing feed '{FeedTitle}': {SuccessCount} successful, {ErrorCount} failed",
-                    feed.Title,
-                    successCount,
-                    errorCount);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing feed '{FeedTitle}'", feed.Title);
+                _logger.LogError(ex, "Error executing Patreon ingestion cycle");
+            }
+
+            try
+            {
+                await Task.Delay(_ingestionInterval, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // The host is shutting down.
+                break;
             }
         }
-
-        _appLifetime.StopApplication();
     }
 
     private async Task ProcessPostAsync(
