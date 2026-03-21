@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 using Moq;
@@ -83,7 +82,7 @@ public class EpisodeServiceTests : BaseServiceIntegrationTest, IClassFixture<Ser
     }
 
     [Fact]
-    public async Task GetRandomEpisodeId_WithEpisodes_ReturnsExistingId()
+    public async Task GetRandomEpisodeId_WithEpisodes_ReturnsOneOfTheInsertedIds()
     {
         // Arrange
         ShowEntity show = new() { Name = "Show 1" };
@@ -93,16 +92,20 @@ public class EpisodeServiceTests : BaseServiceIntegrationTest, IClassFixture<Ser
         PatreonPostEntity post2 = new() { PatreonId = 12, Title = "Post 12", Link = "https://patreon.com/12", Summary = "Summary 12", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/12", ShowId = show.Id };
         PatreonPostEntity post3 = new() { PatreonId = 13, Title = "Post 13", Link = "https://patreon.com/13", Summary = "Summary 13", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/13", ShowId = show.Id };
 
-        await InsertSingleInstanceOfEntityAsync(new EpisodeEntity { Title = "Episode 1", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-1), PatreonPost = post1, ShowId = show.Id });
-        await InsertSingleInstanceOfEntityAsync(new EpisodeEntity { Title = "Episode 2", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-2), PatreonPost = post2, ShowId = show.Id });
-        await InsertSingleInstanceOfEntityAsync(new EpisodeEntity { Title = "Episode 3", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-3), PatreonPost = post3, ShowId = show.Id });
+        EpisodeEntity episode1 = new() { Title = "Episode 1", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-1), PatreonPost = post1, ShowId = show.Id };
+        EpisodeEntity episode2 = new() { Title = "Episode 2", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-2), PatreonPost = post2, ShowId = show.Id };
+        EpisodeEntity episode3 = new() { Title = "Episode 3", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-3), PatreonPost = post3, ShowId = show.Id };
+
+        await InsertSingleInstanceOfEntityAsync(episode1);
+        await InsertSingleInstanceOfEntityAsync(episode2);
+        await InsertSingleInstanceOfEntityAsync(episode3);
+
+        int[] insertedIds = [episode1.Id, episode2.Id, episode3.Id];
 
         // Act
         int randomEpisodeId = await _episodeService.GetRandomEpisodeId(TestContext.Current.CancellationToken);
 
-        bool exists = await ReadOnlyDbContext.Episodes
-            .AnyAsync(episode => episode.Id == randomEpisodeId, TestContext.Current.CancellationToken);
-
-        Assert.True(exists);
+        // Assert
+        Assert.Contains(randomEpisodeId, insertedIds);
     }
 }
