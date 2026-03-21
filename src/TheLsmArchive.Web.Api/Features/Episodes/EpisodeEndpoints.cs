@@ -40,8 +40,23 @@ internal static class EpisodeEndpoints
                 .Produces<Ok<List<Topic>>>()
                 .Produces<BadRequest>();
 
+            episode.MapGet("/recent", GetRecentEpisodes)
+                .WithName(nameof(GetRecentEpisodes))
+                .WithSummary("Gets the most recent episodes from the last 7 days.")
+                .WithDescription("Retrieves a list of episodes that were released in the last 7 days.")
+                .Produces<Ok<List<Episode>>>()
+                .Produces<BadRequest>();
+
             return app;
         }
+    }
+
+    private static async Task<Ok<List<Episode>>> GetRecentEpisodes(
+        [FromServices] IEpisodeService episodeService,
+        CancellationToken cancellationToken)
+    {
+        List<Episode> episodes = await episodeService.GetRecent(cancellationToken);
+        return TypedResults.Ok(episodes);
     }
 
     private static async Task<Results<Ok<Episode>, NotFound>> GetEpisodeById(

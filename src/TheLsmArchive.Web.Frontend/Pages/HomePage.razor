@@ -73,7 +73,6 @@
             </MudGrid>
         </MudPaper>
     </MudItem>
-
     @if (_hasSearched)
     {
         @if (_isLoading && (_searchResults == null || _searchResults.Count == 0))
@@ -132,6 +131,21 @@
             }
         }
     }
+    else
+    {
+        @if (_recentEpisodes != null && _recentEpisodes.Count > 0)
+        {
+            <MudItem xs="12" Class="mt-8">
+                <SectionHeader Icon="@Icons.Material.Filled.NewReleases" Color="Color.Primary" Title="Recent Episodes" />
+            </MudItem>
+            @foreach (var episode in _recentEpisodes)
+            {
+                <MudItem xs="12" sm="6" md="4" lg="3" Class="d-flex">
+                    <EpisodeCard Episode="@episode" />
+                </MudItem>
+            }
+        }
+    }
 </MudGrid>
 
 @code {
@@ -150,6 +164,8 @@
 
     private List<SearchResult>? _searchResults;
 
+    private List<Episode>? _recentEpisodes;
+
     private CancellationTokenSource? _searchDebounceCts;
 
     private CancellationTokenSource? _searchRequestCts;
@@ -160,6 +176,25 @@
     {
         BreadcrumbService.Reset();
         await LoadLastDataSyncDateTimeAsync();
+        await LoadRecentEpisodesAsync();
+    }
+
+    private async Task LoadRecentEpisodesAsync()
+    {
+        var result = await ClientService.GetRecentEpisodes(CancellationToken.None);
+
+        await HandleResult(
+            result,
+            onSuccess: episodes =>
+            {
+                _recentEpisodes = episodes;
+                return Task.CompletedTask;
+            },
+            onNoContent: () =>
+            {
+                _recentEpisodes = [];
+                return Task.CompletedTask;
+            });
     }
 
     private async Task LoadLastDataSyncDateTimeAsync()
@@ -397,4 +432,3 @@
     }
 
 }
-

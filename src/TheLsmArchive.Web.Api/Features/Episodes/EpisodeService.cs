@@ -119,4 +119,28 @@ public sealed class EpisodeService : IEpisodeService
             .Select(mapToEpisode)
             .ToListAsync(cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task<List<Episode>> GetRecent(
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Getting recent episodes from the last 7 days.");
+
+        DateTimeOffset lastWeek = DateTimeOffset.UtcNow.AddDays(-7);
+
+        Expression<Func<EpisodeEntity, Episode>> mapToEpisode =
+            episode => new Episode(
+                Id: episode.Id,
+                Title: episode.Title,
+                ReleaseDate: DateOnly.FromDateTime(episode.ReleaseDateUtc.DateTime),
+                PatreonPostLink: episode.PatreonPost.Link,
+                SummaryHtml: episode.PatreonPost.Summary);
+
+        return _dbContext.Episodes
+            .Include(e => e.PatreonPost)
+            .Where(e => e.ReleaseDateUtc >= lastWeek)
+            .OrderByDescending(e => e.ReleaseDateUtc)
+            .Select(mapToEpisode)
+            .ToListAsync(cancellationToken);
+    }
 }

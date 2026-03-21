@@ -265,6 +265,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
 
     /// <inheritdoc />
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="episodeId"/> is negative.</exception>
+    /// <inheritdoc />
     public Task<Result<List<Topic>>> GetTopicsByEpisodeId(int episodeId, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(episodeId);
@@ -275,6 +276,20 @@ public class LsmArchiveClientService : ILsmArchiveClientService
             $"{EpisodesRoute}/{episodeId}/topics");
 
         return ExecuteRequestAsync<List<Topic>>(
+            requestMessage,
+            hasContent: result => result is not null && result.Count > 0,
+            cancellationToken
+        );
+    }
+
+    /// <inheritdoc />
+    public Task<Result<List<Episode>>> GetRecentEpisodes(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Getting the most recent episodes from the last 7 days.");
+
+        HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{EpisodesRoute}/recent");
+
+        return ExecuteRequestAsync<List<Episode>>(
             requestMessage,
             hasContent: result => result is not null && result.Count > 0,
             cancellationToken
