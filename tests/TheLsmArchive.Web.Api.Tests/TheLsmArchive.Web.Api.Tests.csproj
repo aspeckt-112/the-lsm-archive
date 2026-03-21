@@ -9,6 +9,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="Respawn" />
       <PackageReference Include="Testcontainers.PostgreSql" />
     </ItemGroup>
     

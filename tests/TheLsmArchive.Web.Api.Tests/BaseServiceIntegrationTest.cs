@@ -18,7 +18,7 @@ public abstract class BaseServiceIntegrationTest : IAsyncLifetime
 
     protected ReadWriteDbContext ReadWriteDbContext { get; }
 
-    public async ValueTask InitializeAsync() => await Task.CompletedTask;
+    public async ValueTask InitializeAsync() => await _fixture.ResetDatabaseAsync();
 
     public async ValueTask DisposeAsync()
     {

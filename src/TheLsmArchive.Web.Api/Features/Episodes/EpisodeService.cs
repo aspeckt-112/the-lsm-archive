@@ -145,14 +145,27 @@ public sealed class EpisodeService : IEpisodeService
     }
 
     /// <inheritdoc />
-    public Task<int> GetRandomEpisodeId(
+    public async Task<int> GetRandomEpisodeId(
         CancellationToken cancellationToken)
     {
+        // Make the assumption that at least one episode will exist in the database.
+
         _logger.LogInformation("Getting a random existing episode ID.");
 
-        return _dbContext.Episodes
-            .OrderBy(_ => EF.Functions.Random())
-            .Select(episode => episode.Id)
-            .FirstAsync(cancellationToken);
+        var bounds = await _dbContext.Episodes
+            .GroupBy(_ => 1)
+            .Select(group => new
+            {
+                MinId = group.Min(episode => episode.Id),
+                MaxId = group.Max(episode => episode.Id),
+            })
+            .SingleAsync(cancellationToken);
+
+        long randomCandidateId = Random.Shared.Next(bounds.MinId, bounds.MaxId + 1);
+
+        return await _dbContext.Episodes
+        .Where(x => x.Id >= randomCandidateId)
+        .Select(x => x.Id)
+        .FirstAsync(cancellationToken);
     }
 }

@@ -1,4 +1,8 @@
+using System.Data.Common;
+
 using Microsoft.EntityFrameworkCore;
+
+using Respawn;
 
 using Testcontainers.PostgreSql;
 
@@ -14,6 +18,12 @@ public class ServiceIntegrationTestFixture : IAsyncLifetime
     private DbContextOptions<ReadOnlyDbContext>? _readOnlyDbContextOptions;
 
     private DbContextOptions<ReadWriteDbContext>? _readWriteDbContextOptions;
+
+    private ReadWriteDbContext? _respawnDbContext;
+
+    private DbConnection? _respawnConnection;
+
+    private Respawner? _respawner;
 
     public async ValueTask InitializeAsync()
     {
@@ -33,9 +43,40 @@ public class ServiceIntegrationTestFixture : IAsyncLifetime
 
         using ReadWriteDbContext readWriteDbContext = new(_readWriteDbContextOptions);
         await readWriteDbContext.Database.EnsureCreatedAsync();
+
+        _respawnDbContext = new ReadWriteDbContext(_readWriteDbContextOptions);
+        _respawnConnection = _respawnDbContext.Database.GetDbConnection();
+
+        await _respawnConnection.OpenAsync();
+
+        _respawner = await Respawner.CreateAsync(
+            _respawnConnection,
+            new RespawnerOptions
+            {
+                DbAdapter = DbAdapter.Postgres,
+                SchemasToInclude = ["public"]
+            });
     }
 
-    public ValueTask DisposeAsync() => _postgreSqlContainer.DisposeAsync();
+    public async Task ResetDatabaseAsync()
+    {
+        if (_respawner is null || _respawnConnection is null)
+        {
+            throw new InvalidOperationException("Respawn has not been initialized.");
+        }
+
+        await _respawner.ResetAsync(_respawnConnection);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_respawnDbContext is not null)
+        {
+            await _respawnDbContext.DisposeAsync();
+        }
+
+        await _postgreSqlContainer.DisposeAsync();
+    }
 
     public ReadOnlyDbContext CreateReadOnlyContext() => new(_readOnlyDbContextOptions ??
         throw new InvalidOperationException("The ReadOnlyDbContextOptions have not been initialized."));
