@@ -143,4 +143,16 @@ public sealed class EpisodeService : IEpisodeService
             .Select(mapToEpisode)
             .ToListAsync(cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task<int> GetRandomEpisodeId(
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Getting a random existing episode ID.");
+
+        return _dbContext.Episodes
+            .OrderBy(_ => EF.Functions.Random())
+            .Select(episode => episode.Id)
+            .FirstAsync(cancellationToken);
+    }
 }

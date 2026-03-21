@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 
 using Moq;
 
@@ -79,5 +80,29 @@ public class EpisodeServiceTests : BaseServiceIntegrationTest, IClassFixture<Ser
         // Assert
         Assert.Single(recentEpisodes);
         Assert.Equal("Recent Episode", recentEpisodes[0].Title);
+    }
+
+    [Fact]
+    public async Task GetRandomEpisodeId_WithEpisodes_ReturnsExistingId()
+    {
+        // Arrange
+        ShowEntity show = new() { Name = "Show 1" };
+        await InsertSingleInstanceOfEntityAsync(show);
+
+        PatreonPostEntity post1 = new() { PatreonId = 11, Title = "Post 11", Link = "https://patreon.com/11", Summary = "Summary 11", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/11", ShowId = show.Id };
+        PatreonPostEntity post2 = new() { PatreonId = 12, Title = "Post 12", Link = "https://patreon.com/12", Summary = "Summary 12", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/12", ShowId = show.Id };
+        PatreonPostEntity post3 = new() { PatreonId = 13, Title = "Post 13", Link = "https://patreon.com/13", Summary = "Summary 13", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/13", ShowId = show.Id };
+
+        await InsertSingleInstanceOfEntityAsync(new EpisodeEntity { Title = "Episode 1", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-1), PatreonPost = post1, ShowId = show.Id });
+        await InsertSingleInstanceOfEntityAsync(new EpisodeEntity { Title = "Episode 2", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-2), PatreonPost = post2, ShowId = show.Id });
+        await InsertSingleInstanceOfEntityAsync(new EpisodeEntity { Title = "Episode 3", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-3), PatreonPost = post3, ShowId = show.Id });
+
+        // Act
+        int randomEpisodeId = await _episodeService.GetRandomEpisodeId(TestContext.Current.CancellationToken);
+
+        bool exists = await ReadOnlyDbContext.Episodes
+            .AnyAsync(episode => episode.Id == randomEpisodeId, TestContext.Current.CancellationToken);
+
+        Assert.True(exists);
     }
 }
