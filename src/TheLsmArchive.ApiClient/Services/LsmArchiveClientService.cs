@@ -265,7 +265,6 @@ public class LsmArchiveClientService : ILsmArchiveClientService
 
     /// <inheritdoc />
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="episodeId"/> is negative.</exception>
-    /// <inheritdoc />
     public Task<Result<List<Topic>>> GetTopicsByEpisodeId(int episodeId, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(episodeId);
