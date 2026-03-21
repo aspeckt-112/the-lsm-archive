@@ -71,6 +71,23 @@
                     </MudChipSet>
                 </MudItem>
             </MudGrid>
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2" Class="mt-6 random-episode-cta">
+                <MudText Typo="Typo.caption" Class="opacity-70 text-uppercase">Not sure where to start?</MudText>
+                <MudButton
+                    Variant="Variant.Filled"
+                    Color="Color.Primary"
+                    Size="Size.Large"
+                    StartIcon="@Icons.Material.Filled.Casino"
+                    Disabled="@_isRandomEpisodeLoading"
+                    Class="random-episode-button"
+                    OnClick="OnRandomEpisodeClicked">
+                    Take Me To A Random Episode
+                </MudButton>
+                @if (_isRandomEpisodeLoading)
+                {
+                    <MudProgressCircular Size="Size.Small" Color="Color.Primary" Indeterminate="true" />
+                }
+            </MudStack>
         </MudPaper>
     </MudItem>
     @if (_hasSearched)
@@ -173,6 +190,8 @@
     private readonly CancellationTokenSource _componentLifetimeCts = new();
 
     private DateTimeOffset? _lastDataSyncDateTime;
+
+    private bool _isRandomEpisodeLoading;
 
     protected override async Task OnInitializedAsync()
     {
@@ -337,6 +356,47 @@
                 _isLoading = false;
                 StateHasChanged();
             }
+        }
+    }
+
+    private async Task OnRandomEpisodeClicked()
+    {
+        if (_isRandomEpisodeLoading)
+        {
+            return;
+        }
+
+        _isRandomEpisodeLoading = true;
+
+        try
+        {
+            Result<int> result = await ClientService.GetRandomEpisodeId(_componentLifetimeCts.Token);
+
+            if (_componentLifetimeCts.IsCancellationRequested)
+            {
+                return;
+            }
+
+            await HandleResult(
+                result,
+                onSuccess: episodeId =>
+                {
+                    NavigationManager.NavigateTo($"/Episode/{episodeId}");
+                    return Task.CompletedTask;
+                },
+                onNoContent: () =>
+                {
+                    Logger.LogWarning("No episodes available for random navigation.");
+                    return Task.CompletedTask;
+                });
+        }
+        catch (OperationCanceledException)
+        {
+            // Component was disposed; ignore cancellation.
+        }
+        finally
+        {
+            _isRandomEpisodeLoading = false;
         }
     }
 

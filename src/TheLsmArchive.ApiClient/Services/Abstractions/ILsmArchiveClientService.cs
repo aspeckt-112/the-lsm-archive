@@ -141,6 +141,14 @@ public interface ILsmArchiveClientService
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets a random episode ID.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Result{T}"/> containing a random existing episode ID.</returns>
+    public Task<Result<int>> GetRandomEpisodeId(
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets the date and time of the last data synchronization.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>

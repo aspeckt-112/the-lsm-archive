@@ -47,6 +47,12 @@ internal static class EpisodeEndpoints
                 .Produces<Ok<List<Episode>>>()
                 .Produces<NoContent>();
 
+            episode.MapGet("/random", GetRandomEpisodeId)
+                .WithName(nameof(GetRandomEpisodeId))
+                .WithSummary("Gets a random episode ID.")
+                .WithDescription("Returns a random existing episode ID.")
+                .Produces<Ok<int>>();
+
             return app;
         }
     }
@@ -59,6 +65,14 @@ internal static class EpisodeEndpoints
         return episodes.Count == 0
             ? TypedResults.NoContent()
             : TypedResults.Ok(episodes);
+    }
+
+    private static async Task<Ok<int>> GetRandomEpisodeId(
+        [FromServices] IEpisodeService episodeService,
+        CancellationToken cancellationToken)
+    {
+        int randomEpisodeId = await episodeService.GetRandomEpisodeId(cancellationToken);
+        return TypedResults.Ok(randomEpisodeId);
     }
 
     private static async Task<Results<Ok<Episode>, NotFound>> GetEpisodeById(

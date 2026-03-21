@@ -296,6 +296,20 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     }
 
     /// <inheritdoc />
+    public Task<Result<int>> GetRandomEpisodeId(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Getting a random episode ID.");
+
+        HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{EpisodesRoute}/random");
+
+        return ExecuteRequestAsync<int>(
+            requestMessage,
+            hasContent: result => result is > 0,
+            cancellationToken
+        );
+    }
+
+    /// <inheritdoc />
     public Task<Result<DateTimeOffset>> GetLastDataSyncDateTimeAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Getting the date and time of the last data synchronization.");

@@ -111,6 +111,36 @@
     background: color-mix(in srgb, var(--mud-palette-primary) 12%, transparent);
 }
 
+.random-episode-cta {
+    border-top: 1px solid color-mix(in srgb, var(--mud-palette-primary) 20%, transparent);
+    padding-top: 1rem;
+}
+
+.random-episode-button.mud-button-root {
+    min-height: 52px;
+    padding-inline: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border: 1px solid color-mix(in srgb, var(--mud-palette-primary) 45%, transparent) !important;
+    box-shadow: none !important;
+    transition: transform 0.2s ease, filter 0.2s ease !important;
+}
+
+.random-episode-button.mud-button-root:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+}
+
+@media (max-width: 600px) {
+    .random-episode-cta {
+        align-items: stretch !important;
+    }
+
+    .random-episode-button.mud-button-root {
+        width: 100%;
+    }
+}
+
 .search-loader {
     position: absolute;
     top: 0;

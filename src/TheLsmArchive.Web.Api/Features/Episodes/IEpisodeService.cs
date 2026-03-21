@@ -44,4 +44,12 @@ public interface IEpisodeService
     /// <returns>A list of recent episodes.</returns>
     public Task<List<Episode>> GetRecent(
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets a random episode ID.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A random existing episode ID.</returns>
+    public Task<int> GetRandomEpisodeId(
+        CancellationToken cancellationToken);
 }
