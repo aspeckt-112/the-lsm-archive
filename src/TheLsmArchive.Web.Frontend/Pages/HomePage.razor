@@ -170,49 +170,65 @@
 
     private CancellationTokenSource? _searchRequestCts;
 
+    private readonly CancellationTokenSource _componentLifetimeCts = new();
+
     private DateTimeOffset? _lastDataSyncDateTime;
 
     protected override async Task OnInitializedAsync()
     {
         BreadcrumbService.Reset();
-        await LoadLastDataSyncDateTimeAsync();
-        await LoadRecentEpisodesAsync();
+        await LoadLastDataSyncDateTimeAsync(_componentLifetimeCts.Token);
+        await LoadRecentEpisodesAsync(_componentLifetimeCts.Token);
     }
 
-    private async Task LoadRecentEpisodesAsync()
+    private async Task LoadRecentEpisodesAsync(CancellationToken cancellationToken)
     {
-        var result = await ClientService.GetRecentEpisodes(CancellationToken.None);
+        try
+        {
+            var result = await ClientService.GetRecentEpisodes(cancellationToken);
 
-        await HandleResult(
-            result,
-            onSuccess: episodes =>
-            {
-                _recentEpisodes = episodes;
-                return Task.CompletedTask;
-            },
-            onNoContent: () =>
-            {
-                _recentEpisodes = [];
-                return Task.CompletedTask;
-            });
+            await HandleResult(
+                result,
+                onSuccess: episodes =>
+                {
+                    _recentEpisodes = episodes;
+                    return Task.CompletedTask;
+                },
+                onNoContent: () =>
+                {
+                    _recentEpisodes = [];
+                    return Task.CompletedTask;
+                });
+        }
+        catch (OperationCanceledException)
+        {
+            // Component was disposed; ignore cancellation.
+        }
     }
 
-    private async Task LoadLastDataSyncDateTimeAsync()
+    private async Task LoadLastDataSyncDateTimeAsync(CancellationToken cancellationToken)
     {
-        var result = await ClientService.GetLastDataSyncDateTimeAsync(CancellationToken.None);
+        try
+        {
+            var result = await ClientService.GetLastDataSyncDateTimeAsync(cancellationToken);
 
-        await HandleResult(
-            result,
-            onSuccess: dateTime =>
-            {
-                _lastDataSyncDateTime = dateTime;
-                return Task.CompletedTask;
-            },
-            onNoContent: () =>
-            {
-                _lastDataSyncDateTime = null;
-                return Task.CompletedTask;
-            });
+            await HandleResult(
+                result,
+                onSuccess: dateTime =>
+                {
+                    _lastDataSyncDateTime = dateTime;
+                    return Task.CompletedTask;
+                },
+                onNoContent: () =>
+                {
+                    _lastDataSyncDateTime = null;
+                    return Task.CompletedTask;
+                });
+        }
+        catch (OperationCanceledException)
+        {
+            // Component was disposed; ignore cancellation.
+        }
     }
 
     private async Task OnSearchTermChanged(string value)
@@ -428,6 +444,8 @@
 
     public void Dispose()
     {
+        _componentLifetimeCts.Cancel();
+        _componentLifetimeCts.Dispose();
         CancelPendingOperations();
     }
 
