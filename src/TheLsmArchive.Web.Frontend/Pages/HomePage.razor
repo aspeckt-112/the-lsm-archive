@@ -73,7 +73,6 @@
             </MudGrid>
         </MudPaper>
     </MudItem>
-
     @if (_hasSearched)
     {
         @if (_isLoading && (_searchResults == null || _searchResults.Count == 0))
@@ -132,6 +131,21 @@
             }
         }
     }
+    else
+    {
+        @if (_recentEpisodes != null && _recentEpisodes.Count > 0)
+        {
+            <MudItem xs="12" Class="mt-8">
+                <SectionHeader Icon="@Icons.Material.Filled.NewReleases" Color="Color.Primary" Title="Recent Episodes" />
+            </MudItem>
+            @foreach (var episode in _recentEpisodes)
+            {
+                <MudItem xs="12" sm="6" md="4" lg="3" Class="d-flex">
+                    <EpisodeCard Episode="@episode" />
+                </MudItem>
+            }
+        }
+    }
 </MudGrid>
 
 @code {
@@ -150,34 +164,71 @@
 
     private List<SearchResult>? _searchResults;
 
+    private List<Episode>? _recentEpisodes;
+
     private CancellationTokenSource? _searchDebounceCts;
 
     private CancellationTokenSource? _searchRequestCts;
+
+    private readonly CancellationTokenSource _componentLifetimeCts = new();
 
     private DateTimeOffset? _lastDataSyncDateTime;
 
     protected override async Task OnInitializedAsync()
     {
         BreadcrumbService.Reset();
-        await LoadLastDataSyncDateTimeAsync();
+        await LoadLastDataSyncDateTimeAsync(_componentLifetimeCts.Token);
+        await LoadRecentEpisodesAsync(_componentLifetimeCts.Token);
     }
 
-    private async Task LoadLastDataSyncDateTimeAsync()
+    private async Task LoadRecentEpisodesAsync(CancellationToken cancellationToken)
     {
-        var result = await ClientService.GetLastDataSyncDateTimeAsync(CancellationToken.None);
+        try
+        {
+            var result = await ClientService.GetRecentEpisodes(cancellationToken);
 
-        await HandleResult(
-            result,
-            onSuccess: dateTime =>
-            {
-                _lastDataSyncDateTime = dateTime;
-                return Task.CompletedTask;
-            },
-            onNoContent: () =>
-            {
-                _lastDataSyncDateTime = null;
-                return Task.CompletedTask;
-            });
+            await HandleResult(
+                result,
+                onSuccess: episodes =>
+                {
+                    _recentEpisodes = episodes;
+                    return Task.CompletedTask;
+                },
+                onNoContent: () =>
+                {
+                    _recentEpisodes = [];
+                    return Task.CompletedTask;
+                });
+        }
+        catch (OperationCanceledException)
+        {
+            // Component was disposed; ignore cancellation.
+        }
+    }
+
+    private async Task LoadLastDataSyncDateTimeAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await ClientService.GetLastDataSyncDateTimeAsync(cancellationToken);
+
+            await HandleResult(
+                result,
+                onSuccess: dateTime =>
+                {
+                    _lastDataSyncDateTime = dateTime;
+                    return Task.CompletedTask;
+                },
+                onNoContent: () =>
+                {
+                    _lastDataSyncDateTime = null;
+                    return Task.CompletedTask;
+                });
+        }
+        catch (OperationCanceledException)
+        {
+            // Component was disposed; ignore cancellation.
+        }
     }
 
     private async Task OnSearchTermChanged(string value)
@@ -393,8 +444,9 @@
 
     public void Dispose()
     {
+        _componentLifetimeCts.Cancel();
+        _componentLifetimeCts.Dispose();
         CancelPendingOperations();
     }
 
 }
-

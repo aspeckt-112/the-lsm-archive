@@ -133,6 +133,14 @@ public interface ILsmArchiveClientService
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets the most recent episodes from the last 7 days.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Result{T}"/> of <see cref="List{T}"/> of <see cref="Episode"/>.</returns>
+    public Task<Result<List<Episode>>> GetRecentEpisodes(
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets the date and time of the last data synchronization.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>

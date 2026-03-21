@@ -67,7 +67,7 @@ public sealed class EpisodeService : IEpisodeService
             personEpisode => new Episode(
                 Id: personEpisode.Episode.Id,
                 Title: personEpisode.Episode.Title,
-                ReleaseDate: DateOnly.FromDateTime(personEpisode.Episode.ReleaseDateUtc.DateTime),
+                ReleaseDate: DateOnly.FromDateTime(personEpisode.Episode.ReleaseDateUtc.UtcDateTime),
                 PatreonPostLink: personEpisode.Episode.PatreonPost.Link,
                 SummaryHtml: personEpisode.Episode.PatreonPost.Summary);
 
@@ -108,7 +108,7 @@ public sealed class EpisodeService : IEpisodeService
             topicEpisode => new Episode(
                 Id: topicEpisode.Episode.Id,
                 Title: topicEpisode.Episode.Title,
-                ReleaseDate: DateOnly.FromDateTime(topicEpisode.Episode.ReleaseDateUtc.DateTime),
+                ReleaseDate: DateOnly.FromDateTime(topicEpisode.Episode.ReleaseDateUtc.UtcDateTime),
                 PatreonPostLink: topicEpisode.Episode.PatreonPost.Link,
                 SummaryHtml: topicEpisode.Episode.PatreonPost.Summary);
 
@@ -116,6 +116,30 @@ public sealed class EpisodeService : IEpisodeService
             .Include(te => te.Episode)
                 .ThenInclude(e => e.PatreonPost)
             .Where(te => te.TopicId == id)
+            .Select(mapToEpisode)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<List<Episode>> GetRecent(
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Getting recent episodes from the last 7 days.");
+
+        DateTimeOffset lastWeek = DateTimeOffset.UtcNow.AddDays(-7);
+
+        Expression<Func<EpisodeEntity, Episode>> mapToEpisode =
+            episode => new Episode(
+                Id: episode.Id,
+                Title: episode.Title,
+                ReleaseDate: DateOnly.FromDateTime(episode.ReleaseDateUtc.UtcDateTime),
+                PatreonPostLink: episode.PatreonPost.Link,
+                SummaryHtml: episode.PatreonPost.Summary);
+
+        return _dbContext.Episodes
+            .Include(e => e.PatreonPost)
+            .Where(e => e.ReleaseDateUtc >= lastWeek)
+            .OrderByDescending(e => e.ReleaseDateUtc)
             .Select(mapToEpisode)
             .ToListAsync(cancellationToken);
     }

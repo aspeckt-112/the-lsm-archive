@@ -36,4 +36,12 @@ public interface IEpisodeService
     public Task<List<Episode>> GetByTopicId(
         int id,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the most recent episodes from the last 7 days.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A list of recent episodes.</returns>
+    public Task<List<Episode>> GetRecent(
+        CancellationToken cancellationToken);
 }
