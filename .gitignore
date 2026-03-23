@@ -433,3 +433,7 @@ FodyWeavers.xsd
 
 # Local development settings (may contain passwords/secrets)
 appsettings.Development.json
+
+# MCP Server Artifacts
+# Folder named "data" created by the MudBlazor MCP server
+data/
