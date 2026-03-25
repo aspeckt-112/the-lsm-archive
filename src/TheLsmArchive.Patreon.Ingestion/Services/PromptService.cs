@@ -9,6 +9,14 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 /// </summary>
 public class PromptService
 {
+    private static readonly Dictionary<string, string> _knownPersonAliases =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            { "Matty", "MrMattyPlays" },
+            { "Mr Matty Plays", "MrMattyPlays" },
+            { "Matthew Gerrity", "MrMattyPlays" } // Matty is sometimes flagged as Matthew Gerrity for some reason. Filter that out.
+        };
+
     /// <summary>
     /// Gets the summary system prompt for the given show name.
     /// </summary>
@@ -23,9 +31,7 @@ public class PromptService
         var sb = new StringBuilder();
 
         // 1. Persona & Goal
-        sb.AppendLine("You are an expert podcast archivist.");
-        sb.AppendLine("Your task is to extract metadata from podcast titles and descriptions.");
-        sb.AppendLine("The podcasts mainly concern video games, gaming culture, and the gaming industry, but may also touch on related topics like movies, TV shows, comics, general pop culture and occasional tangents, world events, personal anecdotes, and politics.");
+        sb.AppendLine("Extract metadata from podcast titles and descriptions.");
         sb.AppendLine("Ignore any timestamps or timecodes (e.g., '0:00:00') in the description.");
 
         // 2. Output Rules
@@ -35,8 +41,7 @@ public class PromptService
         sb.AppendLine("All array values must contain only strings.");
         sb.AppendLine("Extract the names of the hosts into the 'hosts' array.");
         sb.AppendLine("Extract the names of any guests into the 'guests' array. Guests are typically people who are NOT regular hosts of the show but are invited for a specific episode.");
-        sb.AppendLine("Ensure that the host and guest first names and surnames are capitalized and separated (e.g., 'Colin Moriarty' not 'colin' or 'ColinDagan').");
-        sb.AppendLine("Use full names for known people where possible (e.g., 'Colin Moriarty' instead of 'Colin', 'Dagan Moriarty' instead of 'Dagan').");
+        sb.AppendLine("Use full, properly capitalized names for people whenever possible.");
         sb.AppendLine("Do not include duplicate names in arrays.");
         sb.AppendLine("A person must not appear in both 'hosts' and 'guests'.");
 
@@ -49,12 +54,15 @@ public class PromptService
             }
         }
 
-        sb.AppendLine("Extract both specific subjects (e.g., specific game titles like 'Super Mario Bros.') and broader thematic categories (e.g., '80s Nintendo', 'Retro Gaming Culture', 'Industry Trends'). Be insightful and playful but stay relevant to the content.");
+        sb.AppendLine("Alias handling: If a person is referenced by a nickname, abbreviation, handle, or alternate real name, map them to the canonical name below and output only the canonical name.");
+        foreach ((string alias, string canonicalName) in _knownPersonAliases.OrderBy(kvp => kvp.Key))
+        {
+            sb.AppendLine($"- {alias} => {canonicalName}");
+        }
+
+        sb.AppendLine("Extract specific subjects and broader thematic categories that are clearly present in the title or description.");
         sb.AppendLine("Ensure that the topics are capitalized and concise (e.g., 'Game Design', not 'In this episode we talk about game design and development').");
         sb.AppendLine("Prefer common names for topics (e.g., 'Game Pass' instead of 'Xbox Game Pass', 'PlayStation 5' instead of 'PS5') unless the known topic list below provides a canonical alternative.");
-        sb.AppendLine("If you find a company, use the full name (e.g. Electronic Arts, not EA).");
-        sb.AppendLine("If you encounter an ampersand in a topic, replace it with 'and' (e.g. 'Rock and Roll' not 'Rock & Roll').");
-        sb.AppendLine("If you encounter Roman numerals in a topic, convert them to Arabic numerals (e.g. 'Final Fantasy 7' not 'Final Fantasy VII').");
 
         if (knownTopics != null && knownTopics.Any())
         {
@@ -66,7 +74,7 @@ public class PromptService
             }
         }
 
-        sb.AppendLine("Don't shy away from extracting less common or more niche topics if they are clearly mentioned in the title or description. Be comprehensive but avoid overgeneralization.");
+        sb.AppendLine("Be comprehensive but avoid overgeneralization.");
 
         sb.AppendLine("If specific data is missing, return empty arrays.");
         sb.AppendLine("If episode numbering is missing or ambiguous, prioritize explicit names in the title or description. Otherwise apply the show context defaults below.");
