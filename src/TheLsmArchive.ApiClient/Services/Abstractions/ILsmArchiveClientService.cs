@@ -103,6 +103,16 @@ public interface ILsmArchiveClientService
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets the most recent episode for a person by their ID.
+    /// </summary>
+    /// <param name="personId">The person ID.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Result{T}"/> of <see cref="Episode"/>.</returns>
+    public Task<Result<Episode>> GetLatestEpisodeByPersonId(
+        int personId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets an episode by its ID.
     /// </summary>
     /// <param name="episodeId">The episode ID.</param>

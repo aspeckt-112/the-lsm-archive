@@ -12,6 +12,7 @@
 @inject ILsmArchiveClientService ClientService
 @inject NavigationManager NavigationManager
 @inject IBreadcrumbService BreadcrumbService
+@inject IJSRuntime JSRuntime
 
 <MudGrid Spacing="5">
     @if (_person != null && _personDetails != null)
@@ -46,6 +47,48 @@
                 </MudGrid>
             </MudPaper>
         </MudItem>
+
+        @if (_latestEpisode is not null)
+        {
+            <MudItem xs="12">
+                <SectionHeader Icon="@Icons.Material.Filled.NewReleases" Color="Color.Primary" Title="Most Recent Episode" />
+                <MudCard Class="card-hover hover-primary" Elevation="3">
+                    <MudCardHeader>
+                        <CardHeaderAvatar>
+                            <MudAvatar Color="Color.Primary" Variant="Variant.Filled">
+                                <MudIcon Icon="@Icons.Material.Filled.Headphones" />
+                            </MudAvatar>
+                        </CardHeaderAvatar>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6" Class="fw-bold">@_latestEpisode.Title</MudText>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Color="Color.Primary" Size="Size.Small" />
+                                <MudText Typo="Typo.body2">@_latestEpisode.ReleaseDate.ToLongDateString()</MudText>
+                            </MudStack>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudText Class="episode-summary" Typo="Typo.body2">
+                            @((MarkupString)_latestEpisode.SummaryHtml)
+                        </MudText>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.OpenInNew"
+                                   OnClick='@(() => NavigationManager.NavigateTo($"/Episode/{_latestEpisode.Id}"))'>
+                            View Episode
+                        </MudButton>
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.OpenInNew"
+                                   OnClick="@(() => JSRuntime.OpenInNewTab(_latestEpisode.PatreonPostLink))">
+                            View on Patreon
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
 
         <MudItem xs="12">
             <SectionHeader Icon="@Icons.Material.Filled.Tag" Color="Color.Tertiary" Title="Topics" />
@@ -183,6 +226,7 @@
 
     private Person? _person;
     private PersonDetails? _personDetails;
+    private Episode? _latestEpisode;
     private PagedResponse<Topic>? _topicsResponse;
     private PagedResponse<Episode>? _episodesResponse;
     private int _currentTopicPage = 1;
@@ -203,10 +247,11 @@
 
         var getPersonTask = GetPerson(cts.Token);
         var getPersonDetailsTask = GetPersonDetails(cts.Token);
+        var getLatestEpisodeTask = GetLatestEpisode(cts.Token);
         var getPersonTopicsTask = GetPersonTopics(_currentTopicPage, cts.Token);
         var getPersonEpisodesTask = GetPersonEpisodes(_currentEpisodePage, cts.Token);
 
-        await Task.WhenAll(getPersonTask, getPersonDetailsTask, getPersonTopicsTask, getPersonEpisodesTask);
+        await Task.WhenAll(getPersonTask, getPersonDetailsTask, getLatestEpisodeTask, getPersonTopicsTask, getPersonEpisodesTask);
     }
 
     private async Task OnTopicSearchTermChanged(string value)
@@ -308,6 +353,24 @@
             {
                 // TODO Figure out how to handle no content (e.g., show a "not found" message)
                 Logger.LogWarning("No person details found for person ID {Id}.", Id);
+                return Task.CompletedTask;
+            });
+    }
+
+    private async Task GetLatestEpisode(CancellationToken cancellationToken)
+    {
+        var latestEpisodeResult = await ClientService.GetLatestEpisodeByPersonId(Id, cancellationToken);
+
+        await HandleResult(
+            latestEpisodeResult,
+            episode =>
+            {
+                _latestEpisode = episode;
+                return Task.CompletedTask;
+            },
+            () =>
+            {
+                Logger.LogInformation("No latest episode found for person ID {Id}.", Id);
                 return Task.CompletedTask;
             });
     }

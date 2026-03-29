@@ -108,4 +108,71 @@ public class EpisodeServiceTests : BaseServiceIntegrationTest, IClassFixture<Ser
         // Assert
         Assert.Contains(randomEpisodeId, insertedIds);
     }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    public async Task GetMostRecentByPersonId_WithInvalidId_ThrowsArgumentOutOfRangeException(int id)
+    {
+#pragma warning disable IDE0022 // Use expression body for method
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _episodeService.GetMostRecentByPersonId(id, TestContext.Current.CancellationToken));
+#pragma warning restore IDE0022 // Use expression body for method
+    }
+
+    [Fact]
+    public async Task GetMostRecentByPersonId_WithValidIdButNoPerson_ReturnsNull()
+    {
+        // Arrange & Act
+        Episode? episode = await _episodeService.GetMostRecentByPersonId(9999, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Null(episode);
+    }
+
+    [Fact]
+    public async Task GetMostRecentByPersonId_WithMultipleEpisodes_ReturnsMostRecent()
+    {
+        // Arrange
+        ShowEntity show = new() { Name = "Show 1" };
+        await InsertSingleInstanceOfEntityAsync(show);
+
+        PersonEntity person = new() { Name = "Test Person", NormalizedName = "test person" };
+        await InsertSingleInstanceOfEntityAsync(person);
+
+        PatreonPostEntity post1 = new() { PatreonId = 101, Title = "Post 101", Link = "https://patreon.com/101", Summary = "Summary 101", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/101", ShowId = show.Id };
+        PatreonPostEntity post2 = new() { PatreonId = 102, Title = "Post 102", Link = "https://patreon.com/102", Summary = "Summary 102", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/102", ShowId = show.Id };
+
+        EpisodeEntity olderEpisode = new()
+        {
+            Title = "Older Episode",
+            ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-30),
+            PatreonPost = post1,
+            ShowId = show.Id
+        };
+
+        EpisodeEntity newerEpisode = new()
+        {
+            Title = "Newer Episode",
+            ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-1),
+            PatreonPost = post2,
+            ShowId = show.Id
+        };
+
+        await InsertSingleInstanceOfEntityAsync(olderEpisode);
+        await InsertSingleInstanceOfEntityAsync(newerEpisode);
+
+        PersonEpisodeEntity pe1 = new() { PersonId = person.Id, EpisodeId = olderEpisode.Id };
+        PersonEpisodeEntity pe2 = new() { PersonId = person.Id, EpisodeId = newerEpisode.Id };
+
+        await InsertSingleInstanceOfEntityAsync(pe1);
+        await InsertSingleInstanceOfEntityAsync(pe2);
+
+        // Act
+        Episode? result = await _episodeService.GetMostRecentByPersonId(person.Id, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("Newer Episode", result.Title);
+        Assert.Equal(newerEpisode.Id, result.Id);
+    }
 }
