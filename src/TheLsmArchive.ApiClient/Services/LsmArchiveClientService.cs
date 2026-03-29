@@ -106,6 +106,23 @@ public class LsmArchiveClientService : ILsmArchiveClientService
 
     /// <inheritdoc />
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="personId"/> is negative.</exception>
+    public Task<Result<Episode>> GetLatestEpisodeByPersonId(
+        int personId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(personId);
+        _logger.LogInformation("Getting latest episode for person with ID: {PersonId}", personId);
+
+        HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{PersonRoute}/{personId}/episodes/latest");
+
+        return ExecuteRequestAsync<Episode>(
+            requestMessage,
+            hasContent: result => result is not null,
+            cancellationToken
+        );
+    }
+
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="personId"/> is negative.</exception>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="pagedRequest"/> is null.</exception>
     public Task<Result<PagedResponse<Topic>>> GetTopicsByPersonId(
         int personId,

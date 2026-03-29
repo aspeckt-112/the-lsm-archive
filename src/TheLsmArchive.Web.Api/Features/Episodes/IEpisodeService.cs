@@ -46,6 +46,16 @@ public interface IEpisodeService
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets the most recently released episode for a person.
+    /// </summary>
+    /// <param name="id">The person's identifier.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The most recent episode for the person if found; otherwise, null.</returns>
+    public Task<Episode?> GetMostRecentByPersonId(
+        int id,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets a random episode ID.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>

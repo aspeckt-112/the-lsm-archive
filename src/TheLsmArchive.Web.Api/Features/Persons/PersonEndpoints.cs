@@ -48,6 +48,14 @@ internal static class PersonEndpoints
                 .Produces<Ok<PagedResponse<Episode>>>()
                 .Produces<BadRequest>();
 
+            person.MapGet("/{id:int}/episodes/latest", GetLatestEpisodeByPersonId)
+                .WithName(nameof(GetLatestEpisodeByPersonId))
+                .WithSummary("Gets the most recent episode for a specific person.")
+                .WithDescription("Retrieves the most recently released episode that the specified person appeared in.")
+                .Produces<Ok<Episode>>()
+                .Produces<NotFound>()
+                .Produces<BadRequest>();
+
             return app;
         }
     }
@@ -98,5 +106,19 @@ internal static class PersonEndpoints
     {
         PagedResponse<Episode> episodes = await episodeService.GetByPersonId(id, pagedRequest, cancellationToken);
         return TypedResults.Ok(episodes);
+    }
+
+    private static async Task<Results<Ok<Episode>, NotFound>> GetLatestEpisodeByPersonId(
+        [FromRoute] int id,
+        [FromServices] IEpisodeService episodeService,
+        CancellationToken cancellationToken)
+    {
+        Episode? episode = await episodeService.GetMostRecentByPersonId(id, cancellationToken);
+
+        return episode switch
+        {
+            null => TypedResults.NotFound(),
+            _ => TypedResults.Ok(episode)
+        };
     }
 }
