@@ -6,6 +6,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="TheLsmArchive.Patreon.Ingestion.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\TheLsmArchive.Database\TheLsmArchive.Database.csproj" />
     </ItemGroup>
 
