@@ -51,8 +51,9 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 
 app.UseExceptionHandler();
 
-await using (AsyncServiceScope scope = app.Services.CreateAsyncScope())
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
     await using ReadWriteDbContext dbContext = scope.ServiceProvider.GetRequiredService<ReadWriteDbContext>();
     await dbContext.Database.MigrateAsync();
 }
@@ -69,3 +70,5 @@ app
     .AddSystemEndpoints();
 
 await app.RunAsync();
+
+public partial class Program { }

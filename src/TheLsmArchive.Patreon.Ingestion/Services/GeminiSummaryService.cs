@@ -1,7 +1,5 @@
-using System.Net;
 using System.Net.Mime;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 
 using Google.GenAI;
 using Google.GenAI.Types;
@@ -23,7 +21,7 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 /// <summary>
 /// The Gemini AI summary service implementation.
 /// </summary>
-public sealed partial class GeminiSummaryService : IAiSummaryService
+public sealed class GeminiSummaryService : IAiSummaryService
 {
     private const string HostsPropertyName = "hosts";
     private const string GuestsPropertyName = "guests";
@@ -97,7 +95,7 @@ public sealed partial class GeminiSummaryService : IAiSummaryService
             Role = "user",
             Parts =
             [
-                new Part { Text = $"Title: {patreonPost.Title}\nDescription: {StripHtml(patreonPost.Summary)}" }
+                new Part { Text = $"Title: {patreonPost.Title}\nDescription: {HtmlSanitizer.StripHtml(patreonPost.Summary)}" }
             ]
         };
 
@@ -165,29 +163,4 @@ public sealed partial class GeminiSummaryService : IAiSummaryService
             throw;
         }
     }
-
-    private static string StripHtml(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return string.Empty;
-        }
-
-        // Remove HTML tags using regex
-        string stripped = HtmlTagRegex().Replace(input, string.Empty);
-
-        // Decode HTML entities
-        stripped = WebUtility.HtmlDecode(stripped);
-
-        // Normalize whitespace
-        stripped = WhitespaceRegex().Replace(stripped, " ").Trim();
-
-        return stripped;
-    }
-
-    [GeneratedRegex(@"\s+")]
-    private static partial Regex WhitespaceRegex();
-
-    [GeneratedRegex("<.*?>")]
-    private static partial Regex HtmlTagRegex();
 }
