@@ -70,3 +70,5 @@ app
     .AddSystemEndpoints();
 
 await app.RunAsync();
+
+public partial class Program { }

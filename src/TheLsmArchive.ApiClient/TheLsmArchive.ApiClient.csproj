@@ -1,6 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <InternalsVisibleTo Include="TheLsmArchive.ApiClient.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Services/" />
     <Folder Include="Services/Abstractions/" />
   </ItemGroup>

@@ -52,87 +52,7 @@ public sealed class PatreonIngestionService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            _logger.LogInformation(
-                "Starting Patreon ingestion cycle. Next run in {IntervalMinutes} minutes.",
-                _ingestionInterval.TotalMinutes);
-
-            try
-            {
-                await foreach (PatreonFeed feed in _rssParser.ParseFeedsAsync(_sources, stoppingToken))
-                {
-                    try
-                    {
-                        _logger.LogInformation("Processing feed '{FeedTitle}'", feed.Title);
-
-                        ShowEntity showEntity = await GetOrCreateShowAsync(feed.Title, stoppingToken);
-
-                        await IngestPostsAsync(showEntity, feed, stoppingToken);
-
-                        // Get all posts needing processing (new posts + posts with previous errors)
-                        List<PatreonPostEntity> postsToProcess =
-                            await GetPostsNeedingProcessingAsync(showEntity.Id, stoppingToken);
-
-                        // Log retry attempts
-                        int retryCount = postsToProcess.Count(p => p.ProcessingError != null);
-
-                        if (retryCount > 0)
-                        {
-                            _logger.LogInformation(
-                                "Retrying {RetryCount} posts with previous processing errors",
-                                retryCount);
-                        }
-
-                        // Process each post sequentially
-                        int successCount = 0;
-                        int errorCount = 0;
-
-                        foreach (PatreonPostEntity post in postsToProcess)
-                        {
-                            try
-                            {
-                                await ProcessPostAsync(showEntity, post, stoppingToken);
-                                successCount++;
-                            }
-                            catch (Exception postEx)
-                            {
-                                _logger.LogError(postEx, "Failed to process post '{PostTitle}'", post.Title);
-                                errorCount++;
-                            }
-                        }
-
-                        // Only update last synced timestamp if all posts were processed successfully
-                        if (errorCount == 0)
-                        {
-                            await UpdateShowLastSyncedAtAsync(showEntity, stoppingToken);
-                        }
-                        else
-                        {
-                            _logger.LogWarning(
-                                "Skipping LastSyncedAt update for show '{ShowName}' due to {ErrorCount} failed posts",
-                                showEntity.Name,
-                                errorCount);
-                        }
-
-                        _logger.LogInformation(
-                            "Completed processing feed '{FeedTitle}': {SuccessCount} successful, {ErrorCount} failed",
-                            feed.Title,
-                            successCount,
-                            errorCount);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error processing feed '{FeedTitle}'", feed.Title);
-                    }
-                }
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error executing Patreon ingestion cycle");
-            }
+            await ExecuteIngestionCycleAsync(stoppingToken);
 
             try
             {
@@ -143,6 +63,95 @@ public sealed class PatreonIngestionService : BackgroundService
                 // The host is shutting down.
                 break;
             }
+        }
+    }
+
+    /// <summary>
+    /// Executes a single ingestion cycle: parses all configured RSS feeds, ingests new posts,
+    /// and processes them through the AI summary pipeline.
+    /// </summary>
+    internal async Task ExecuteIngestionCycleAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Starting Patreon ingestion cycle. Next run in {IntervalMinutes} minutes.",
+            _ingestionInterval.TotalMinutes);
+
+        try
+        {
+            await foreach (PatreonFeed feed in _rssParser.ParseFeedsAsync(_sources, cancellationToken))
+            {
+                try
+                {
+                    _logger.LogInformation("Processing feed '{FeedTitle}'", feed.Title);
+
+                    ShowEntity showEntity = await GetOrCreateShowAsync(feed.Title, cancellationToken);
+
+                    await IngestPostsAsync(showEntity, feed, cancellationToken);
+
+                    // Get all posts needing processing (new posts + posts with previous errors)
+                    List<PatreonPostEntity> postsToProcess =
+                        await GetPostsNeedingProcessingAsync(showEntity.Id, cancellationToken);
+
+                    // Log retry attempts
+                    int retryCount = postsToProcess.Count(p => p.ProcessingError != null);
+
+                    if (retryCount > 0)
+                    {
+                        _logger.LogInformation(
+                            "Retrying {RetryCount} posts with previous processing errors",
+                            retryCount);
+                    }
+
+                    // Process each post sequentially
+                    int successCount = 0;
+                    int errorCount = 0;
+
+                    foreach (PatreonPostEntity post in postsToProcess)
+                    {
+                        try
+                        {
+                            await ProcessPostAsync(showEntity, post, cancellationToken);
+                            successCount++;
+                        }
+                        catch (Exception postEx)
+                        {
+                            _logger.LogError(postEx, "Failed to process post '{PostTitle}'", post.Title);
+                            errorCount++;
+                        }
+                    }
+
+                    // Only update last synced timestamp if all posts were processed successfully
+                    if (errorCount == 0)
+                    {
+                        await UpdateShowLastSyncedAtAsync(showEntity, cancellationToken);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Skipping LastSyncedAt update for show '{ShowName}' due to {ErrorCount} failed posts",
+                            showEntity.Name,
+                            errorCount);
+                    }
+
+                    _logger.LogInformation(
+                        "Completed processing feed '{FeedTitle}': {SuccessCount} successful, {ErrorCount} failed",
+                        feed.Title,
+                        successCount,
+                        errorCount);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error processing feed '{FeedTitle}'", feed.Title);
+                }
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error executing Patreon ingestion cycle");
         }
     }
 
@@ -208,7 +217,7 @@ public sealed class PatreonIngestionService : BackgroundService
 
                 foreach (string personName in aiSummary.Hosts.Concat(aiSummary.Guests))
                 {
-                    string normalized = NormalizeLookupKey(personName);
+                    string normalized = LookupKeyNormalizer.Normalize(personName);
 
                     if (resolvedPersons.ContainsKey(normalized))
                     {
@@ -225,7 +234,7 @@ public sealed class PatreonIngestionService : BackgroundService
 
                 foreach (string topicName in aiSummary.Topics)
                 {
-                    string normalized = NormalizeLookupKey(topicName);
+                    string normalized = LookupKeyNormalizer.Normalize(topicName);
 
                     if (resolvedTopics.ContainsKey(normalized))
                     {
@@ -432,7 +441,7 @@ public sealed class PatreonIngestionService : BackgroundService
     private async Task<PersonEntity> GetOrCreatePersonAsync(string name, CancellationToken cancellationToken)
     {
         name = name.Trim();
-        string normalizedName = NormalizeLookupKey(name);
+        string normalizedName = LookupKeyNormalizer.Normalize(name);
 
         // 1. Try exact match first using canonical normalized form.
         PersonEntity? personEntity = await _readWriteDbContext.Persons
@@ -475,7 +484,7 @@ public sealed class PatreonIngestionService : BackgroundService
     private async Task<TopicEntity> GetOrCreateTopicAsync(string name, CancellationToken cancellationToken)
     {
         name = name.Trim();
-        string normalizedName = NormalizeLookupKey(name);
+        string normalizedName = LookupKeyNormalizer.Normalize(name);
 
         // 1. Try exact match first using canonical normalized form.
         TopicEntity? topicEntity = await _readWriteDbContext.Topics
@@ -521,25 +530,5 @@ public sealed class PatreonIngestionService : BackgroundService
     {
         showEntity.LastSyncedAt = DateTimeOffset.UtcNow;
         await _readWriteDbContext.SaveChangesAsync(cancellationToken);
-    }
-
-    private static string NormalizeLookupKey(string value)
-    {
-        string trimmed = value.Trim();
-
-        // 1. Decompose characters with accents into base + mark (e.g. 'é' -> 'e' + '´')
-        string normalizedString = trimmed.Normalize(NormalizationForm.FormD);
-
-        // 2. Filter out the non-spacing marks (accents) and keep only alphanumeric chars
-        char[] alphanumericLowered =
-        [
-            .. normalizedString
-                .Where(char.IsLetterOrDigit)
-                .Select(char.ToLowerInvariant)
-        ];
-
-        return alphanumericLowered.Length == 0
-            ? trimmed.ToLowerInvariant()
-            : new string(alphanumericLowered);
     }
 }

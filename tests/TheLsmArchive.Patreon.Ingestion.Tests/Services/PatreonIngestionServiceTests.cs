@@ -91,17 +91,8 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
             ingestionOptions,
             dbContext);
 
-        // Run one cycle then cancel
-        using CancellationTokenSource cts = new();
-
-        Task executeTask = service.StartAsync(cts.Token);
-
-        // Wait until the service has had time to ingest and process
-        // (the service calls Task.Delay after processing; we cancel during that delay)
-        await Task.Delay(TimeSpan.FromSeconds(5));
-
-        await cts.CancelAsync();
-        await service.StopAsync(CancellationToken.None);
+        // Execute a single ingestion cycle directly (no BackgroundService loop/delay)
+        await service.ExecuteIngestionCycleAsync(TestContext.Current.CancellationToken);
     }
 
     private static string BuildRssXml(params (int id, string title, string pubDate, string desc)[] items)
@@ -489,6 +480,121 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
         await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
         int showCount = await verifyContext.Shows.CountAsync();
         Assert.Equal(1, showCount);
+    }
+
+    [Fact]
+    public async Task ReingestionOfSamePost_IsIdempotent()
+    {
+        // Arrange — run ingestion cycle once
+        string rssXml = BuildRssXml(
+            (1100, "Episode 50", "Mon, 12 Feb 2024 10:00:00 GMT", "Same episode"));
+
+        AiSummary aiSummary = new(
+            Hosts: ["Colin Moriarty"],
+            Guests: [],
+            Topics: ["Dark Souls"]);
+
+        await using ReadWriteDbContext dbContext1 = _fixture.CreateReadWriteContext();
+        await RunSingleIngestionCycleAsync(rssXml, aiSummary, dbContext1);
+
+        // Act — run the same ingestion cycle again (simulates re-ingestion)
+        await using ReadWriteDbContext dbContext2 = _fixture.CreateReadWriteContext();
+        await RunSingleIngestionCycleAsync(rssXml, aiSummary, dbContext2);
+
+        // Assert — no duplicates
+        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
+        int postCount = await verifyContext.PatreonPosts.CountAsync();
+        Assert.Equal(1, postCount);
+
+        int episodeCount = await verifyContext.Episodes.CountAsync();
+        Assert.Equal(1, episodeCount);
+
+        int personCount = await verifyContext.Persons.CountAsync();
+        Assert.Equal(1, personCount);
+
+        int topicCount = await verifyContext.Topics.CountAsync();
+        Assert.Equal(1, topicCount);
+    }
+
+    [Fact]
+    public async Task ProcessPost_WithPartialFailure_OnlyFailedPostRemainsUnprocessed()
+    {
+        // Arrange — two posts, AI service fails only on the second
+        string rssXml = BuildRssXml(
+            (1200, "Good Episode", "Mon, 19 Feb 2024 10:00:00 GMT", "This succeeds"),
+            (1201, "Bad Episode", "Tue, 20 Feb 2024 10:00:00 GMT", "This fails"));
+
+        AiSummary goodSummary = new(["Colin Moriarty"], [], ["PS5"]);
+
+        int callCount = 0;
+        Mock<IAiSummaryService> aiServiceMock = new();
+        aiServiceMock
+            .Setup(s => s.GenerateAiSummaryFromPatreonPost(
+                It.IsAny<ShowEntity>(),
+                It.IsAny<PatreonPostEntity>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<IEnumerable<string>?>(),
+                It.IsAny<IEnumerable<string>?>()))
+            .Returns<ShowEntity, PatreonPostEntity, CancellationToken, IEnumerable<string>?, IEnumerable<string>?>(
+                (_, _, _, _, _) =>
+                {
+                    int current = Interlocked.Increment(ref callCount);
+                    if (current == 2)
+                    {
+                        throw new InvalidOperationException("AI exploded on second post");
+                    }
+
+                    return Task.FromResult(goodSummary);
+                });
+
+        await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();
+
+        // Act
+        await RunSingleIngestionCycleAsync(rssXml, goodSummary, dbContext, aiServiceMock.Object);
+
+        // Assert — first post succeeded, second failed
+        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
+
+        List<PatreonPostEntity> posts = await verifyContext.PatreonPosts
+            .OrderBy(p => p.PatreonId)
+            .ToListAsync();
+
+        Assert.Equal(2, posts.Count);
+
+        // First post was processed successfully
+        Assert.NotNull(posts[0].EpisodeId);
+        Assert.Null(posts[0].ProcessingError);
+
+        // Second post failed — no episode, error recorded
+        Assert.Null(posts[1].EpisodeId);
+
+        // LastSyncedAt should NOT be set since there was an error
+        ShowEntity? show = await verifyContext.Shows.FirstOrDefaultAsync();
+        Assert.NotNull(show);
+        Assert.Null(show.LastSyncedAt);
+    }
+
+    [Fact]
+    public async Task ProcessPost_WithAccentedPersonNames_NormalizesDuplicates()
+    {
+        // AI returns same person name with and without accents
+        string rssXml = BuildRssXml(
+            (1300, "Accent Episode", "Wed, 21 Feb 2024 10:00:00 GMT", "Testing accents"));
+
+        AiSummary aiSummary = new(
+            Hosts: ["José García"],
+            Guests: ["Jose Garcia"], // Same person without accents
+            Topics: ["Gaming"]);
+
+        await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();
+
+        // Act
+        await RunSingleIngestionCycleAsync(rssXml, aiSummary, dbContext);
+
+        // Assert — deduplicated to 1 person
+        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
+        int personCount = await verifyContext.Persons.CountAsync();
+        Assert.Equal(1, personCount);
     }
 
     /// <summary>

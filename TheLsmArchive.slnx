@@ -30,5 +30,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/TheLsmArchive.Web.Api.Tests/TheLsmArchive.Web.Api.Tests.csproj" />
     <Project Path="tests/TheLsmArchive.Patreon.Ingestion.Tests/TheLsmArchive.Patreon.Ingestion.Tests.csproj" />
+    <Project Path="tests/TheLsmArchive.ApiClient.Tests/TheLsmArchive.ApiClient.Tests.csproj" />
   </Folder>
 </Solution>
