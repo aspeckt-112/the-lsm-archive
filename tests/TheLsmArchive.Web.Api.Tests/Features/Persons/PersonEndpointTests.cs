@@ -123,6 +123,22 @@ public class PersonEndpointTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    public async Task GetMostDiscussedTopicsByPersonId_ReturnsOk()
+    {
+        // Arrange
+        List<MostDiscussedTopic> expected = [new(1, "Topic A", 3)];
+        _factory.TopicServiceMock
+            .Setup(s => s.GetMostDiscussedByPersonId(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        // Act
+        HttpResponseMessage response = await _client.GetAsync("/person/1/topics/most-discussed");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task GetEpisodesByPersonId_ReturnsOk()
     {
         // Arrange
