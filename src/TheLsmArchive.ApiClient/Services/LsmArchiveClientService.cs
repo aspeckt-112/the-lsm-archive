@@ -209,18 +209,23 @@ public class LsmArchiveClientService : ILsmArchiveClientService
 
     /// <inheritdoc />
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="topicId"/> is negative.</exception>
-    public Task<Result<List<Episode>>> GetEpisodesByTopicId(int topicId, CancellationToken cancellationToken)
+    public Task<Result<PagedResponse<Episode>>> GetEpisodesByTopicId(
+        int topicId,
+        PagedItemRequest pagedRequest,
+        CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(topicId);
+        ArgumentNullException.ThrowIfNull(pagedRequest);
 
         _logger.LogInformation("Getting episodes for topic with ID: {TopicId}", topicId);
 
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor(
-            $"{TopicRoute}/{topicId}/episodes");
+            $"{TopicRoute}/{topicId}/episodes",
+            pagedRequest.ToQueryString());
 
-        return ExecuteRequestAsync<List<Episode>>(
+        return ExecuteRequestAsync<PagedResponse<Episode>>(
             requestMessage,
-            hasContent: result => result is not null && result.Count > 0,
+            hasContent: result => result is not null && result.Items.Count > 0,
             cancellationToken
         );
     }

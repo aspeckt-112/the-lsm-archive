@@ -1,4 +1,3 @@
-using TheLsmArchive.Web.Api.Features.Episodes;
 using TheLsmArchive.Web.Api.Features.Persons;
 
 namespace TheLsmArchive.Web.Api.Features.Topics;
@@ -37,8 +36,8 @@ internal static class TopicEndpoints
             topic.MapGet("/{id:int}/episodes", GetEpisodesByTopicId)
                 .WithName(nameof(GetEpisodesByTopicId))
                 .WithSummary("Gets topic episodes associated with a specific topic.")
-                .WithDescription("Retrieves a list of topic episodes that are associated with the specified topic ID.")
-                .Produces<Ok<List<Episode>>>()
+                .WithDescription("Retrieves a paginated list of topic episodes that are associated with the specified topic ID.")
+                .Produces<Ok<PagedResponse<Episode>>>()
                 .Produces<BadRequest>();
 
             topic.MapGet("/{id:int}/people", GetPeopleByTopicId)
@@ -80,12 +79,13 @@ internal static class TopicEndpoints
         };
     }
 
-    private static async Task<Ok<List<Episode>>> GetEpisodesByTopicId(
+    private static async Task<Ok<PagedResponse<Episode>>> GetEpisodesByTopicId(
         [FromRoute] int id,
-        [FromServices] IEpisodeService episodeService,
+        [AsParameters] PagedItemRequest pagedRequest,
+        [FromServices] ITopicService topicService,
         CancellationToken cancellationToken)
     {
-        List<Episode> episodes = await episodeService.GetByTopicId(id, cancellationToken);
+        PagedResponse<Episode> episodes = await topicService.GetEpisodesByTopicId(id, pagedRequest, cancellationToken);
         return TypedResults.Ok(episodes);
     }
 

@@ -76,10 +76,12 @@ public interface ILsmArchiveClientService
     /// Gets episodes associated with a topic by its ID.
     /// </summary>
     /// <param name="topicId">The topic ID.</param>
+    /// <param name="pagedRequest">The paged request.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The <see cref="Result{T}"/> of <see cref="List{T}"/> of <see cref="Episode"/>.</returns>
-    public Task<Result<List<Episode>>> GetEpisodesByTopicId(
+    /// <returns>The <see cref="Result{T}"/> of <see cref="PagedResponse{T}"/> of <see cref="Episode"/>.</returns>
+    public Task<Result<PagedResponse<Episode>>> GetEpisodesByTopicId(
         int topicId,
+        PagedItemRequest pagedRequest,
         CancellationToken cancellationToken);
 
     /// <summary>

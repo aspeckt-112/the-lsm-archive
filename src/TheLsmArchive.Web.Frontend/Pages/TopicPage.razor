@@ -1,9 +1,12 @@
 @page "/Topic/{Id:int}"
 
 @using TheLsmArchive.ApiClient.Services.Abstractions
+@using TheLsmArchive.Models.Request
 @using TheLsmArchive.Web.Frontend.Pages.Abstractions
 
 @inherits BasePage
+
+@implements IDisposable
 
 @inject ILogger<TopicPage> Logger
 @inject ILsmArchiveClientService ClientService
@@ -44,20 +47,62 @@
             </MudPaper>
         </MudItem>
 
-        @if (_episodes?.Count > 0)
-        {
-            <MudItem xs="12">
-                <SectionHeader Icon="@Icons.Material.Filled.Headphones" Color="Color.Primary" Title="Episodes"/>
+        <MudItem xs="12">
+            <SectionHeader Icon="@Icons.Material.Filled.Headphones" Color="Color.Primary" Title="Episodes"/>
+            <MudTextField
+                T="string"
+                Variant="Variant.Outlined"
+                Placeholder="Search episodes..."
+                Adornment="Adornment.Start"
+                AdornmentIcon="@Icons.Material.Filled.Search"
+                AdornmentColor="Color.Primary"
+                Value="_episodeSearchTerm"
+                ValueChanged="OnEpisodeSearchTermChanged"
+                Immediate="true"
+                FullWidth="true"
+                Clearable="true"
+                Margin="Margin.Dense"
+                Class="mb-4" />
+            @if (_isLoadingEpisodes)
+            {
+                <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+            }
+            @if (_episodesResponse is { Items.Count: > 0 })
+            {
                 <MudGrid Spacing="3">
-                    @foreach (var episode in _episodes)
+                    @foreach (var episode in _episodesResponse.Items)
                     {
                         <MudItem xs="12" sm="6" md="4" lg="3" Class="d-flex">
                             <EpisodeCard Episode="episode"/>
                         </MudItem>
                     }
                 </MudGrid>
-            </MudItem>
-        }
+                @if (_episodesResponse.TotalPages > 1)
+                {
+                    <MudStack Row="true" Justify="Justify.Center" Class="mt-4">
+                        <MudPagination Count="@_episodesResponse.TotalPages"
+                                       Selected="@_currentEpisodePage"
+                                       SelectedChanged="OnEpisodePageChanged"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       BoundaryCount="1"
+                                       MiddleCount="3"
+                                       ShowFirstButton="true"
+                                       ShowLastButton="true" />
+                    </MudStack>
+                }
+            }
+            else if (_episodesResponse is not null)
+            {
+                <MudText Typo="Typo.body2" Class="mt-2" Style="opacity: 0.6;">No episodes found.</MudText>
+            }
+            else
+            {
+                <MudContainer Class="d-flex justify-center py-4">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Small" />
+                </MudContainer>
+            }
+        </MudItem>
 
         @if (_persons?.Count > 0)
         {
@@ -98,6 +143,8 @@
 </MudGrid>
 
 @code {
+    private const int PageSize = 50;
+    private const int SearchDebounceMs = 350;
 
     [Parameter]
     public int Id { get; set; }
@@ -106,9 +153,17 @@
 
     private TopicDetails? _topicDetails;
 
-    private List<Episode>? _episodes;
+    private PagedResponse<Episode>? _episodesResponse;
 
     private List<Person>? _persons;
+
+    private int _currentEpisodePage = 1;
+
+    private string _episodeSearchTerm = string.Empty;
+
+    private bool _isLoadingEpisodes;
+
+    private CancellationTokenSource? _episodeSearchDebounceCts;
 
     /// <inheritdoc />
     protected override async Task OnInitializedAsync()
@@ -119,10 +174,42 @@
 
         var getTopicTask = GetTopic(cts.Token);
         var getTopicDetailsTask = GetTopicDetails(cts.Token);
-        var getEpisodesTask = GetEpisodes(cts.Token);
+        var getEpisodesTask = GetEpisodes(_currentEpisodePage, cts.Token);
         var getPersonsTask = GetPersons(cts.Token);
 
         await Task.WhenAll(getTopicTask, getTopicDetailsTask, getEpisodesTask, getPersonsTask);
+    }
+
+    private async Task OnEpisodeSearchTermChanged(string value)
+    {
+        _episodeSearchTerm = value;
+        _currentEpisodePage = 1;
+        _isLoadingEpisodes = true;
+
+        _episodeSearchDebounceCts?.Cancel();
+        _episodeSearchDebounceCts = new CancellationTokenSource();
+        var token = _episodeSearchDebounceCts.Token;
+
+        try
+        {
+            await Task.Delay(SearchDebounceMs, token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await GetEpisodes(_currentEpisodePage, token);
+        _isLoadingEpisodes = false;
+        StateHasChanged();
+    }
+
+    private async Task OnEpisodePageChanged(int page)
+    {
+        _currentEpisodePage = page;
+        using CancellationTokenSource cts = new();
+        await GetEpisodes(page, cts.Token);
+        StateHasChanged();
     }
 
     private async Task GetTopic(CancellationToken cancellationToken)
@@ -164,21 +251,22 @@
             });
     }
 
-    private async Task GetEpisodes(CancellationToken cancellationToken)
+    private async Task GetEpisodes(int pageNumber, CancellationToken cancellationToken)
     {
-        var episodesResult = await ClientService.GetEpisodesByTopicId(Id, cancellationToken);
+        string? searchTerm = string.IsNullOrWhiteSpace(_episodeSearchTerm) ? null : _episodeSearchTerm;
+        PagedItemRequest pagedRequest = new(pageNumber, PageSize, searchTerm);
+        var episodesResult = await ClientService.GetEpisodesByTopicId(Id, pagedRequest, cancellationToken);
 
         await HandleResult(
             episodesResult,
-            episodes =>
+            episodesResponse =>
             {
-                _episodes = episodes;
+                _episodesResponse = episodesResponse;
                 return Task.CompletedTask;
             },
             () =>
             {
-                // TODO Figure out how to handle no content (e.g., show a "not found" message)
-                Logger.LogWarning("No episodes found for topic ID {Id}.", Id);
+                _episodesResponse = new PagedResponse<Episode>([], 0, pageNumber, PageSize);
                 return Task.CompletedTask;
             });
     }
@@ -200,5 +288,11 @@
                 Logger.LogWarning("No persons found for topic ID {Id}.", Id);
                 return Task.CompletedTask;
             });
+    }
+
+    public void Dispose()
+    {
+        _episodeSearchDebounceCts?.Cancel();
+        _episodeSearchDebounceCts?.Dispose();
     }
 }

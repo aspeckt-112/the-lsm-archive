@@ -234,6 +234,63 @@ public class LsmArchiveClientServiceTests
     }
 
     [Fact]
+    public async Task GetEpisodesByTopicId_WithNegativeId_Throws()
+    {
+        using MockHandler handler = new("{}");
+        LsmArchiveClientService service = CreateService(handler);
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => service.GetEpisodesByTopicId(-1, new PagedItemRequest(), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetEpisodesByTopicId_WithNullRequest_Throws()
+    {
+        using MockHandler handler = new("{}");
+        LsmArchiveClientService service = CreateService(handler);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => service.GetEpisodesByTopicId(1, null!, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetEpisodesByTopicId_WithResults_ReturnsSuccess()
+    {
+        var pagedResponse = new
+        {
+            items = new[] { new { id = 1, title = "Episode A", releaseDate = "2024-01-15", patreonPostLink = "https://patreon.com/1", summaryHtml = "Summary" } },
+            totalCount = 1,
+            pageNumber = 1,
+            pageSize = 50
+        };
+        using MockHandler handler = new(JsonSerializer.Serialize(pagedResponse));
+        LsmArchiveClientService service = CreateService(handler);
+
+        Result<PagedResponse<Episode>> result = await service.GetEpisodesByTopicId(1, new PagedItemRequest(), CancellationToken.None);
+
+        Result<PagedResponse<Episode>>.Success success = Assert.IsType<Result<PagedResponse<Episode>>.Success>(result);
+        Assert.Single(success.Data.Items);
+    }
+
+    [Fact]
+    public async Task GetEpisodesByTopicId_WithEmptyItems_ReturnsNoContent()
+    {
+        var pagedResponse = new
+        {
+            items = Array.Empty<object>(),
+            totalCount = 0,
+            pageNumber = 1,
+            pageSize = 50
+        };
+        using MockHandler handler = new(JsonSerializer.Serialize(pagedResponse));
+        LsmArchiveClientService service = CreateService(handler);
+
+        Result<PagedResponse<Episode>> result = await service.GetEpisodesByTopicId(1, new PagedItemRequest(), CancellationToken.None);
+
+        Assert.IsType<Result<PagedResponse<Episode>>.NoContent>(result);
+    }
+
+    [Fact]
     public async Task ExecuteRequest_SetsCorrectRequestUri()
     {
         string json = JsonSerializer.Serialize(new { id = 5, name = "Test" });
@@ -264,6 +321,27 @@ public class LsmArchiveClientServiceTests
         Assert.Contains("entityType=Episode", uri);
         Assert.Contains("pageNumber=2", uri);
         Assert.Contains("pageSize=10", uri);
+    }
+
+    [Fact]
+    public async Task GetEpisodesByTopicId_SetsCorrectQueryString()
+    {
+        var response = new
+        {
+            items = new[] { new { id = 1, title = "Episode A", releaseDate = "2024-01-15", patreonPostLink = "https://patreon.com/1", summaryHtml = "Summary" } },
+            totalCount = 1,
+            pageNumber = 2,
+            pageSize = 10
+        };
+        using CapturingHandler handler = new(JsonSerializer.Serialize(response));
+        HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.test.com/") };
+        LsmArchiveClientService service = new(_loggerMock.Object, httpClient);
+
+        await service.GetEpisodesByTopicId(7, new PagedItemRequest(2, 10, "gaming"), CancellationToken.None);
+
+        Assert.NotNull(handler.LastRequest);
+        string uri = handler.LastRequest.RequestUri!.ToString();
+        Assert.Equal("https://api.test.com/topic/7/episodes?pageNumber=2&pageSize=10&searchTerm=gaming", uri);
     }
 
     private sealed class MockHandler : HttpMessageHandler
