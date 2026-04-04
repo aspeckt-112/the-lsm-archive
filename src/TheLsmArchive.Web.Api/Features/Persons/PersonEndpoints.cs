@@ -41,6 +41,13 @@ internal static class PersonEndpoints
                 .Produces<Ok<PagedResponse<Topic>>>()
                 .Produces<BadRequest>();
 
+            person.MapGet("/{id:int}/topics/most-discussed", GetMostDiscussedTopicsByPersonId)
+                .WithName(nameof(GetMostDiscussedTopicsByPersonId))
+                .WithSummary("Gets the most discussed topics for a specific person.")
+                .WithDescription("Retrieves the top 25 topics ranked by the number of episodes in which the specified person and topic appear together.")
+                .Produces<Ok<List<MostDiscussedTopic>>>()
+                .Produces<BadRequest>();
+
             person.MapGet("/{id:int}/episodes", GetEpisodesByPersonId)
                 .WithName(nameof(GetEpisodesByPersonId))
                 .WithSummary("Gets episodes associated with a specific person.")
@@ -95,6 +102,15 @@ internal static class PersonEndpoints
         CancellationToken cancellationToken)
     {
         PagedResponse<Topic> topics = await topicService.GetByPersonId(id, pagedRequest, cancellationToken);
+        return TypedResults.Ok(topics);
+    }
+
+    private static async Task<Ok<List<MostDiscussedTopic>>> GetMostDiscussedTopicsByPersonId(
+        [FromRoute] int id,
+        [FromServices] ITopicService topicService,
+        CancellationToken cancellationToken)
+    {
+        List<MostDiscussedTopic> topics = await topicService.GetMostDiscussedByPersonId(id, cancellationToken);
         return TypedResults.Ok(topics);
     }
 

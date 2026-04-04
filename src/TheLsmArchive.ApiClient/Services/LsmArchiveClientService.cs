@@ -89,6 +89,25 @@ public class LsmArchiveClientService : ILsmArchiveClientService
 
     /// <inheritdoc />
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="personId"/> is negative.</exception>
+    public Task<Result<List<MostDiscussedTopic>>> GetMostDiscussedTopicsByPersonId(
+        int personId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(personId);
+
+        _logger.LogInformation("Getting most discussed topics for person with ID: {PersonId}", personId);
+
+        HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{PersonRoute}/{personId}/topics/most-discussed");
+
+        return ExecuteRequestAsync<List<MostDiscussedTopic>>(
+            requestMessage,
+            hasContent: result => result is not null && result.Count > 0,
+            cancellationToken
+        );
+    }
+
+    /// <inheritdoc />
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="personId"/> is negative.</exception>
     public Task<Result<PersonDetails>> GetPersonDetailsById(int personId, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(personId);

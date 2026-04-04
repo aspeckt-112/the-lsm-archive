@@ -439,6 +439,97 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
 
     #endregion
 
+    #region GetMostDiscussedByPersonId
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    public async Task GetMostDiscussedByPersonId_WithInvalidId_ThrowsArgumentOutOfRangeException(int id)
+    {
+#pragma warning disable IDE0022
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            _topicService.GetMostDiscussedByPersonId(id, TestContext.Current.CancellationToken));
+#pragma warning restore IDE0022
+    }
+
+    [Fact]
+    public async Task GetMostDiscussedByPersonId_WithAssociatedTopics_ReturnsRankedTopics()
+    {
+        // Arrange
+        ShowEntity show = new() { Name = "Show 1" };
+        await InsertSingleInstanceOfEntityAsync(show);
+
+        PersonEntity person = new() { Name = "Test Person", NormalizedName = "testperson" };
+        await InsertSingleInstanceOfEntityAsync(person);
+
+        TopicEntity alpha = new() { Name = "Alpha Topic", NormalizedName = "alphatopic" };
+        TopicEntity beta = new() { Name = "Beta Topic", NormalizedName = "betatopic" };
+        TopicEntity gamma = new() { Name = "Gamma Topic", NormalizedName = "gammatopic" };
+        await InsertSingleInstanceOfEntityAsync(alpha);
+        await InsertSingleInstanceOfEntityAsync(beta);
+        await InsertSingleInstanceOfEntityAsync(gamma);
+
+        EpisodeEntity episode1 = await CreateEpisodeAsync(show.Id, 7001, "Episode A");
+        EpisodeEntity episode2 = await CreateEpisodeAsync(show.Id, 7002, "Episode B");
+        EpisodeEntity episode3 = await CreateEpisodeAsync(show.Id, 7003, "Episode C");
+
+        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = person.Id, EpisodeId = episode1.Id });
+        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = person.Id, EpisodeId = episode2.Id });
+        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = person.Id, EpisodeId = episode3.Id });
+
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = alpha.Id, EpisodeId = episode1.Id });
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = alpha.Id, EpisodeId = episode2.Id });
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = beta.Id, EpisodeId = episode1.Id });
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = gamma.Id, EpisodeId = episode3.Id });
+
+        // Act
+        List<MostDiscussedTopic> result = await _topicService.GetMostDiscussedByPersonId(
+            person.Id,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(3, result.Count);
+        Assert.Equal("Alpha Topic", result[0].Name);
+        Assert.Equal(2, result[0].EpisodeCount);
+        Assert.Equal("Beta Topic", result[1].Name);
+        Assert.Equal(1, result[1].EpisodeCount);
+        Assert.Equal("Gamma Topic", result[2].Name);
+        Assert.Equal(1, result[2].EpisodeCount);
+    }
+
+    [Fact]
+    public async Task GetMostDiscussedByPersonId_WithMoreThanTwentyFiveTopics_ReturnsTopTwentyFive()
+    {
+        // Arrange
+        ShowEntity show = new() { Name = "Show 1" };
+        await InsertSingleInstanceOfEntityAsync(show);
+
+        PersonEntity person = new() { Name = "Test Person", NormalizedName = "testperson" };
+        await InsertSingleInstanceOfEntityAsync(person);
+
+        for (int index = 1; index <= 26; index++)
+        {
+            TopicEntity topic = new() { Name = $"Topic {index:D2}", NormalizedName = $"topic{index:D2}" };
+            await InsertSingleInstanceOfEntityAsync(topic);
+
+            EpisodeEntity episode = await CreateEpisodeAsync(show.Id, 7100 + index, $"Episode {index:D2}");
+
+            await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = person.Id, EpisodeId = episode.Id });
+            await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = topic.Id, EpisodeId = episode.Id });
+        }
+
+        // Act
+        List<MostDiscussedTopic> result = await _topicService.GetMostDiscussedByPersonId(
+            person.Id,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(25, result.Count);
+        Assert.DoesNotContain(result, topic => topic.Name == "Topic 26");
+    }
+
+    #endregion
+
     #region GetByPersonId
 
     [Theory]
@@ -564,4 +655,30 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
     }
 
     #endregion
+
+    private async Task<EpisodeEntity> CreateEpisodeAsync(int showId, int patreonId, string title)
+    {
+        PatreonPostEntity post = new()
+        {
+            PatreonId = patreonId,
+            Title = $"Post {patreonId}",
+            Link = $"https://patreon.com/{patreonId}",
+            Summary = $"Summary {patreonId}",
+            Published = DateTimeOffset.UtcNow,
+            AudioUrl = $"https://audio.com/{patreonId}",
+            ShowId = showId
+        };
+
+        EpisodeEntity episode = new()
+        {
+            Title = title,
+            ReleaseDateUtc = DateTimeOffset.UtcNow,
+            PatreonPost = post,
+            ShowId = showId
+        };
+
+        await InsertSingleInstanceOfEntityAsync(episode);
+
+        return episode;
+    }
 }

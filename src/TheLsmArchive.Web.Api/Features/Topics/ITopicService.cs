@@ -48,6 +48,16 @@ public interface ITopicService
          CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets the most discussed topics for a person's identifier.
+    /// </summary>
+    /// <param name="id">The person identifier.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The top discussed topics associated with the person.</returns>
+    public Task<List<MostDiscussedTopic>> GetMostDiscussedByPersonId(
+        int id,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets topics by a person's identifier.
     /// </summary>
     /// <param name="id">The person identifier.</param>

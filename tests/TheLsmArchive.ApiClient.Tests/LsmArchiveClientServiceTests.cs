@@ -214,6 +214,44 @@ public class LsmArchiveClientServiceTests
     }
 
     [Fact]
+    public async Task GetMostDiscussedTopicsByPersonId_WithNegativeId_Throws()
+    {
+        using MockHandler handler = new("{}");
+        LsmArchiveClientService service = CreateService(handler);
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => service.GetMostDiscussedTopicsByPersonId(-1, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetMostDiscussedTopicsByPersonId_WithResults_ReturnsSuccess()
+    {
+        var response = new[]
+        {
+            new { id = 1, name = "Topic A", episodeCount = 3 }
+        };
+        using MockHandler handler = new(JsonSerializer.Serialize(response));
+        LsmArchiveClientService service = CreateService(handler);
+
+        Result<List<MostDiscussedTopic>> result = await service.GetMostDiscussedTopicsByPersonId(1, CancellationToken.None);
+
+        Result<List<MostDiscussedTopic>>.Success success = Assert.IsType<Result<List<MostDiscussedTopic>>.Success>(result);
+        Assert.Single(success.Data);
+        Assert.Equal(3, success.Data[0].EpisodeCount);
+    }
+
+    [Fact]
+    public async Task GetMostDiscussedTopicsByPersonId_WithEmptyItems_ReturnsNoContent()
+    {
+        using MockHandler handler = new(JsonSerializer.Serialize(Array.Empty<object>()));
+        LsmArchiveClientService service = CreateService(handler);
+
+        Result<List<MostDiscussedTopic>> result = await service.GetMostDiscussedTopicsByPersonId(1, CancellationToken.None);
+
+        Assert.IsType<Result<List<MostDiscussedTopic>>.NoContent>(result);
+    }
+
+    [Fact]
     public async Task GetEpisodesByPersonId_WithNegativeId_Throws()
     {
         using MockHandler handler = new("{}");
@@ -342,6 +380,23 @@ public class LsmArchiveClientServiceTests
         Assert.NotNull(handler.LastRequest);
         string uri = handler.LastRequest.RequestUri!.ToString();
         Assert.Equal("https://api.test.com/topic/7/episodes?pageNumber=2&pageSize=10&searchTerm=gaming", uri);
+    }
+
+    [Fact]
+    public async Task GetMostDiscussedTopicsByPersonId_SetsCorrectRequestUri()
+    {
+        var response = new[]
+        {
+            new { id = 1, name = "Topic A", episodeCount = 2 }
+        };
+        using CapturingHandler handler = new(JsonSerializer.Serialize(response));
+        HttpClient httpClient = new(handler) { BaseAddress = new Uri("https://api.test.com/") };
+        LsmArchiveClientService service = new(_loggerMock.Object, httpClient);
+
+        await service.GetMostDiscussedTopicsByPersonId(7, CancellationToken.None);
+
+        Assert.NotNull(handler.LastRequest);
+        Assert.Equal("https://api.test.com/person/7/topics/most-discussed", handler.LastRequest.RequestUri!.ToString());
     }
 
     private sealed class MockHandler : HttpMessageHandler
