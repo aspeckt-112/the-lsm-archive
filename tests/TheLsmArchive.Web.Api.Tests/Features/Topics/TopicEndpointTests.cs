@@ -3,10 +3,8 @@ using System.Net.Http.Json;
 
 using Moq;
 
+using TheLsmArchive.Models.Request;
 using TheLsmArchive.Models.Response;
-using TheLsmArchive.Web.Api.Features.Episodes;
-using TheLsmArchive.Web.Api.Features.Persons;
-using TheLsmArchive.Web.Api.Features.Topics;
 
 namespace TheLsmArchive.Web.Api.Tests.Features.Topics;
 
@@ -109,19 +107,29 @@ public class TopicEndpointTests : IClassFixture<CustomWebApplicationFactory>
     public async Task GetEpisodesByTopicId_ReturnsOk()
     {
         // Arrange
-        List<Episode> expected = [new(1, "Episode A", new DateOnly(2024, 1, 1), "https://patreon.com/1", "Summary")];
-        _factory.EpisodeServiceMock
-            .Setup(s => s.GetByTopicId(1, It.IsAny<CancellationToken>()))
+        PagedResponse<Episode> expected = new(
+            [new(1, "Episode A", new DateOnly(2024, 1, 1), "https://patreon.com/1", "Summary")],
+            1,
+            2,
+            10);
+
+        _factory.TopicServiceMock
+            .Setup(s => s.GetEpisodesByTopicId(
+                1,
+                It.Is<PagedItemRequest>(request => request.PageNumber == 2 && request.PageSize == 10 && request.SearchTerm == "Episode"),
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
         // Act
-        HttpResponseMessage response = await _client.GetAsync("/topic/1/episodes");
+        HttpResponseMessage response = await _client.GetAsync("/topic/1/episodes?pageNumber=2&pageSize=10&searchTerm=Episode");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        List<Episode>? result = await response.Content.ReadFromJsonAsync<List<Episode>>();
+        PagedResponse<Episode>? result = await response.Content.ReadFromJsonAsync<PagedResponse<Episode>>();
         Assert.NotNull(result);
-        Assert.Single(result);
+        Assert.Single(result.Items);
+        Assert.Equal(2, result.PageNumber);
+        Assert.Equal(10, result.PageSize);
     }
 
     [Fact]

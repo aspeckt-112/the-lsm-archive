@@ -105,12 +105,15 @@ public sealed class TopicService : ITopicService
     }
 
     /// <inheritdoc />
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="id"/> is negative.</exception>
-    public Task<List<Episode>> GetEpisodesByTopicId(
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="id"/> is negative or zero.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="pagedRequest"/> is null.</exception>
+    public async Task<PagedResponse<Episode>> GetEpisodesByTopicId(
         int id,
+        PagedItemRequest pagedRequest,
         CancellationToken cancellationToken)
     {
-        ArgumentOutOfRangeException.ThrowIfNegative(id);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
+        ArgumentNullException.ThrowIfNull(pagedRequest);
 
         _logger.LogInformation("Getting episodes for topic with ID: {Id}", id);
 
@@ -122,11 +125,27 @@ public sealed class TopicService : ITopicService
                 PatreonPostLink: topicEpisode.Episode.PatreonPost.Link,
                 SummaryHtml: topicEpisode.Episode.PatreonPost.Summary);
 
-        return _dbContext.TopicEpisodes
+        IQueryable<TopicEpisodeEntity> baseQuery = _dbContext.TopicEpisodes
             .Include(te => te.Episode)
-            .Where(te => te.TopicId == id)
+                .ThenInclude(e => e.PatreonPost)
+            .Where(te => te.TopicId == id);
+
+        if (!string.IsNullOrWhiteSpace(pagedRequest.SearchTerm))
+        {
+            baseQuery = baseQuery.Where(te =>
+                EF.Functions.ILike(te.Episode.Title, $"%{pagedRequest.SearchTerm}%") ||
+                EF.Functions.ILike(te.Episode.PatreonPost.Summary, $"%{pagedRequest.SearchTerm}%"));
+        }
+
+        int totalCount = await baseQuery.CountAsync(cancellationToken);
+
+        List<Episode> items = await baseQuery
+            .OrderBy(te => te.Episode.Title)
+            .WithPaging(pagedRequest)
             .Select(mapToEpisode)
             .ToListAsync(cancellationToken);
+
+        return new PagedResponse<Episode>(items, totalCount, pagedRequest.PageNumber, pagedRequest.PageSize);
     }
 
     /// <inheritdoc />

@@ -26,6 +26,18 @@ public interface ITopicService
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets episodes by a topic's identifier.
+    /// </summary>
+    /// <param name="id">The topic identifier.</param>
+    /// <param name="pagedRequest">The paged request.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A paged response of episodes associated with the topic.</returns>
+    public Task<PagedResponse<Episode>> GetEpisodesByTopicId(
+        int id,
+        PagedItemRequest pagedRequest,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets topics by an episode's identifier.
     /// </summary>
     /// <param name="id">The episode identifier.</param>
