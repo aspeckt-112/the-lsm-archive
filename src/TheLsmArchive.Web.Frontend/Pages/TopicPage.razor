@@ -14,7 +14,7 @@
 @inject IBreadcrumbService BreadcrumbService
 
 <MudGrid Spacing="5">
-    @if (_topic != null && _topicDetails != null)
+    @if (_topic != null && _timeline != null)
     {
         <MudItem xs="12">
             <MudPaper Class="pa-6 page-header header-tertiary" Elevation="4">
@@ -32,14 +32,14 @@
                                      Color="Color.Default"
                                      Variant="Variant.Text"
                                      Class="pa-4">
-                                First Discussed: <strong>@_topicDetails.FirstDiscussed.ToShortDateString()</strong>
+                                First Discussed: <strong>@_timeline.FirstDiscussed.ToShortDateString()</strong>
                             </MudChip>
                             <MudChip T="string"
                                      Icon="@Icons.Material.Filled.Update"
                                      Color="Color.Default"
                                      Variant="Variant.Text"
                                      Class="pa-4">
-                                Last Discussed: <strong>@_topicDetails.LastDiscussed.ToShortDateString()</strong>
+                                Last Discussed: <strong>@_timeline.LastDiscussed.ToShortDateString()</strong>
                             </MudChip>
                         </MudStack>
                     </MudItem>
@@ -47,75 +47,83 @@
             </MudPaper>
         </MudItem>
 
-        <MudItem xs="12">
-            <SectionHeader Icon="@Icons.Material.Filled.Headphones" Color="Color.Primary" Title="Episodes"/>
-            <MudTextField
-                T="string"
-                Variant="Variant.Outlined"
-                Placeholder="Search episodes..."
-                Adornment="Adornment.Start"
-                AdornmentIcon="@Icons.Material.Filled.Search"
-                AdornmentColor="Color.Primary"
-                Value="_episodeSearchTerm"
-                ValueChanged="OnEpisodeSearchTermChanged"
-                Immediate="true"
-                FullWidth="true"
-                Clearable="true"
-                Margin="Margin.Dense"
-                Class="mb-4" />
-            @if (_isLoadingEpisodes)
-            {
-                <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
-            }
-            @if (_episodesResponse is { Items.Count: > 0 })
-            {
-                <MudGrid Spacing="3">
-                    @foreach (var episode in _episodesResponse.Items)
-                    {
-                        <MudItem xs="12" sm="6" md="4" lg="3" Class="d-flex">
-                            <EpisodeCard Episode="episode"/>
-                        </MudItem>
-                    }
-                </MudGrid>
-                @if (_episodesResponse.TotalPages > 1)
-                {
-                    <MudStack Row="true" Justify="Justify.Center" Class="mt-4">
-                        <MudPagination Count="@_episodesResponse.TotalPages"
-                                       Selected="@_currentEpisodePage"
-                                       SelectedChanged="OnEpisodePageChanged"
-                                       Variant="Variant.Outlined"
-                                       Color="Color.Primary"
-                                       BoundaryCount="1"
-                                       MiddleCount="3"
-                                       ShowFirstButton="true"
-                                       ShowLastButton="true" />
-                    </MudStack>
-                }
-            }
-            else if (_episodesResponse is not null)
-            {
-                <MudText Typo="Typo.body2" Class="mt-2" Style="opacity: 0.6;">No episodes found.</MudText>
-            }
-            else
-            {
-                <MudContainer Class="d-flex justify-center py-4">
-                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Small" />
-                </MudContainer>
-            }
-        </MudItem>
-
-        @if (_persons?.Count > 0)
+        @if (_timeline != null)
         {
             <MudItem xs="12">
-                <SectionHeader Icon="@Icons.Material.Filled.People" Color="Color.Secondary" Title="People"/>
-                <MudGrid Spacing="3">
-                    @foreach (var person in _persons)
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+                    <SectionHeader Icon="@Icons.Material.Filled.Timeline" Color="Color.Primary" Title="Timeline"/>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudTextField T="string"
+                                      Variant="Variant.Outlined"
+                                      Placeholder="Search episodes..."
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Search"
+                                      AdornmentColor="Color.Primary"
+                                      Value="_searchTerm"
+                                      ValueChanged="OnSearchTermChanged"
+                                      Immediate="true"
+                                      Clearable="true"
+                                      Margin="Margin.Dense"
+                                      Style="max-width: 300px;"/>
+                        <MudTooltip Text="@(_sortDescending ? "Showing newest first" : "Showing oldest first")">
+                            <MudIconButton Icon="@(_sortDescending ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                                           Color="Color.Primary"
+                                           OnClick="ToggleSort"/>
+                        </MudTooltip>
+                    </MudStack>
+                </MudStack>
+                @if (_timeline.Entries.Items.Count > 0)
+                {
+                    <MudTimeline TimelineOrientation="TimelineOrientation.Vertical" TimelinePosition="TimelinePosition.Start">
+                        @foreach (var entry in _timeline.Entries.Items)
+                        {
+                            <MudTimelineItem Color="Color.Primary" Size="Size.Small" Icon="@Icons.Material.Filled.Headphones">
+                                <ChildContent>
+                                    <MudCard Class="card-hover hover-primary entity-card clickable-card" Elevation="2">
+                                        <MudCardContent @onclick='() => NavigationManager.NavigateTo($"/Episode/{entry.EpisodeId}")'>
+                                            <MudText Typo="Typo.body1" Class="fw-bold">@entry.Title</MudText>
+                                            <MudText Typo="Typo.body2" Color="Color.Primary" Class="mb-2">@entry.ReleaseDate.ToLongDateString()</MudText>
+                                            @if (entry.People.Count > 0)
+                                            {
+                                                <MudStack Row="true" Class="flex-wrap" Spacing="1">
+                                                    @foreach (var person in entry.People)
+                                                    {
+                                                        <MudChip T="string"
+                                                                 Icon="@Icons.Material.Filled.Person"
+                                                                 Color="Color.Secondary"
+                                                                 Variant="Variant.Text"
+                                                                 Size="Size.Small"
+                                                                 OnClick="@(() => NavigationManager.NavigateTo($"/Person/{person.Id}"))">
+                                                            @person.Name
+                                                        </MudChip>
+                                                    }
+                                                </MudStack>
+                                            }
+                                        </MudCardContent>
+                                    </MudCard>
+                                </ChildContent>
+                            </MudTimelineItem>
+                        }
+                    </MudTimeline>
+                    @if (_timeline.Entries.TotalPages > 1)
                     {
-                        <MudItem xs="12" sm="6" md="4" lg="3" Class="d-flex">
-                            <PersonCard Person="person"/>
-                        </MudItem>
+                        <MudStack Row="true" Justify="Justify.Center" Class="mt-4">
+                            <MudPagination Count="@_timeline.Entries.TotalPages"
+                                           Selected="@_currentPage"
+                                           SelectedChanged="OnPageChanged"
+                                           Variant="Variant.Outlined"
+                                           Color="Color.Primary"
+                                           BoundaryCount="1"
+                                           MiddleCount="3"
+                                           ShowFirstButton="true"
+                                           ShowLastButton="true"/>
+                        </MudStack>
                     }
-                </MudGrid>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body1" Color="Color.Default" Class="mt-4">No episodes found.</MudText>
+                }
             </MudItem>
         }
     }
@@ -143,7 +151,7 @@
 </MudGrid>
 
 @code {
-    private const int PageSize = 50;
+    private const int PageSize = 25;
     private const int SearchDebounceMs = 350;
 
     [Parameter]
@@ -151,19 +159,15 @@
 
     private Topic? _topic;
 
-    private TopicDetails? _topicDetails;
+    private TopicTimeline? _timeline;
 
-    private PagedResponse<Episode>? _episodesResponse;
+    private int _currentPage = 1;
 
-    private List<Person>? _persons;
+    private string _searchTerm = string.Empty;
 
-    private int _currentEpisodePage = 1;
+    private bool _sortDescending = true;
 
-    private string _episodeSearchTerm = string.Empty;
-
-    private bool _isLoadingEpisodes;
-
-    private CancellationTokenSource? _episodeSearchDebounceCts;
+    private CancellationTokenSource? _searchDebounceCts;
 
     /// <inheritdoc />
     protected override async Task OnInitializedAsync()
@@ -173,43 +177,9 @@
         using CancellationTokenSource cts = new();
 
         var getTopicTask = GetTopic(cts.Token);
-        var getTopicDetailsTask = GetTopicDetails(cts.Token);
-        var getEpisodesTask = GetEpisodes(_currentEpisodePage, cts.Token);
-        var getPersonsTask = GetPersons(cts.Token);
+        var getTimelineTask = GetTimeline(_currentPage, cts.Token);
 
-        await Task.WhenAll(getTopicTask, getTopicDetailsTask, getEpisodesTask, getPersonsTask);
-    }
-
-    private async Task OnEpisodeSearchTermChanged(string value)
-    {
-        _episodeSearchTerm = value;
-        _currentEpisodePage = 1;
-        _isLoadingEpisodes = true;
-
-        _episodeSearchDebounceCts?.Cancel();
-        _episodeSearchDebounceCts = new CancellationTokenSource();
-        var token = _episodeSearchDebounceCts.Token;
-
-        try
-        {
-            await Task.Delay(SearchDebounceMs, token);
-        }
-        catch (TaskCanceledException)
-        {
-            return;
-        }
-
-        await GetEpisodes(_currentEpisodePage, token);
-        _isLoadingEpisodes = false;
-        StateHasChanged();
-    }
-
-    private async Task OnEpisodePageChanged(int page)
-    {
-        _currentEpisodePage = page;
-        using CancellationTokenSource cts = new();
-        await GetEpisodes(page, cts.Token);
-        StateHasChanged();
+        await Task.WhenAll(getTopicTask, getTimelineTask);
     }
 
     private async Task GetTopic(CancellationToken cancellationToken)
@@ -226,73 +196,73 @@
             },
             () =>
             {
-                // TODO Figure out how to handle no content (e.g., show a "not found" message)
                 Logger.LogWarning("No topic found with ID {Id}.", Id);
                 return Task.CompletedTask;
             });
     }
 
-    private async Task GetTopicDetails(CancellationToken cancellationToken)
+    private async Task GetTimeline(int pageNumber, CancellationToken cancellationToken)
     {
-        var topicDetailsResult = await ClientService.GetTopicDetailsById(Id, cancellationToken);
-
-        await HandleResult(
-            topicDetailsResult,
-            topicDetails =>
-            {
-                _topicDetails = topicDetails;
-                return Task.CompletedTask;
-            },
-            () =>
-            {
-                // TODO Figure out how to handle no content (e.g., show a "not found" message)
-                Logger.LogWarning("No topic details found for topic ID {Id}.", Id);
-                return Task.CompletedTask;
-            });
-    }
-
-    private async Task GetEpisodes(int pageNumber, CancellationToken cancellationToken)
-    {
-        string? searchTerm = string.IsNullOrWhiteSpace(_episodeSearchTerm) ? null : _episodeSearchTerm;
+        string? searchTerm = string.IsNullOrWhiteSpace(_searchTerm) ? null : _searchTerm;
         PagedItemRequest pagedRequest = new(pageNumber, PageSize, searchTerm);
-        var episodesResult = await ClientService.GetEpisodesByTopicId(Id, pagedRequest, cancellationToken);
+        var timelineResult = await ClientService.GetTopicTimelineById(Id, pagedRequest, _sortDescending, cancellationToken);
 
         await HandleResult(
-            episodesResult,
-            episodesResponse =>
+            timelineResult,
+            timeline =>
             {
-                _episodesResponse = episodesResponse;
+                _timeline = timeline;
                 return Task.CompletedTask;
             },
             () =>
             {
-                _episodesResponse = new PagedResponse<Episode>([], 0, pageNumber, PageSize);
+                Logger.LogWarning("No timeline found for topic ID {Id}.", Id);
                 return Task.CompletedTask;
             });
     }
 
-    private async Task GetPersons(CancellationToken cancellationToken)
+    private async Task OnSearchTermChanged(string value)
     {
-        var personsResult = await ClientService.GetPersonsByTopicId(Id, cancellationToken);
+        _searchTerm = value;
+        _currentPage = 1;
 
-        await HandleResult(
-            personsResult,
-            persons =>
-            {
-                _persons = persons;
-                return Task.CompletedTask;
-            },
-            () =>
-            {
-                // TODO Figure out how to handle no content (e.g., show a "not found" message)
-                Logger.LogWarning("No persons found for topic ID {Id}.", Id);
-                return Task.CompletedTask;
-            });
+        _searchDebounceCts?.Cancel();
+        _searchDebounceCts = new CancellationTokenSource();
+        var token = _searchDebounceCts.Token;
+
+        try
+        {
+            await Task.Delay(SearchDebounceMs, token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await GetTimeline(_currentPage, token);
+        StateHasChanged();
+    }
+
+    private async Task OnPageChanged(int page)
+    {
+        _currentPage = page;
+        using CancellationTokenSource cts = new();
+        await GetTimeline(page, cts.Token);
+        StateHasChanged();
+    }
+
+    private async Task ToggleSort()
+    {
+        _sortDescending = !_sortDescending;
+        _currentPage = 1;
+        using CancellationTokenSource cts = new();
+        await GetTimeline(_currentPage, cts.Token);
+        StateHasChanged();
     }
 
     public void Dispose()
     {
-        _episodeSearchDebounceCts?.Cancel();
-        _episodeSearchDebounceCts?.Dispose();
+        _searchDebounceCts?.Cancel();
+        _searchDebounceCts?.Dispose();
     }
 }

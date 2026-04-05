@@ -49,32 +49,80 @@ public sealed class TopicService : ITopicService
 
     /// <inheritdoc />
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="id"/> is negative or zero.</exception>
-    public async Task<TopicDetails?> GetDetailsById(
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="pagedRequest"/> is null.</exception>
+    public async Task<TopicTimeline?> GetTimeline(
         int id,
+        PagedItemRequest pagedRequest,
+        bool sortDescending,
         CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
+        ArgumentNullException.ThrowIfNull(pagedRequest);
 
-        _logger.LogInformation("Getting details for topic with ID: {Id}", id);
+        _logger.LogInformation("Getting timeline for topic with ID: {Id}", id);
 
-        var result = await _dbContext.Topics
-        .Include(t => t.TopicEpisodes)
-        .ThenInclude(te => te.Episode)
-        .Where(t => t.Id == id)
-        .Select(t => new
+        bool topicExists = await _dbContext.Topics
+            .AnyAsync(t => t.Id == id, cancellationToken);
+
+        if (!topicExists)
         {
-            FirstDiscussedUtc = t.TopicEpisodes
-                    .Min(te => te.Episode.ReleaseDateUtc),
-            LastDiscussedUtc = t.TopicEpisodes
-                    .Max(te => te.Episode.ReleaseDateUtc)
-        })
+            return null;
+        }
+
+        var dateRange = await _dbContext.TopicEpisodes
+            .Where(te => te.TopicId == id)
+            .GroupBy(te => te.TopicId)
+            .Select(g => new
+            {
+                First = g.Min(te => te.Episode.ReleaseDateUtc),
+                Last = g.Max(te => te.Episode.ReleaseDateUtc)
+            })
             .FirstOrDefaultAsync(cancellationToken);
 
-        return result is null
-            ? null
-            : new TopicDetails(
-                FirstDiscussed: DateOnly.FromDateTime(result.FirstDiscussedUtc.DateTime),
-                LastDiscussed: DateOnly.FromDateTime(result.LastDiscussedUtc.DateTime));
+        IQueryable<TopicEpisodeEntity> baseQuery = _dbContext.TopicEpisodes
+            .Include(te => te.Episode)
+                .ThenInclude(e => e.PatreonPost)
+            .Include(te => te.Episode)
+                .ThenInclude(e => e.PersonEpisodes)
+                    .ThenInclude(pe => pe.Person)
+            .Where(te => te.TopicId == id);
+
+        if (!string.IsNullOrWhiteSpace(pagedRequest.SearchTerm))
+        {
+            baseQuery = baseQuery.Where(te =>
+                EF.Functions.ILike(te.Episode.Title, $"%{pagedRequest.SearchTerm}%") ||
+                te.Episode.PersonEpisodes.Any(pe => EF.Functions.ILike(pe.Person.Name, $"%{pagedRequest.SearchTerm}%")));
+        }
+
+        int totalCount = await baseQuery.CountAsync(cancellationToken);
+
+        IOrderedQueryable<TopicEpisodeEntity> orderedQuery = sortDescending
+            ? baseQuery.OrderByDescending(te => te.Episode.ReleaseDateUtc)
+            : baseQuery.OrderBy(te => te.Episode.ReleaseDateUtc);
+
+        List<TopicTimelineEntry> items = await orderedQuery
+            .WithPaging(pagedRequest)
+            .Select(te => new TopicTimelineEntry(
+                EpisodeId: te.Episode.Id,
+                Title: te.Episode.Title,
+                ReleaseDate: DateOnly.FromDateTime(te.Episode.ReleaseDateUtc.DateTime),
+                PatreonPostLink: te.Episode.PatreonPost.Link,
+                People: te.Episode.PersonEpisodes
+                    .Select(pe => new Person(pe.Person.Id, pe.Person.Name))
+                    .ToList()))
+            .ToListAsync(cancellationToken);
+
+        DateOnly firstDiscussed = dateRange is not null
+            ? DateOnly.FromDateTime(dateRange.First.DateTime)
+            : default;
+        DateOnly lastDiscussed = dateRange is not null
+            ? DateOnly.FromDateTime(dateRange.Last.DateTime)
+            : default;
+
+        return new TopicTimeline(
+            firstDiscussed,
+            lastDiscussed,
+            new PagedResponse<TopicTimelineEntry>(items, totalCount, pagedRequest.PageNumber, pagedRequest.PageSize));
     }
 
     /// <summary>
@@ -136,50 +184,6 @@ public sealed class TopicService : ITopicService
                 group.Key.Name,
                 group.Count()))
             .ToListAsync(cancellationToken);
-    }
-
-    /// <inheritdoc />
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="id"/> is negative or zero.</exception>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="pagedRequest"/> is null.</exception>
-    public async Task<PagedResponse<Episode>> GetEpisodesByTopicId(
-        int id,
-        PagedItemRequest pagedRequest,
-        CancellationToken cancellationToken)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
-        ArgumentNullException.ThrowIfNull(pagedRequest);
-
-        _logger.LogInformation("Getting episodes for topic with ID: {Id}", id);
-
-        Expression<Func<TopicEpisodeEntity, Episode>> mapToEpisode =
-            topicEpisode => new Episode(
-                Id: topicEpisode.Episode.Id,
-                Title: topicEpisode.Episode.Title,
-                ReleaseDate: DateOnly.FromDateTime(topicEpisode.Episode.ReleaseDateUtc.DateTime),
-                PatreonPostLink: topicEpisode.Episode.PatreonPost.Link,
-                SummaryHtml: topicEpisode.Episode.PatreonPost.Summary);
-
-        IQueryable<TopicEpisodeEntity> baseQuery = _dbContext.TopicEpisodes
-            .Include(te => te.Episode)
-                .ThenInclude(e => e.PatreonPost)
-            .Where(te => te.TopicId == id);
-
-        if (!string.IsNullOrWhiteSpace(pagedRequest.SearchTerm))
-        {
-            baseQuery = baseQuery.Where(te =>
-                EF.Functions.ILike(te.Episode.Title, $"%{pagedRequest.SearchTerm}%") ||
-                EF.Functions.ILike(te.Episode.PatreonPost.Summary, $"%{pagedRequest.SearchTerm}%"));
-        }
-
-        int totalCount = await baseQuery.CountAsync(cancellationToken);
-
-        List<Episode> items = await baseQuery
-            .OrderBy(te => te.Episode.Title)
-            .WithPaging(pagedRequest)
-            .Select(mapToEpisode)
-            .ToListAsync(cancellationToken);
-
-        return new PagedResponse<Episode>(items, totalCount, pagedRequest.PageNumber, pagedRequest.PageSize);
     }
 
     /// <inheritdoc />

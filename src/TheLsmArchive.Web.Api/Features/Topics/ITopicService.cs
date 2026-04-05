@@ -16,25 +16,17 @@ public interface ITopicService
          CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets detailed information about a topic by its identifier.
+    /// Gets the timeline for a topic by its identifier.
     /// </summary>
     /// <param name="id">The topic identifier.</param>
+    /// <param name="pagedRequest">The paged request parameters.</param>
+    /// <param name="sortDescending">Whether to sort by release date descending (newest first).</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The topic details if found; otherwise, null.</returns>
-    public Task<TopicDetails?> GetDetailsById(
-        int id,
-        CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Gets episodes by a topic's identifier.
-    /// </summary>
-    /// <param name="id">The topic identifier.</param>
-    /// <param name="pagedRequest">The paged request.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A paged response of episodes associated with the topic.</returns>
-    public Task<PagedResponse<Episode>> GetEpisodesByTopicId(
+    /// <returns>The topic timeline if found; otherwise, null.</returns>
+    public Task<TopicTimeline?> GetTimeline(
         int id,
         PagedItemRequest pagedRequest,
+        bool sortDescending,
         CancellationToken cancellationToken);
 
     /// <summary>

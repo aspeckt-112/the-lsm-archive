@@ -73,35 +73,17 @@ public interface ILsmArchiveClientService
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets detailed information about a topic by its ID.
+    /// Gets the timeline for a topic by its ID.
     /// </summary>
     /// <param name="topicId">The topic ID.</param>
+    /// <param name="pagedRequest">The paged request parameters.</param>
+    /// <param name="sortDescending">Whether to sort by release date descending (newest first).</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A <see cref="Result{T}"/> of <see cref="TopicDetails"/>.</returns>
-    public Task<Result<TopicDetails>> GetTopicDetailsById(
-        int topicId,
-        CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Gets episodes associated with a topic by its ID.
-    /// </summary>
-    /// <param name="topicId">The topic ID.</param>
-    /// <param name="pagedRequest">The paged request.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The <see cref="Result{T}"/> of <see cref="PagedResponse{T}"/> of <see cref="Episode"/>.</returns>
-    public Task<Result<PagedResponse<Episode>>> GetEpisodesByTopicId(
+    /// <returns>A <see cref="Result{T}"/> of <see cref="TopicTimeline"/>.</returns>
+    public Task<Result<TopicTimeline>> GetTopicTimelineById(
         int topicId,
         PagedItemRequest pagedRequest,
-        CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Gets people associated with a topic by its ID.
-    /// </summary>
-    /// <param name="topicId">The topic ID.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The <see cref="Result{T}"/> of <see cref="List{T}"/> of <see cref="Person"/>.</returns>
-    public Task<Result<List<Person>>> GetPersonsByTopicId(
-        int topicId,
+        bool sortDescending,
         CancellationToken cancellationToken);
 
     /// <summary>

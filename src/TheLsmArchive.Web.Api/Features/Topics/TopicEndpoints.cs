@@ -1,5 +1,3 @@
-using TheLsmArchive.Web.Api.Features.Persons;
-
 namespace TheLsmArchive.Web.Api.Features.Topics;
 
 /// <summary>
@@ -25,44 +23,16 @@ internal static class TopicEndpoints
                 .Produces<NotFound>()
                 .Produces<BadRequest>();
 
-            topic.MapGet("/{id:int}/details", GetTopicDetailsById)
-                .WithName(nameof(GetTopicDetailsById))
-                .WithSummary("Gets detailed information about a specific topic.")
-                .WithDescription("Retrieves detailed information about a topic, including the dates it was first and last discussed.")
-                .Produces<Ok<TopicDetails>>()
+            topic.MapGet("/{id:int}/timeline", GetTopicTimeline)
+                .WithName(nameof(GetTopicTimeline))
+                .WithSummary("Gets the timeline of a topic.")
+                .WithDescription("Retrieves the chronological timeline of episodes where the topic was discussed, including people who appeared in each episode.")
+                .Produces<Ok<TopicTimeline>>()
                 .Produces<NotFound>()
-                .Produces<BadRequest>();
-
-            topic.MapGet("/{id:int}/episodes", GetEpisodesByTopicId)
-                .WithName(nameof(GetEpisodesByTopicId))
-                .WithSummary("Gets topic episodes associated with a specific topic.")
-                .WithDescription("Retrieves a paginated list of topic episodes that are associated with the specified topic ID.")
-                .Produces<Ok<PagedResponse<Episode>>>()
-                .Produces<BadRequest>();
-
-            topic.MapGet("/{id:int}/people", GetPeopleByTopicId)
-                .WithName(nameof(GetPeopleByTopicId))
-                .WithSummary("Gets people associated with a specific topic.")
-                .WithDescription("Retrieves a list of people that are associated with the specified topic ID.")
-                .Produces<Ok<List<Person>>>()
                 .Produces<BadRequest>();
 
             return app;
         }
-    }
-
-    private static async Task<Results<Ok<TopicDetails>, NotFound>> GetTopicDetailsById(
-        [FromRoute] int id,
-        [FromServices] ITopicService topicService,
-        CancellationToken cancellationToken)
-    {
-        TopicDetails? details = await topicService.GetDetailsById(id, cancellationToken);
-
-        return details switch
-        {
-            null => TypedResults.NotFound(),
-            _ => TypedResults.Ok(details)
-        };
     }
 
     private static async Task<Results<Ok<Topic>, NotFound>> GetTopicById(
@@ -79,22 +49,19 @@ internal static class TopicEndpoints
         };
     }
 
-    private static async Task<Ok<PagedResponse<Episode>>> GetEpisodesByTopicId(
+    private static async Task<Results<Ok<TopicTimeline>, NotFound>> GetTopicTimeline(
         [FromRoute] int id,
         [AsParameters] PagedItemRequest pagedRequest,
-        [FromServices] ITopicService topicService,
-        CancellationToken cancellationToken)
+        [FromQuery] bool sortDescending = true,
+        [FromServices] ITopicService topicService = default!,
+        CancellationToken cancellationToken = default)
     {
-        PagedResponse<Episode> episodes = await topicService.GetEpisodesByTopicId(id, pagedRequest, cancellationToken);
-        return TypedResults.Ok(episodes);
-    }
+        TopicTimeline? timeline = await topicService.GetTimeline(id, pagedRequest, sortDescending, cancellationToken);
 
-    private static async Task<Ok<List<Person>>> GetPeopleByTopicId(
-        [FromRoute] int id,
-        [FromServices] IPersonService personService,
-        CancellationToken cancellationToken)
-    {
-        List<Person> people = await personService.GetByTopicId(id, cancellationToken);
-        return TypedResults.Ok(people);
+        return timeline switch
+        {
+            null => TypedResults.NotFound(),
+            _ => TypedResults.Ok(timeline)
+        };
     }
 }
