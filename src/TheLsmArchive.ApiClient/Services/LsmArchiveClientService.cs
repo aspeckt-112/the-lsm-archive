@@ -209,60 +209,26 @@ public class LsmArchiveClientService : ILsmArchiveClientService
 
     /// <inheritdoc />
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="topicId"/> is negative.</exception>
-    public Task<Result<TopicDetails>> GetTopicDetailsById(
-        int topicId,
-        CancellationToken cancellationToken)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegative(topicId);
-
-        _logger.LogInformation("Getting details for topic with ID: {TopicId}", topicId);
-
-        HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{TopicRoute}/{topicId}/details");
-
-        return ExecuteRequestAsync<TopicDetails>(
-            requestMessage,
-            hasContent: result => result is not null,
-            cancellationToken
-        );
-    }
-
-    /// <inheritdoc />
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="topicId"/> is negative.</exception>
-    public Task<Result<PagedResponse<Episode>>> GetEpisodesByTopicId(
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="pagedRequest"/> is null.</exception>
+    public Task<Result<TopicTimeline>> GetTopicTimelineById(
         int topicId,
         PagedItemRequest pagedRequest,
+        bool sortDescending,
         CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(topicId);
         ArgumentNullException.ThrowIfNull(pagedRequest);
 
-        _logger.LogInformation("Getting episodes for topic with ID: {TopicId}", topicId);
+        _logger.LogInformation("Getting timeline for topic with ID: {TopicId}", topicId);
 
+        string queryString = $"{pagedRequest.ToQueryString()}&sortDescending={sortDescending}";
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor(
-            $"{TopicRoute}/{topicId}/episodes",
-            pagedRequest.ToQueryString());
+            $"{TopicRoute}/{topicId}/timeline",
+            queryString);
 
-        return ExecuteRequestAsync<PagedResponse<Episode>>(
+        return ExecuteRequestAsync<TopicTimeline>(
             requestMessage,
-            hasContent: result => result is not null && result.Items.Count > 0,
-            cancellationToken
-        );
-    }
-
-    /// <inheritdoc />
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="topicId"/> is negative.</exception>
-    public Task<Result<List<Person>>> GetPersonsByTopicId(int topicId, CancellationToken cancellationToken)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegative(topicId);
-
-        _logger.LogInformation("Getting people for topic with ID: {TopicId}", topicId);
-
-        HttpRequestMessage requestMessage = BuildGetRequestMessageFor(
-            $"{TopicRoute}/{topicId}/people");
-
-        return ExecuteRequestAsync<List<Person>>(
-            requestMessage,
-            hasContent: result => result is not null && result.Count > 0,
+            hasContent: result => result is not null,
             cancellationToken
         );
     }

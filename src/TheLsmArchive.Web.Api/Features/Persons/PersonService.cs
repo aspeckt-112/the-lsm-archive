@@ -95,26 +95,4 @@ public sealed class PersonService : IPersonService
             .Select(mapToPerson)
             .ToListAsync(cancellationToken);
     }
-
-    /// <inheritdoc />
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="id"/> is negative or zero.</exception>
-    public Task<List<Person>> GetByTopicId(
-        int id,
-        CancellationToken cancellationToken)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
-
-        _logger.LogInformation("Getting people for topic with ID: {Id}", id);
-
-        Expression<Func<PersonTopicEntity, Person>> mapToPerson =
-            mapToPerson => new Person(
-                Id: mapToPerson.Person.Id,
-                Name: mapToPerson.Person.Name);
-
-        return _dbContext.PersonTopics
-            .Include(pt => pt.Person)
-            .Where(pt => pt.TopicId == id)
-            .Select(mapToPerson)
-            .ToListAsync(cancellationToken);
-    }
 }

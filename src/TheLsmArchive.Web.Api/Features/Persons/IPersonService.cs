@@ -34,14 +34,4 @@ public interface IPersonService
     public Task<List<Person>> GetByEpisodeId(
         int id,
          CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Gets persons by a topic's identifier.
-    /// </summary>
-    /// <param name="id">The topic identifier.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The list of persons associated with the topic.</returns>
-    public Task<List<Person>> GetByTopicId(
-        int id,
-        CancellationToken cancellationToken);
 }

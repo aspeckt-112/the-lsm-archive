@@ -28,16 +28,6 @@ public interface IEpisodeService
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets episodes by a topic's identifier.
-    /// </summary>
-    /// <param name="id">The topic's identifier.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The list of episodes associated with the topic.</returns>
-    public Task<List<Episode>> GetByTopicId(
-        int id,
-        CancellationToken cancellationToken);
-
-    /// <summary>
     /// Gets the most recent episodes from the last 7 days.
     /// </summary>
     /// <param name="cancellationToken">The cancellation token.</param>

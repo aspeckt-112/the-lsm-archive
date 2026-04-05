@@ -5,6 +5,7 @@ using Moq;
 
 using TheLsmArchive.Models.Request;
 using TheLsmArchive.Models.Response;
+using TheLsmArchive.Web.Api.Features.Topics;
 
 namespace TheLsmArchive.Web.Api.Tests.Features.Topics;
 
@@ -70,84 +71,42 @@ public class TopicEndpointTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
-    public async Task GetTopicDetailsById_WithExistingTopic_ReturnsOk()
+    public async Task GetTopicTimeline_WithExistingTopic_ReturnsOk()
     {
         // Arrange
-        TopicDetails expected = new(new DateOnly(2024, 2, 1), new DateOnly(2024, 8, 1));
+        TopicTimeline expected = new(
+            new DateOnly(2024, 1, 1),
+            new DateOnly(2024, 6, 1),
+            new PagedResponse<TopicTimelineEntry>(
+                [new TopicTimelineEntry(1, "Episode A", new DateOnly(2024, 1, 1), "https://patreon.com/1", [new Person(1, "Person A")])],
+                1, 1, 50));
         _factory.TopicServiceMock
-            .Setup(s => s.GetDetailsById(1, It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetTimeline(1, It.IsAny<PagedItemRequest>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
         // Act
-        HttpResponseMessage response = await _client.GetAsync("/topic/1/details");
+        HttpResponseMessage response = await _client.GetAsync("/topic/1/timeline");
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        TopicDetails? result = await response.Content.ReadFromJsonAsync<TopicDetails>();
+        TopicTimeline? result = await response.Content.ReadFromJsonAsync<TopicTimeline>();
         Assert.NotNull(result);
-        Assert.Equal(new DateOnly(2024, 2, 1), result.FirstDiscussed);
+        Assert.Single(result.Entries.Items);
+        Assert.Equal(new DateOnly(2024, 1, 1), result.FirstDiscussed);
     }
 
     [Fact]
-    public async Task GetTopicDetailsById_WithNonExistentTopic_ReturnsNotFound()
+    public async Task GetTopicTimeline_WithNonExistentTopic_ReturnsNotFound()
     {
         // Arrange
         _factory.TopicServiceMock
-            .Setup(s => s.GetDetailsById(9999, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((TopicDetails?)null);
+            .Setup(s => s.GetTimeline(9999, It.IsAny<PagedItemRequest>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((TopicTimeline?)null);
 
         // Act
-        HttpResponseMessage response = await _client.GetAsync("/topic/9999/details");
+        HttpResponseMessage response = await _client.GetAsync("/topic/9999/timeline");
 
         // Assert
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task GetEpisodesByTopicId_ReturnsOk()
-    {
-        // Arrange
-        PagedResponse<Episode> expected = new(
-            [new(1, "Episode A", new DateOnly(2024, 1, 1), "https://patreon.com/1", "Summary")],
-            1,
-            2,
-            10);
-
-        _factory.TopicServiceMock
-            .Setup(s => s.GetEpisodesByTopicId(
-                1,
-                It.Is<PagedItemRequest>(request => request.PageNumber == 2 && request.PageSize == 10 && request.SearchTerm == "Episode"),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expected);
-
-        // Act
-        HttpResponseMessage response = await _client.GetAsync("/topic/1/episodes?pageNumber=2&pageSize=10&searchTerm=Episode");
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        PagedResponse<Episode>? result = await response.Content.ReadFromJsonAsync<PagedResponse<Episode>>();
-        Assert.NotNull(result);
-        Assert.Single(result.Items);
-        Assert.Equal(2, result.PageNumber);
-        Assert.Equal(10, result.PageSize);
-    }
-
-    [Fact]
-    public async Task GetPeopleByTopicId_ReturnsOk()
-    {
-        // Arrange
-        List<Person> expected = [new(1, "Person A"), new(2, "Person B")];
-        _factory.PersonServiceMock
-            .Setup(s => s.GetByTopicId(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expected);
-
-        // Act
-        HttpResponseMessage response = await _client.GetAsync("/topic/1/people");
-
-        // Assert
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        List<Person>? result = await response.Content.ReadFromJsonAsync<List<Person>>();
-        Assert.NotNull(result);
-        Assert.Equal(2, result.Count);
     }
 }

@@ -65,31 +65,31 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
 
     #endregion
 
-    #region GetDetailsById
+    #region GetTimeline
 
     [Theory]
     [InlineData(-1)]
     [InlineData(0)]
-    public async Task GetDetailsById_WithInvalidId_ThrowsArgumentOutOfRangeException(int id)
+    public async Task GetTimeline_WithInvalidId_ThrowsArgumentOutOfRangeException(int id)
     {
 #pragma warning disable IDE0022
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            _topicService.GetDetailsById(id, TestContext.Current.CancellationToken));
+            _topicService.GetTimeline(id, new PagedItemRequest(), true, TestContext.Current.CancellationToken));
 #pragma warning restore IDE0022
     }
 
     [Fact]
-    public async Task GetDetailsById_WithNonExistentTopic_ReturnsNull()
+    public async Task GetTimeline_WithNonExistentTopic_ReturnsNull()
     {
         // Arrange & Act
-        TopicDetails? details = await _topicService.GetDetailsById(9999, TestContext.Current.CancellationToken);
+        TopicTimeline? timeline = await _topicService.GetTimeline(9999, new PagedItemRequest(), true, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Null(details);
+        Assert.Null(timeline);
     }
 
     [Fact]
-    public async Task GetDetailsById_WithExistingTopic_ReturnsFirstAndLastDiscussed()
+    public async Task GetTimeline_WithExistingTopic_ReturnsEntriesOrderedByDate()
     {
         // Arrange
         ShowEntity show = new() { Name = "Show 1" };
@@ -97,6 +97,9 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
 
         TopicEntity topic = new() { Name = "Test Topic", NormalizedName = "testtopic" };
         await InsertSingleInstanceOfEntityAsync(topic);
+
+        PersonEntity person = new() { Name = "Test Person", NormalizedName = "testperson" };
+        await InsertSingleInstanceOfEntityAsync(person);
 
         PatreonPostEntity post1 = new()
         {
@@ -111,16 +114,16 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
 
         EpisodeEntity ep1 = new()
         {
-            Title = "First Episode",
-            ReleaseDateUtc = new DateTimeOffset(2024, 2, 10, 0, 0, 0, TimeSpan.Zero),
+            Title = "Later Episode",
+            ReleaseDateUtc = new DateTimeOffset(2024, 8, 25, 0, 0, 0, TimeSpan.Zero),
             PatreonPost = post1,
             ShowId = show.Id
         };
 
         EpisodeEntity ep2 = new()
         {
-            Title = "Latest Episode",
-            ReleaseDateUtc = new DateTimeOffset(2024, 8, 25, 0, 0, 0, TimeSpan.Zero),
+            Title = "Earlier Episode",
+            ReleaseDateUtc = new DateTimeOffset(2024, 2, 10, 0, 0, 0, TimeSpan.Zero),
             PatreonPost = post2,
             ShowId = show.Id
         };
@@ -133,13 +136,23 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
         await InsertSingleInstanceOfEntityAsync(te1);
         await InsertSingleInstanceOfEntityAsync(te2);
 
+        PersonEpisodeEntity pe1 = new() { PersonId = person.Id, EpisodeId = ep1.Id };
+        await InsertSingleInstanceOfEntityAsync(pe1);
+
         // Act
-        TopicDetails? details = await _topicService.GetDetailsById(topic.Id, TestContext.Current.CancellationToken);
+        TopicTimeline? timeline = await _topicService.GetTimeline(topic.Id, new PagedItemRequest(), true, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.NotNull(details);
-        Assert.Equal(new DateOnly(2024, 2, 10), details.FirstDiscussed);
-        Assert.Equal(new DateOnly(2024, 8, 25), details.LastDiscussed);
+        Assert.NotNull(timeline);
+        Assert.Equal(new DateOnly(2024, 2, 10), timeline.FirstDiscussed);
+        Assert.Equal(new DateOnly(2024, 8, 25), timeline.LastDiscussed);
+        Assert.Equal(2, timeline.Entries.Items.Count);
+        Assert.Equal(2, timeline.Entries.TotalCount);
+        Assert.Equal("Later Episode", timeline.Entries.Items[0].Title);
+        Assert.Equal("Earlier Episode", timeline.Entries.Items[1].Title);
+        Assert.Empty(timeline.Entries.Items[1].People);
+        Assert.Single(timeline.Entries.Items[0].People);
+        Assert.Equal("Test Person", timeline.Entries.Items[0].People[0].Name);
     }
 
     #endregion

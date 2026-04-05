@@ -99,6 +99,56 @@ public class LsmArchiveClientServiceTests
     }
 
     [Fact]
+    public async Task GetTopicTimelineById_WithNegativeId_Throws()
+    {
+        using MockHandler handler = new("{}");
+        LsmArchiveClientService service = CreateService(handler);
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => service.GetTopicTimelineById(-1, new PagedItemRequest(), true, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetTopicTimelineById_WithNullRequest_Throws()
+    {
+        using MockHandler handler = new("{}");
+        LsmArchiveClientService service = CreateService(handler);
+
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            () => service.GetTopicTimelineById(1, null!, true, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetTopicTimelineById_WithValidResponse_ReturnsSuccess()
+    {
+        var timeline = new
+        {
+            firstDiscussed = "2024-01-01",
+            lastDiscussed = "2024-06-01",
+            entries = new
+            {
+                items = new[]
+                {
+                    new { episodeId = 1, title = "Episode A", releaseDate = "2024-01-01", patreonPostLink = "https://patreon.com/1", people = new[] { new { id = 1, name = "Person A" } } }
+                },
+                totalCount = 1,
+                pageNumber = 1,
+                pageSize = 25
+            }
+        };
+        string json = JsonSerializer.Serialize(timeline);
+        using MockHandler handler = new(json);
+        LsmArchiveClientService service = CreateService(handler);
+
+        Result<TopicTimeline> result = await service.GetTopicTimelineById(1, new PagedItemRequest(), true, CancellationToken.None);
+
+        Result<TopicTimeline>.Success success = Assert.IsType<Result<TopicTimeline>.Success>(result);
+        Assert.Single(success.Data.Entries.Items);
+        Assert.Equal("Episode A", success.Data.Entries.Items[0].Title);
+        Assert.Single(success.Data.Entries.Items[0].People);
+    }
+
+    [Fact]
     public async Task Search_WithResults_ReturnsSuccess()
     {
         var pagedResponse = new

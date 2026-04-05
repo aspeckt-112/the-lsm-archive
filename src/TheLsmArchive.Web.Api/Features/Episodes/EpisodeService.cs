@@ -96,32 +96,6 @@ public sealed class EpisodeService : IEpisodeService
 
     /// <inheritdoc />
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="id"/> is negative or zero.</exception>
-    public Task<List<Episode>> GetByTopicId(
-        int id,
-        CancellationToken cancellationToken)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
-
-        _logger.LogInformation("Getting episodes for topic with ID: {Id}", id);
-
-        Expression<Func<TopicEpisodeEntity, Episode>> mapToEpisode =
-            topicEpisode => new Episode(
-                Id: topicEpisode.Episode.Id,
-                Title: topicEpisode.Episode.Title,
-                ReleaseDate: DateOnly.FromDateTime(topicEpisode.Episode.ReleaseDateUtc.UtcDateTime),
-                PatreonPostLink: topicEpisode.Episode.PatreonPost.Link,
-                SummaryHtml: topicEpisode.Episode.PatreonPost.Summary);
-
-        return _dbContext.TopicEpisodes
-            .Include(te => te.Episode)
-                .ThenInclude(e => e.PatreonPost)
-            .Where(te => te.TopicId == id)
-            .Select(mapToEpisode)
-            .ToListAsync(cancellationToken);
-    }
-
-    /// <inheritdoc />
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="id"/> is negative or zero.</exception>
     public Task<Episode?> GetMostRecentByPersonId(
         int id,
         CancellationToken cancellationToken)
