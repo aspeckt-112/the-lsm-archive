@@ -18,34 +18,31 @@
     @if (_person != null && _personDetails != null)
     {
         <MudItem xs="12">
-            <MudPaper Class="pa-6 page-header header-secondary" Elevation="4">
-                <MudGrid Spacing="2">
-                    <MudItem xs="12" lg="7">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
-                            <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Secondary" Size="Size.Large" />
-                            <MudText Typo="Typo.h4" Class="fw-bold">@_person.Name</MudText>
+            <MudStack Class="page-hero-header hero-secondary">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
+                    <MudAvatar Color="Color.Secondary" Variant="Variant.Outlined" Size="Size.Large">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Medium"/>
+                    </MudAvatar>
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.h4" Class="fw-bold">@_person.Name</MudText>
+                        <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center" Class="flex-wrap">
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                                <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Color="Color.Secondary"/>
+                                <MudText Typo="Typo.body2" Style="opacity: 0.8;">
+                                    First Appeared <strong>@_personDetails.FirstAppeared.ToShortDateString()</strong>
+                                </MudText>
+                            </MudStack>
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                                <MudIcon Icon="@Icons.Material.Filled.Update" Size="Size.Small" Color="Color.Secondary"/>
+                                <MudText Typo="Typo.body2" Style="opacity: 0.8;">
+                                    Last Appeared <strong>@_personDetails.LastAppeared.ToShortDateString()</strong>
+                                </MudText>
+                            </MudStack>
                         </MudStack>
-                    </MudItem>
-                    <MudItem xs="12" lg="5">
-                        <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="flex-wrap">
-                            <MudChip T="string"
-                                     Icon="@Icons.Material.Filled.CalendarToday"
-                                     Color="Color.Default"
-                                     Variant="Variant.Text"
-                                     Class="pa-4">
-                                First Appeared: <strong>@_personDetails.FirstAppeared.ToShortDateString()</strong>
-                            </MudChip>
-                            <MudChip T="string"
-                                     Icon="@Icons.Material.Filled.Update"
-                                     Color="Color.Default"
-                                     Variant="Variant.Text"
-                                     Class="pa-4">
-                                Last Appeared: <strong>@_personDetails.LastAppeared.ToShortDateString()</strong>
-                            </MudChip>
-                        </MudStack>
-                    </MudItem>
-                </MudGrid>
-            </MudPaper>
+                    </MudStack>
+                </MudStack>
+            </MudStack>
+            <MudDivider Class="mt-4 mb-2"/>
         </MudItem>
 
         @if (_latestEpisode is not null)
@@ -273,12 +270,19 @@
     else
     {
         <MudItem xs="12">
-            <MudPaper Class="pa-6 rounded-lg" Elevation="4">
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
-                    <MudSkeleton SkeletonType="SkeletonType.Circle" Width="48px" Height="48px" />
-                    <MudSkeleton SkeletonType="SkeletonType.Text" Width="60%" Height="48px" />
+            <MudStack Class="pl-6">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                    <MudSkeleton SkeletonType="SkeletonType.Circle" Width="56px" Height="56px" />
+                    <MudStack Spacing="1">
+                        <MudSkeleton SkeletonType="SkeletonType.Text" Width="240px" Height="40px" />
+                        <MudStack Row="true" Spacing="4">
+                            <MudSkeleton SkeletonType="SkeletonType.Text" Width="140px" Height="18px" />
+                            <MudSkeleton SkeletonType="SkeletonType.Text" Width="140px" Height="18px" />
+                        </MudStack>
+                    </MudStack>
                 </MudStack>
-            </MudPaper>
+            </MudStack>
+            <MudDivider Class="mt-4 mb-2"/>
         </MudItem>
     }
 </MudGrid>

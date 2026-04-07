@@ -46,38 +46,25 @@
     overflow: hidden;
 }
 
-.page-header {
-    background: linear-gradient(135deg, 
-        color-mix(in srgb, var(--mud-palette-primary) 25%, transparent) 0%, 
-        color-mix(in srgb, var(--mud-palette-primary) 15%, transparent) 100%);
-    border: 1px solid color-mix(in srgb, var(--mud-palette-primary) 30%, transparent);
-    transition: all 0.3s ease;
-    --header-hover-color: var(--mud-palette-primary);
+.page-hero-header {
+    padding: 0.75rem 0 0.75rem 1.5rem;
+    border-left: 4px solid var(--hero-accent-color, var(--mud-palette-primary));
 }
 
-.page-header:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px color-mix(in srgb, var(--header-hover-color) 25%, transparent) !important;
+.hero-primary {
+    --hero-accent-color: var(--mud-palette-primary);
 }
 
-.header-primary {
-    --header-hover-color: var(--mud-palette-primary);
+.hero-secondary {
+    --hero-accent-color: var(--mud-palette-secondary);
 }
 
-.header-secondary {
-    --header-hover-color: var(--mud-palette-secondary);
-    background: linear-gradient(135deg, 
-        color-mix(in srgb, var(--mud-palette-secondary) 25%, transparent) 0%, 
-        color-mix(in srgb, var(--mud-palette-secondary) 15%, transparent) 100%);
-    border-color: color-mix(in srgb, var(--mud-palette-secondary) 30%, transparent);
+.hero-tertiary {
+    --hero-accent-color: var(--mud-palette-tertiary);
 }
 
-.header-tertiary {
-    --header-hover-color: var(--mud-palette-tertiary);
-    background: linear-gradient(135deg, 
-        color-mix(in srgb, var(--mud-palette-tertiary) 25%, transparent) 0%, 
-        color-mix(in srgb, var(--mud-palette-tertiary) 15%, transparent) 100%);
-    border-color: color-mix(in srgb, var(--mud-palette-tertiary) 30%, transparent);
+.home-hero {
+    padding-block: 2rem;
 }
 
 .patreon-button.mud-button-root {
@@ -215,7 +202,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, 
+    background: linear-gradient(135deg,
         color-mix(in srgb, var(--mud-palette-background) 95%, var(--mud-palette-primary) 5%) 0%,
         color-mix(in srgb, var(--mud-palette-background) 98%, var(--mud-palette-secondary) 2%) 100%);
     backdrop-filter: blur(10px);
