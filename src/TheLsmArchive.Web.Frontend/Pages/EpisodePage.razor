@@ -15,27 +15,23 @@
     @if (_episode is not null)
     {
         <MudItem xs="12">
-            <MudPaper Class="pa-6 page-header header-primary" Elevation="4">
-                <MudGrid Spacing="2">
-                    <MudItem xs="12" lg="8">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
-                            <MudIcon Icon="@Icons.Material.Filled.Headphones" Color="Color.Primary" Size="Size.Large"/>
-                            <MudText Typo="Typo.h4" Class="fw-bold">@_episode.Title</MudText>
+            <MudStack Class="page-hero-header hero-primary">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
+                    <MudAvatar Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Large">
+                        <MudIcon Icon="@Icons.Material.Filled.Headphones" Size="Size.Medium"/>
+                    </MudAvatar>
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.h4" Class="fw-bold">@_episode.Title</MudText>
+                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                            <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Color="Color.Primary"/>
+                            <MudText Typo="Typo.body2" Style="opacity: 0.8;">
+                                Published <strong>@_episode.ReleaseDate.ToLongDateString()</strong>
+                            </MudText>
                         </MudStack>
-                    </MudItem>
-                    <MudItem xs="12" lg="4">
-                        <MudStack AlignItems="AlignItems.End">
-                            <MudChip T="string"
-                                     Icon="@Icons.Material.Filled.CalendarToday"
-                                     Color="Color.Default"
-                                     Variant="Variant.Text"
-                                     Class="pa-4">
-                                Published: <strong>@_episode.ReleaseDate.ToLongDateString()</strong>
-                            </MudChip>
-                        </MudStack>
-                    </MudItem>
-                </MudGrid>
-            </MudPaper>
+                    </MudStack>
+                </MudStack>
+            </MudStack>
+            <MudDivider Class="mt-4 mb-2"/>
         </MudItem>
 
         <MudItem xs="12">
@@ -87,21 +83,16 @@
     else
     {
         <MudItem xs="12">
-            <MudPaper Class="pa-6 rounded-lg" Elevation="4">
-                <MudGrid Spacing="2">
-                    <MudItem xs="12" lg="8">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4">
-                            <MudSkeleton SkeletonType="SkeletonType.Circle" Width="48px" Height="48px" />
-                            <MudSkeleton SkeletonType="SkeletonType.Text" Width="60%" Height="48px" />
-                        </MudStack>
-                    </MudItem>
-                    <MudItem xs="12" lg="4">
-                        <MudStack AlignItems="AlignItems.End">
-                            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Width="180px" Height="36px" Class="rounded-pill" />
-                        </MudStack>
-                    </MudItem>
-                </MudGrid>
-            </MudPaper>
+            <MudStack Class="pl-6">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                    <MudSkeleton SkeletonType="SkeletonType.Circle" Width="56px" Height="56px"/>
+                    <MudStack Spacing="1">
+                        <MudSkeleton SkeletonType="SkeletonType.Text" Width="320px" Height="40px"/>
+                        <MudSkeleton SkeletonType="SkeletonType.Text" Width="180px" Height="18px"/>
+                    </MudStack>
+                </MudStack>
+            </MudStack>
+            <MudDivider Class="mt-4 mb-2"/>
         </MudItem>
         <MudItem xs="12">
             <MudPaper Class="pa-6 rounded-lg" Elevation="2">
