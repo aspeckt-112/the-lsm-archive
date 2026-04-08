@@ -1,0 +1,25 @@
+@page "/not-found"
+
+@using TheLsmArchive.Web.Frontend.Layout
+@layout MainLayout
+
+<PageTitle>404 – The LSM Archive</PageTitle>
+
+<MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="4" Class="py-16 text-center">
+    <MudIcon Icon="@Icons.Material.Filled.SearchOff" Style="font-size: 6rem;" Color="Color.Primary" Class="opacity-60" />
+    <MudText Typo="Typo.h2" Class="fw-bold">..how can this be?</MudText>
+    <MudText Typo="Typo.h6" Class="opacity-70">
+        We searched the entire archive and came up empty.
+    </MudText>
+    <MudText Typo="Typo.body1" Class="opacity-50" Style="max-width: 480px;">
+        The page you're looking for doesn't exist, was moved, or perhaps never made it into the archive in the first place.
+    </MudText>
+    <MudButton Href="/"
+               Variant="Variant.Filled"
+               Color="Color.Primary"
+               Size="Size.Large"
+               StartIcon="@Icons.Material.Filled.Home"
+               Class="mt-4">
+        Back to the Archive
+    </MudButton>
+</MudStack>
