@@ -51,15 +51,17 @@ public interface ILsmArchiveClientService
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets episodes associated with a person by their ID.
+    /// Gets episode timeline entries associated with a person by their ID.
     /// </summary>
     /// <param name="personId">The person ID.</param>
     /// <param name="pagedRequest">The paged request.</param>
+    /// <param name="sortDescending">Whether to sort by release date descending (newest first).</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The <see cref="Result{T}"/> of <see cref="PagedResponse{T}"/> of <see cref="Episode"/>.</returns>
-    public Task<Result<PagedResponse<Episode>>> GetEpisodesByPersonId(
+    /// <returns>The <see cref="Result{T}"/> of <see cref="PagedResponse{T}"/> of <see cref="PersonTimelineEntry"/>.</returns>
+    public Task<Result<PagedResponse<PersonTimelineEntry>>> GetEpisodesByPersonId(
         int personId,
         PagedItemRequest pagedRequest,
+        bool sortDescending,
         CancellationToken cancellationToken);
 
     /// <summary>

@@ -167,9 +167,10 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     /// <inheritdoc />
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="personId"/> is negative.</exception>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="pagedRequest"/> is null.</exception>
-    public Task<Result<PagedResponse<Episode>>> GetEpisodesByPersonId(
+    public Task<Result<PagedResponse<PersonTimelineEntry>>> GetEpisodesByPersonId(
         int personId,
         PagedItemRequest pagedRequest,
+        bool sortDescending,
         CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(personId);
@@ -177,11 +178,13 @@ public class LsmArchiveClientService : ILsmArchiveClientService
 
         _logger.LogInformation("Getting episodes for person with ID: {PersonId}", personId);
 
+        string queryString = $"{pagedRequest.ToQueryString()}&sortDescending={sortDescending}";
+
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor(
             $"{PersonRoute}/{personId}/episodes",
-            pagedRequest.ToQueryString());
+            queryString);
 
-        return ExecuteRequestAsync<PagedResponse<Episode>>(
+        return ExecuteRequestAsync<PagedResponse<PersonTimelineEntry>>(
             requestMessage,
             hasContent: result => result is not null && result.Items.Count > 0,
             cancellationToken

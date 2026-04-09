@@ -51,8 +51,8 @@ internal static class PersonEndpoints
             person.MapGet("/{id:int}/episodes", GetEpisodesByPersonId)
                 .WithName(nameof(GetEpisodesByPersonId))
                 .WithSummary("Gets episodes associated with a specific person.")
-                .WithDescription("Retrieves a paginated list of episodes that are associated with the specified person ID.")
-                .Produces<Ok<PagedResponse<Episode>>>()
+                .WithDescription("Retrieves a paginated timeline of episodes that are associated with the specified person ID.")
+                .Produces<Ok<PagedResponse<PersonTimelineEntry>>>()
                 .Produces<BadRequest>();
 
             person.MapGet("/{id:int}/episodes/latest", GetLatestEpisodeByPersonId)
@@ -114,13 +114,14 @@ internal static class PersonEndpoints
         return TypedResults.Ok(topics);
     }
 
-    private static async Task<Ok<PagedResponse<Episode>>> GetEpisodesByPersonId(
+    private static async Task<Ok<PagedResponse<PersonTimelineEntry>>> GetEpisodesByPersonId(
         [FromRoute] int id,
         [AsParameters] PagedItemRequest pagedRequest,
-        [FromServices] IEpisodeService episodeService,
-        CancellationToken cancellationToken)
+        [FromQuery] bool sortDescending = true,
+        [FromServices] IEpisodeService episodeService = default!,
+        CancellationToken cancellationToken = default)
     {
-        PagedResponse<Episode> episodes = await episodeService.GetByPersonId(id, pagedRequest, cancellationToken);
+        PagedResponse<PersonTimelineEntry> episodes = await episodeService.GetByPersonId(id, pagedRequest, sortDescending, cancellationToken);
         return TypedResults.Ok(episodes);
     }
 
