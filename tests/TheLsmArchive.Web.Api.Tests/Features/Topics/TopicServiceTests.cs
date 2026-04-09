@@ -234,6 +234,47 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
         Assert.Contains(topics, t => t.Name == "Topic B");
     }
 
+    [Fact]
+    public async Task GetByEpisodeId_WithAssociatedTopics_ReturnsSortedAlphabetically()
+    {
+        // Arrange
+        ShowEntity show = new() { Name = "Show 1" };
+        await InsertSingleInstanceOfEntityAsync(show);
+
+        TopicEntity topicC = new() { Name = "Zulu Topic", NormalizedName = "zulutopic" };
+        TopicEntity topicA = new() { Name = "Alpha Topic", NormalizedName = "alphatopic" };
+        TopicEntity topicB = new() { Name = "Mango Topic", NormalizedName = "mangotopic" };
+        await InsertSingleInstanceOfEntityAsync(topicC);
+        await InsertSingleInstanceOfEntityAsync(topicA);
+        await InsertSingleInstanceOfEntityAsync(topicB);
+
+        PatreonPostEntity post = new()
+        {
+            PatreonId = 1, Title = "Post 1", Link = "https://patreon.com/1",
+            Summary = "Summary 1", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/1", ShowId = show.Id
+        };
+        EpisodeEntity episode = new()
+        {
+            Title = "Episode 1", ReleaseDateUtc = DateTimeOffset.UtcNow,
+            PatreonPost = post, ShowId = show.Id
+        };
+        await InsertSingleInstanceOfEntityAsync(episode);
+
+        // Insert in non-alphabetical order to verify sorting
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = topicC.Id, EpisodeId = episode.Id });
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = topicA.Id, EpisodeId = episode.Id });
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = topicB.Id, EpisodeId = episode.Id });
+
+        // Act
+        List<Topic> topics = await _topicService.GetByEpisodeId(episode.Id, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(3, topics.Count);
+        Assert.Equal("Alpha Topic", topics[0].Name);
+        Assert.Equal("Mango Topic", topics[1].Name);
+        Assert.Equal("Zulu Topic", topics[2].Name);
+    }
+
     #endregion
 
     #region GetMostDiscussedByPersonId
@@ -479,7 +520,7 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
     {
 #pragma warning disable IDE0022
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            _topicService.GetByPersonId(id, new PagedItemRequest(), TestContext.Current.CancellationToken));
+            _topicService.GetByPersonId(id, new PagedItemRequest(), false, TestContext.Current.CancellationToken));
 #pragma warning restore IDE0022
     }
 
@@ -488,7 +529,7 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
     {
 #pragma warning disable IDE0022
         await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            _topicService.GetByPersonId(1, null!, TestContext.Current.CancellationToken));
+            _topicService.GetByPersonId(1, null!, false, TestContext.Current.CancellationToken));
 #pragma warning restore IDE0022
     }
 
@@ -501,7 +542,7 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
 
         // Act
         PagedResponse<Topic> result = await _topicService.GetByPersonId(
-            person.Id, new PagedItemRequest(), TestContext.Current.CancellationToken);
+            person.Id, new PagedItemRequest(), false, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Empty(result.Items);
@@ -527,7 +568,7 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
 
         // Act
         PagedResponse<Topic> result = await _topicService.GetByPersonId(
-            person.Id, new PagedItemRequest(), TestContext.Current.CancellationToken);
+            person.Id, new PagedItemRequest(), false, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(2, result.TotalCount);
@@ -555,7 +596,7 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
 
         // Act
         PagedResponse<Topic> result = await _topicService.GetByPersonId(
-            person.Id, new PagedItemRequest(SearchTerm: "PlayStation"), TestContext.Current.CancellationToken);
+            person.Id, new PagedItemRequest(SearchTerm: "PlayStation"), false, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(1, result.TotalCount);
@@ -586,7 +627,93 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
 
         // Act — page 2, size 1 (ordered by name: Alpha, Beta, Gamma)
         PagedResponse<Topic> result = await _topicService.GetByPersonId(
-            person.Id, new PagedItemRequest(PageNumber: 2, PageSize: 1), TestContext.Current.CancellationToken);
+            person.Id, new PagedItemRequest(PageNumber: 2, PageSize: 1), false, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(3, result.TotalCount);
+        Assert.Single(result.Items);
+        Assert.Equal("Beta", result.Items[0].Name);
+    }
+
+    [Fact]
+    public async Task GetByPersonId_SortAscending_ReturnsAToZ()
+    {
+        // Arrange
+        PersonEntity person = new() { Name = "Test Person", NormalizedName = "testperson" };
+        await InsertSingleInstanceOfEntityAsync(person);
+
+        TopicEntity topicC = new() { Name = "Zulu", NormalizedName = "zulu" };
+        TopicEntity topicA = new() { Name = "Alpha", NormalizedName = "alpha" };
+        TopicEntity topicB = new() { Name = "Mango", NormalizedName = "mango" };
+        await InsertSingleInstanceOfEntityAsync(topicC);
+        await InsertSingleInstanceOfEntityAsync(topicA);
+        await InsertSingleInstanceOfEntityAsync(topicB);
+
+        await InsertSingleInstanceOfEntityAsync(new PersonTopicEntity { PersonId = person.Id, TopicId = topicC.Id });
+        await InsertSingleInstanceOfEntityAsync(new PersonTopicEntity { PersonId = person.Id, TopicId = topicA.Id });
+        await InsertSingleInstanceOfEntityAsync(new PersonTopicEntity { PersonId = person.Id, TopicId = topicB.Id });
+
+        // Act
+        PagedResponse<Topic> result = await _topicService.GetByPersonId(
+            person.Id, new PagedItemRequest(), false, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(3, result.TotalCount);
+        Assert.Equal("Alpha", result.Items[0].Name);
+        Assert.Equal("Mango", result.Items[1].Name);
+        Assert.Equal("Zulu", result.Items[2].Name);
+    }
+
+    [Fact]
+    public async Task GetByPersonId_SortDescending_ReturnsZToA()
+    {
+        // Arrange
+        PersonEntity person = new() { Name = "Test Person", NormalizedName = "testperson" };
+        await InsertSingleInstanceOfEntityAsync(person);
+
+        TopicEntity topicC = new() { Name = "Zulu", NormalizedName = "zulu" };
+        TopicEntity topicA = new() { Name = "Alpha", NormalizedName = "alpha" };
+        TopicEntity topicB = new() { Name = "Mango", NormalizedName = "mango" };
+        await InsertSingleInstanceOfEntityAsync(topicC);
+        await InsertSingleInstanceOfEntityAsync(topicA);
+        await InsertSingleInstanceOfEntityAsync(topicB);
+
+        await InsertSingleInstanceOfEntityAsync(new PersonTopicEntity { PersonId = person.Id, TopicId = topicC.Id });
+        await InsertSingleInstanceOfEntityAsync(new PersonTopicEntity { PersonId = person.Id, TopicId = topicA.Id });
+        await InsertSingleInstanceOfEntityAsync(new PersonTopicEntity { PersonId = person.Id, TopicId = topicB.Id });
+
+        // Act
+        PagedResponse<Topic> result = await _topicService.GetByPersonId(
+            person.Id, new PagedItemRequest(), true, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(3, result.TotalCount);
+        Assert.Equal("Zulu", result.Items[0].Name);
+        Assert.Equal("Mango", result.Items[1].Name);
+        Assert.Equal("Alpha", result.Items[2].Name);
+    }
+
+    [Fact]
+    public async Task GetByPersonId_SortDescendingWithPaging_ReturnsCorrectPage()
+    {
+        // Arrange
+        PersonEntity person = new() { Name = "Test Person", NormalizedName = "testperson" };
+        await InsertSingleInstanceOfEntityAsync(person);
+
+        TopicEntity topicA = new() { Name = "Alpha", NormalizedName = "alpha" };
+        TopicEntity topicB = new() { Name = "Beta", NormalizedName = "beta" };
+        TopicEntity topicC = new() { Name = "Gamma", NormalizedName = "gamma" };
+        await InsertSingleInstanceOfEntityAsync(topicA);
+        await InsertSingleInstanceOfEntityAsync(topicB);
+        await InsertSingleInstanceOfEntityAsync(topicC);
+
+        await InsertSingleInstanceOfEntityAsync(new PersonTopicEntity { PersonId = person.Id, TopicId = topicA.Id });
+        await InsertSingleInstanceOfEntityAsync(new PersonTopicEntity { PersonId = person.Id, TopicId = topicB.Id });
+        await InsertSingleInstanceOfEntityAsync(new PersonTopicEntity { PersonId = person.Id, TopicId = topicC.Id });
+
+        // Act — page 2, size 1 (descending: Gamma, Beta, Alpha)
+        PagedResponse<Topic> result = await _topicService.GetByPersonId(
+            person.Id, new PagedItemRequest(PageNumber: 2, PageSize: 1), true, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(3, result.TotalCount);

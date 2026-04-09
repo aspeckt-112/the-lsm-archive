@@ -64,10 +64,12 @@ public interface ITopicService
     /// </summary>
     /// <param name="id">The person identifier.</param>
     /// <param name="pagedRequest">The paged request.</param>
+    /// <param name="sortDescending">Whether to sort by name descending (Z-A).</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A paged response of topics associated with the person.</returns>
     public Task<PagedResponse<Topic>> GetByPersonId(
         int id,
         PagedItemRequest pagedRequest,
+        bool sortDescending,
         CancellationToken cancellationToken);
 }

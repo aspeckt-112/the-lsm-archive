@@ -250,7 +250,7 @@ public class LsmArchiveClientServiceTests
         LsmArchiveClientService service = CreateService(handler);
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
-            () => service.GetTopicsByPersonId(-1, new PagedItemRequest(), CancellationToken.None));
+            () => service.GetTopicsByPersonId(-1, new PagedItemRequest(), false, CancellationToken.None));
     }
 
     [Fact]
@@ -260,7 +260,7 @@ public class LsmArchiveClientServiceTests
         LsmArchiveClientService service = CreateService(handler);
 
         await Assert.ThrowsAsync<ArgumentNullException>(
-            () => service.GetTopicsByPersonId(1, null!, CancellationToken.None));
+            () => service.GetTopicsByPersonId(1, null!, false, CancellationToken.None));
     }
 
     [Fact]

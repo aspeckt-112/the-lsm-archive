@@ -220,5 +220,46 @@ public class PersonServiceTests : BaseServiceIntegrationTest, IClassFixture<Serv
         Assert.Contains(people, p => p.Name == "Person B");
     }
 
+    [Fact]
+    public async Task GetByEpisodeId_WithAssociatedPersons_ReturnsSortedAlphabetically()
+    {
+        // Arrange
+        ShowEntity show = new() { Name = "Show 1" };
+        await InsertSingleInstanceOfEntityAsync(show);
+
+        PersonEntity personC = new() { Name = "Charlie", NormalizedName = "charlie" };
+        PersonEntity personA = new() { Name = "Alice", NormalizedName = "alice" };
+        PersonEntity personB = new() { Name = "Bob", NormalizedName = "bob" };
+        await InsertSingleInstanceOfEntityAsync(personC);
+        await InsertSingleInstanceOfEntityAsync(personA);
+        await InsertSingleInstanceOfEntityAsync(personB);
+
+        PatreonPostEntity post = new()
+        {
+            PatreonId = 1, Title = "Post 1", Link = "https://patreon.com/1",
+            Summary = "Summary 1", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/1", ShowId = show.Id
+        };
+        EpisodeEntity episode = new()
+        {
+            Title = "Episode 1", ReleaseDateUtc = DateTimeOffset.UtcNow,
+            PatreonPost = post, ShowId = show.Id
+        };
+        await InsertSingleInstanceOfEntityAsync(episode);
+
+        // Insert in non-alphabetical order to verify sorting
+        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = personC.Id, EpisodeId = episode.Id });
+        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = personA.Id, EpisodeId = episode.Id });
+        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = personB.Id, EpisodeId = episode.Id });
+
+        // Act
+        List<Person> people = await _personService.GetByEpisodeId(episode.Id, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(3, people.Count);
+        Assert.Equal("Alice", people[0].Name);
+        Assert.Equal("Bob", people[1].Name);
+        Assert.Equal("Charlie", people[2].Name);
+    }
+
     #endregion
 }

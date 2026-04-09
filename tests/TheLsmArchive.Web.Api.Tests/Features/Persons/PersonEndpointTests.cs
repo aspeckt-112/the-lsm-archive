@@ -112,7 +112,7 @@ public class PersonEndpointTests : IClassFixture<CustomWebApplicationFactory>
         // Arrange
         PagedResponse<Topic> expected = new([new(1, "Topic A")], 1, 1, 50);
         _factory.TopicServiceMock
-            .Setup(s => s.GetByPersonId(1, It.IsAny<PagedItemRequest>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetByPersonId(1, It.IsAny<PagedItemRequest>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
         // Act

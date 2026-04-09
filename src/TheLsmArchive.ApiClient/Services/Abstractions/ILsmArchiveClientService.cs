@@ -43,11 +43,13 @@ public interface ILsmArchiveClientService
     /// </summary>
     /// <param name="personId">The person ID.</param>
     /// <param name="pagedRequest">The paged request.</param>
+    /// <param name="sortDescending">Whether to sort by name descending (Z-A).</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The <see cref="Result{T}"/> of <see cref="PagedResponse{T}"/> of <see cref="Topic"/>.</returns>
     public Task<Result<PagedResponse<Topic>>> GetTopicsByPersonId(
         int personId,
         PagedItemRequest pagedRequest,
+        bool sortDescending,
         CancellationToken cancellationToken);
 
     /// <summary>
