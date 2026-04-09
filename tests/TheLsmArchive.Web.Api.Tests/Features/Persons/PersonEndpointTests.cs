@@ -142,10 +142,10 @@ public class PersonEndpointTests : IClassFixture<CustomWebApplicationFactory>
     public async Task GetEpisodesByPersonId_ReturnsOk()
     {
         // Arrange
-        PagedResponse<Episode> expected = new(
-            [new(1, "Episode A", new DateOnly(2024, 1, 1), "https://patreon.com/1", "Summary")], 1, 1, 50);
+        PagedResponse<PersonTimelineEntry> expected = new(
+            [new(1, "Episode A", new DateOnly(2024, 1, 1), "https://patreon.com/1", [new(1, "Topic A")])], 1, 1, 25);
         _factory.EpisodeServiceMock
-            .Setup(s => s.GetByPersonId(1, It.IsAny<PagedItemRequest>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetByPersonId(1, It.IsAny<PagedItemRequest>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
         // Act

@@ -16,15 +16,17 @@ public interface IEpisodeService
          CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets episodes by a person's identifier.
+    /// Gets timeline entries for episodes by a person's identifier.
     /// </summary>
     /// <param name="id">The person's identifier.</param>
     /// <param name="pagedRequest">The paged request.</param>
+    /// <param name="sortDescending">Whether to sort by release date descending (newest first).</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A paged response of episodes associated with the person.</returns>
-    public Task<PagedResponse<Episode>> GetByPersonId(
+    /// <returns>A paged response of person timeline entries associated with the person.</returns>
+    public Task<PagedResponse<PersonTimelineEntry>> GetByPersonId(
         int id,
         PagedItemRequest pagedRequest,
+        bool sortDescending,
         CancellationToken cancellationToken);
 
     /// <summary>
