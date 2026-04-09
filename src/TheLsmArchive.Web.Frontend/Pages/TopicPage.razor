@@ -44,6 +44,47 @@
             <MudDivider Class="mt-4 mb-2"/>
         </MudItem>
 
+        @if (_mostDiscussedAlongside is { Count: > 0 })
+        {
+            <MudItem xs="12">
+                <SectionHeader Icon="@Icons.Material.Filled.TrendingUp" Color="Color.Tertiary" Title="Most Discussed Alongside"/>
+                <MudGrid Spacing="2" Class="mt-2">
+                    @for (int index = 0; index < _mostDiscussedAlongside.Count; index++)
+                    {
+                        var topic = _mostDiscussedAlongside[index];
+                        var rank = index + 1;
+
+                        <MudItem xs="12" md="6">
+                            <MudPaper Class="pa-4 h-100 entity-card card-hover hover-tertiary clickable-card" Elevation="1"
+                                      @onclick='@(() => NavigationManager.NavigateTo($"/Topic/{topic.Id}"))'>
+                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudChip T="string"
+                                                 Color="Color.Tertiary"
+                                                 Variant="Variant.Outlined"
+                                                 Size="Size.Small">
+                                            #@rank
+                                        </MudChip>
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                            <MudIcon Icon="@Icons.Material.Filled.Tag" Color="Color.Tertiary" Size="Size.Small" />
+                                            <MudText Typo="Typo.body1" Class="fw-bold">@topic.Name</MudText>
+                                        </MudStack>
+                                    </MudStack>
+                                    <MudChip T="string"
+                                             Color="Color.Tertiary"
+                                             Variant="Variant.Outlined"
+                                             Icon="@Icons.Material.Filled.Forum">
+                                        @(topic.EpisodeCount == 1 ? "1 episode" : $"{topic.EpisodeCount} episodes")
+                                    </MudChip>
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+                <MudDivider Class="mt-4 mb-2"/>
+            </MudItem>
+        }
+
         @if (_timeline != null)
         {
             <MudItem xs="12">
@@ -155,6 +196,8 @@
 
     private TopicTimeline? _timeline;
 
+    private List<MostDiscussedTopic>? _mostDiscussedAlongside;
+
     private int _currentPage = 1;
 
     private string _searchTerm = string.Empty;
@@ -172,8 +215,9 @@
 
         var getTopicTask = GetTopic(cts.Token);
         var getTimelineTask = GetTimeline(_currentPage, cts.Token);
+        var getMostDiscussedAlongsideTask = GetMostDiscussedAlongside(cts.Token);
 
-        await Task.WhenAll(getTopicTask, getTimelineTask);
+        await Task.WhenAll(getTopicTask, getTimelineTask, getMostDiscussedAlongsideTask);
     }
 
     private async Task GetTopic(CancellationToken cancellationToken)
@@ -211,6 +255,24 @@
             () =>
             {
                 Logger.LogWarning("No timeline found for topic ID {Id}.", Id);
+                return Task.CompletedTask;
+            });
+    }
+
+    private async Task GetMostDiscussedAlongside(CancellationToken cancellationToken)
+    {
+        var result = await ClientService.GetMostDiscussedAlongsideTopicsByTopicId(Id, cancellationToken);
+
+        await HandleResult(
+            result,
+            topics =>
+            {
+                _mostDiscussedAlongside = topics;
+                return Task.CompletedTask;
+            },
+            () =>
+            {
+                _mostDiscussedAlongside = [];
                 return Task.CompletedTask;
             });
     }

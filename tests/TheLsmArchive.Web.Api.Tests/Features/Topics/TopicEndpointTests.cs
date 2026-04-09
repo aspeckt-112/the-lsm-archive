@@ -109,4 +109,47 @@ public class TopicEndpointTests : IClassFixture<CustomWebApplicationFactory>
         // Assert
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GetMostDiscussedAlongside_WithExistingTopic_ReturnsOk()
+    {
+        // Arrange
+        List<MostDiscussedTopic> expected =
+        [
+            new MostDiscussedTopic(2, "Related Topic A", 5),
+            new MostDiscussedTopic(3, "Related Topic B", 3)
+        ];
+        _factory.TopicServiceMock
+            .Setup(s => s.GetMostDiscussedAlongsideByTopicId(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        // Act
+        HttpResponseMessage response = await _client.GetAsync("/topic/1/most-discussed-alongside");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        List<MostDiscussedTopic>? result = await response.Content.ReadFromJsonAsync<List<MostDiscussedTopic>>();
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal("Related Topic A", result[0].Name);
+        Assert.Equal(5, result[0].EpisodeCount);
+    }
+
+    [Fact]
+    public async Task GetMostDiscussedAlongside_WithNoCoOccurringTopics_ReturnsOkWithEmptyList()
+    {
+        // Arrange
+        _factory.TopicServiceMock
+            .Setup(s => s.GetMostDiscussedAlongsideByTopicId(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        // Act
+        HttpResponseMessage response = await _client.GetAsync("/topic/1/most-discussed-alongside");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        List<MostDiscussedTopic>? result = await response.Content.ReadFromJsonAsync<List<MostDiscussedTopic>>();
+        Assert.NotNull(result);
+        Assert.Empty(result);
+    }
 }

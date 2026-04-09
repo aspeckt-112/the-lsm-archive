@@ -188,6 +188,41 @@ public sealed class TopicService : ITopicService
 
     /// <inheritdoc />
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="id"/> is negative or zero.</exception>
+    public Task<List<MostDiscussedTopic>> GetMostDiscussedAlongsideByTopicId(
+        int id,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
+
+        _logger.LogInformation("Getting most discussed alongside topics for topic with ID: {Id}", id);
+
+        const int mostDiscussedAlongsideCount = 25;
+
+        return _dbContext.TopicEpisodes
+            .Where(te => te.TopicId == id)
+            .Join(
+                _dbContext.TopicEpisodes,
+                source => source.EpisodeId,
+                other => other.EpisodeId,
+                (_, other) => new
+                {
+                    other.TopicId,
+                    other.Topic.Name
+                })
+            .Where(t => t.TopicId != id)
+            .GroupBy(t => new { t.TopicId, t.Name })
+            .OrderByDescending(group => group.Count())
+            .ThenBy(group => group.Key.Name)
+            .Take(mostDiscussedAlongsideCount)
+            .Select(group => new MostDiscussedTopic(
+                group.Key.TopicId,
+                group.Key.Name,
+                group.Count()))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <inheritdoc />
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="id"/> is negative or zero.</exception>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="pagedRequest"/> is null.</exception>
     public async Task<PagedResponse<Topic>> GetByPersonId(
         int id,

@@ -87,6 +87,16 @@ public interface ILsmArchiveClientService
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets the topics most frequently discussed alongside a topic by its ID.
+    /// </summary>
+    /// <param name="topicId">The topic ID.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A <see cref="Result{T}"/> of <see cref="List{T}"/> of <see cref="MostDiscussedTopic"/>.</returns>
+    public Task<Result<List<MostDiscussedTopic>>> GetMostDiscussedAlongsideTopicsByTopicId(
+        int topicId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets detailed information about a person by their ID.
     /// </summary>
     /// <param name="personId">The person ID.</param>

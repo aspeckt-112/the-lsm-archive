@@ -327,6 +327,149 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
 
     #endregion
 
+    #region GetMostDiscussedAlongsideByTopicId
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    public async Task GetMostDiscussedAlongsideByTopicId_WithInvalidId_ThrowsArgumentOutOfRangeException(int id)
+    {
+#pragma warning disable IDE0022
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            _topicService.GetMostDiscussedAlongsideByTopicId(id, TestContext.Current.CancellationToken));
+#pragma warning restore IDE0022
+    }
+
+    [Fact]
+    public async Task GetMostDiscussedAlongsideByTopicId_WithNoCoOccurringTopics_ReturnsEmptyList()
+    {
+        // Arrange
+        ShowEntity show = new() { Name = "Show 1" };
+        await InsertSingleInstanceOfEntityAsync(show);
+
+        TopicEntity topic = new() { Name = "Lonely Topic", NormalizedName = "lonelytopic" };
+        await InsertSingleInstanceOfEntityAsync(topic);
+
+        EpisodeEntity episode = await CreateEpisodeAsync(show.Id, 8001, "Solo Episode");
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = topic.Id, EpisodeId = episode.Id });
+
+        // Act
+        List<MostDiscussedTopic> result = await _topicService.GetMostDiscussedAlongsideByTopicId(
+            topic.Id,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetMostDiscussedAlongsideByTopicId_WithCoOccurringTopics_ReturnsRankedTopics()
+    {
+        // Arrange
+        ShowEntity show = new() { Name = "Show 1" };
+        await InsertSingleInstanceOfEntityAsync(show);
+
+        TopicEntity target = new() { Name = "Target Topic", NormalizedName = "targettopic" };
+        TopicEntity alpha = new() { Name = "Alpha Topic", NormalizedName = "alphatopic" };
+        TopicEntity beta = new() { Name = "Beta Topic", NormalizedName = "betatopic" };
+        TopicEntity gamma = new() { Name = "Gamma Topic", NormalizedName = "gammatopic" };
+        await InsertSingleInstanceOfEntityAsync(target);
+        await InsertSingleInstanceOfEntityAsync(alpha);
+        await InsertSingleInstanceOfEntityAsync(beta);
+        await InsertSingleInstanceOfEntityAsync(gamma);
+
+        EpisodeEntity episode1 = await CreateEpisodeAsync(show.Id, 8010, "Episode A");
+        EpisodeEntity episode2 = await CreateEpisodeAsync(show.Id, 8011, "Episode B");
+        EpisodeEntity episode3 = await CreateEpisodeAsync(show.Id, 8012, "Episode C");
+
+        // Target appears in all 3 episodes
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = target.Id, EpisodeId = episode1.Id });
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = target.Id, EpisodeId = episode2.Id });
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = target.Id, EpisodeId = episode3.Id });
+
+        // Alpha co-occurs in 2 episodes
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = alpha.Id, EpisodeId = episode1.Id });
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = alpha.Id, EpisodeId = episode2.Id });
+
+        // Beta co-occurs in 1 episode
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = beta.Id, EpisodeId = episode1.Id });
+
+        // Gamma co-occurs in 1 episode
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = gamma.Id, EpisodeId = episode3.Id });
+
+        // Act
+        List<MostDiscussedTopic> result = await _topicService.GetMostDiscussedAlongsideByTopicId(
+            target.Id,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(3, result.Count);
+        Assert.Equal("Alpha Topic", result[0].Name);
+        Assert.Equal(2, result[0].EpisodeCount);
+        Assert.Equal("Beta Topic", result[1].Name);
+        Assert.Equal(1, result[1].EpisodeCount);
+        Assert.Equal("Gamma Topic", result[2].Name);
+        Assert.Equal(1, result[2].EpisodeCount);
+    }
+
+    [Fact]
+    public async Task GetMostDiscussedAlongsideByTopicId_DoesNotIncludeTargetTopic()
+    {
+        // Arrange
+        ShowEntity show = new() { Name = "Show 1" };
+        await InsertSingleInstanceOfEntityAsync(show);
+
+        TopicEntity target = new() { Name = "Target Topic", NormalizedName = "targettopic" };
+        TopicEntity other = new() { Name = "Other Topic", NormalizedName = "othertopic" };
+        await InsertSingleInstanceOfEntityAsync(target);
+        await InsertSingleInstanceOfEntityAsync(other);
+
+        EpisodeEntity episode = await CreateEpisodeAsync(show.Id, 8020, "Shared Episode");
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = target.Id, EpisodeId = episode.Id });
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = other.Id, EpisodeId = episode.Id });
+
+        // Act
+        List<MostDiscussedTopic> result = await _topicService.GetMostDiscussedAlongsideByTopicId(
+            target.Id,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Single(result);
+        Assert.DoesNotContain(result, t => t.Name == "Target Topic");
+        Assert.Equal("Other Topic", result[0].Name);
+    }
+
+    [Fact]
+    public async Task GetMostDiscussedAlongsideByTopicId_WithMoreThanTwentyFiveTopics_ReturnsTopTwentyFive()
+    {
+        // Arrange
+        ShowEntity show = new() { Name = "Show 1" };
+        await InsertSingleInstanceOfEntityAsync(show);
+
+        TopicEntity target = new() { Name = "Target Topic", NormalizedName = "targettopic" };
+        await InsertSingleInstanceOfEntityAsync(target);
+
+        EpisodeEntity episode = await CreateEpisodeAsync(show.Id, 8030, "Big Episode");
+        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = target.Id, EpisodeId = episode.Id });
+
+        for (int index = 1; index <= 26; index++)
+        {
+            TopicEntity topic = new() { Name = $"Topic {index:D2}", NormalizedName = $"topic{index:D2}" };
+            await InsertSingleInstanceOfEntityAsync(topic);
+            await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = topic.Id, EpisodeId = episode.Id });
+        }
+
+        // Act
+        List<MostDiscussedTopic> result = await _topicService.GetMostDiscussedAlongsideByTopicId(
+            target.Id,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(25, result.Count);
+    }
+
+    #endregion
+
     #region GetByPersonId
 
     [Theory]

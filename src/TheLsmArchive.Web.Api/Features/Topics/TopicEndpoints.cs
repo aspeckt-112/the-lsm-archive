@@ -31,6 +31,13 @@ internal static class TopicEndpoints
                 .Produces<NotFound>()
                 .Produces<BadRequest>();
 
+            topic.MapGet("/{id:int}/most-discussed-alongside", GetMostDiscussedAlongside)
+                .WithName(nameof(GetMostDiscussedAlongside))
+                .WithSummary("Gets the topics most frequently discussed alongside a topic.")
+                .WithDescription("Retrieves the topics that most frequently co-occur with the specified topic across episodes.")
+                .Produces<Ok<List<MostDiscussedTopic>>>()
+                .Produces<BadRequest>();
+
             return app;
         }
     }
@@ -63,5 +70,15 @@ internal static class TopicEndpoints
             null => TypedResults.NotFound(),
             _ => TypedResults.Ok(timeline)
         };
+    }
+
+    private static async Task<Ok<List<MostDiscussedTopic>>> GetMostDiscussedAlongside(
+        [FromRoute] int id,
+        [FromServices] ITopicService topicService,
+        CancellationToken cancellationToken)
+    {
+        List<MostDiscussedTopic> topics = await topicService.GetMostDiscussedAlongsideByTopicId(id, cancellationToken);
+
+        return TypedResults.Ok(topics);
     }
 }
