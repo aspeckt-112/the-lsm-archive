@@ -92,6 +92,7 @@ public sealed class PersonService : IPersonService
         return _dbContext.PersonEpisodes
             .Include(pe => pe.Person)
             .Where(pe => pe.EpisodeId == id)
+            .OrderBy(pe => pe.Person.Name)
             .Select(mapToPerson)
             .ToListAsync(cancellationToken);
     }

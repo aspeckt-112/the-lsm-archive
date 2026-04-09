@@ -99,9 +99,10 @@ internal static class PersonEndpoints
         [FromRoute] int id,
         [AsParameters] PagedItemRequest pagedRequest,
         [FromServices] ITopicService topicService,
-        CancellationToken cancellationToken)
+        [FromQuery] bool sortDescending = false,
+        CancellationToken cancellationToken = default)
     {
-        PagedResponse<Topic> topics = await topicService.GetByPersonId(id, pagedRequest, cancellationToken);
+        PagedResponse<Topic> topics = await topicService.GetByPersonId(id, pagedRequest, sortDescending, cancellationToken);
         return TypedResults.Ok(topics);
     }
 

@@ -148,6 +148,7 @@ public sealed class TopicService : ITopicService
         return _dbContext.TopicEpisodes
             .Include(te => te.Topic)
             .Where(te => te.EpisodeId == id)
+            .OrderBy(te => te.Topic.Name)
             .Select(mapToTopic)
             .ToListAsync(cancellationToken);
     }
@@ -227,6 +228,7 @@ public sealed class TopicService : ITopicService
     public async Task<PagedResponse<Topic>> GetByPersonId(
         int id,
         PagedItemRequest pagedRequest,
+        bool sortDescending,
         CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
@@ -250,8 +252,11 @@ public sealed class TopicService : ITopicService
 
         int totalCount = await baseQuery.CountAsync(cancellationToken);
 
-        List<Topic> items = await baseQuery
-            .OrderBy(pt => pt.Topic.Name)
+        IOrderedQueryable<PersonTopicEntity> orderedQuery = sortDescending
+            ? baseQuery.OrderByDescending(pt => pt.Topic.Name)
+            : baseQuery.OrderBy(pt => pt.Topic.Name);
+
+        List<Topic> items = await orderedQuery
             .WithPaging(pagedRequest)
             .Select(mapToTopic)
             .ToListAsync(cancellationToken);

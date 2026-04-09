@@ -153,20 +153,26 @@
                     }
                 </MudTabPanel>
                 <MudTabPanel Text="All" Icon="@Icons.Material.Filled.ViewAgenda">
-                    <MudTextField
-                        T="string"
-                        Variant="Variant.Outlined"
-                        Placeholder="Search topics..."
-                        Adornment="Adornment.Start"
-                        AdornmentIcon="@Icons.Material.Filled.Search"
-                        AdornmentColor="Color.Tertiary"
-                        Value="_topicSearchTerm"
-                        ValueChanged="OnTopicSearchTermChanged"
-                        Immediate="true"
-                        FullWidth="true"
-                        Clearable="true"
-                        Margin="Margin.Dense"
-                        Class="mb-4" />
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+                        <MudTextField
+                            T="string"
+                            Variant="Variant.Outlined"
+                            Placeholder="Search topics..."
+                            Adornment="Adornment.Start"
+                            AdornmentIcon="@Icons.Material.Filled.Search"
+                            AdornmentColor="Color.Tertiary"
+                            Value="_topicSearchTerm"
+                            ValueChanged="OnTopicSearchTermChanged"
+                            Immediate="true"
+                            FullWidth="true"
+                            Clearable="true"
+                            Margin="Margin.Dense" />
+                        <MudTooltip Text="@(_topicSortDescending ? "Showing Z-A" : "Showing A-Z")">
+                            <MudIconButton Icon="@(_topicSortDescending ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)"
+                                           Color="Color.Tertiary"
+                                           OnClick="ToggleTopicSort"/>
+                        </MudTooltip>
+                    </MudStack>
                     @if (_isLoadingTopics)
                     {
                         <MudProgressLinear Color="Color.Tertiary" Indeterminate="true" Class="mb-4" />
@@ -329,6 +335,7 @@
     private string _episodeSearchTerm = string.Empty;
     private bool _isLoadingTopics;
     private bool _sortDescending = true;
+    private bool _topicSortDescending;
     private CancellationTokenSource? _topicSearchDebounceCts;
     private CancellationTokenSource? _episodeSearchDebounceCts;
 
@@ -476,7 +483,7 @@
     {
         string? searchTerm = string.IsNullOrWhiteSpace(_topicSearchTerm) ? null : _topicSearchTerm;
         PagedItemRequest pagedRequest = new(pageNumber, TopicPageSize, searchTerm);
-        var personTopicsResult = await ClientService.GetTopicsByPersonId(Id, pagedRequest, cancellationToken);
+        var personTopicsResult = await ClientService.GetTopicsByPersonId(Id, pagedRequest, _topicSortDescending, cancellationToken);
 
         await HandleResult(
             personTopicsResult,
@@ -536,6 +543,15 @@
         _currentEpisodePage = 1;
         using CancellationTokenSource cts = new();
         await GetPersonEpisodes(_currentEpisodePage, cts.Token);
+        StateHasChanged();
+    }
+
+    private async Task ToggleTopicSort()
+    {
+        _topicSortDescending = !_topicSortDescending;
+        _currentTopicPage = 1;
+        using CancellationTokenSource cts = new();
+        await GetPersonTopics(_currentTopicPage, cts.Token);
         StateHasChanged();
     }
 

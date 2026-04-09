@@ -146,6 +146,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     public Task<Result<PagedResponse<Topic>>> GetTopicsByPersonId(
         int personId,
         PagedItemRequest pagedRequest,
+        bool sortDescending,
         CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(personId);
@@ -153,9 +154,11 @@ public class LsmArchiveClientService : ILsmArchiveClientService
 
         _logger.LogInformation("Getting topics for person with ID: {PersonId}", personId);
 
+        string queryString = $"{pagedRequest.ToQueryString()}&sortDescending={sortDescending}";
+
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor(
             $"{PersonRoute}/{personId}/topics",
-            pagedRequest.ToQueryString());
+            queryString);
 
         return ExecuteRequestAsync<PagedResponse<Topic>>(
             requestMessage,
