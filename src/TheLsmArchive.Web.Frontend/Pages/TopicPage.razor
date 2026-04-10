@@ -206,18 +206,70 @@
 
     private CancellationTokenSource? _searchDebounceCts;
 
+    private CancellationTokenSource? _loadCts;
+
+    private int? _loadedTopicId;
+
+    private bool _breadcrumbInitialized;
+
     /// <inheritdoc />
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
-        BreadcrumbService.Push("Loading...", NavigationManager.Uri, Icons.Material.Filled.Tag);
+        if (_loadedTopicId == Id)
+        {
+            return;
+        }
 
-        using CancellationTokenSource cts = new();
+        _loadedTopicId = Id;
+        await LoadTopicPageAsync();
+    }
 
-        var getTopicTask = GetTopic(cts.Token);
-        var getTimelineTask = GetTimeline(_currentPage, cts.Token);
-        var getMostDiscussedAlongsideTask = GetMostDiscussedAlongside(cts.Token);
+    private async Task LoadTopicPageAsync()
+    {
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
 
-        await Task.WhenAll(getTopicTask, getTimelineTask, getMostDiscussedAlongsideTask);
+        _searchDebounceCts?.Cancel();
+
+        _loadCts = new CancellationTokenSource();
+        CancellationToken cancellationToken = _loadCts.Token;
+
+        ResetTopicState();
+        SetLoadingBreadcrumb();
+
+        try
+        {
+            var getTopicTask = GetTopic(cancellationToken);
+            var getTimelineTask = GetTimeline(_currentPage, cancellationToken);
+            var getMostDiscussedAlongsideTask = GetMostDiscussedAlongside(cancellationToken);
+
+            await Task.WhenAll(getTopicTask, getTimelineTask, getMostDiscussedAlongsideTask);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private void ResetTopicState()
+    {
+        _topic = null;
+        _timeline = null;
+        _mostDiscussedAlongside = null;
+        _currentPage = 1;
+        _searchTerm = string.Empty;
+        _sortDescending = true;
+    }
+
+    private void SetLoadingBreadcrumb()
+    {
+        if (!_breadcrumbInitialized)
+        {
+            BreadcrumbService.Push("Loading...", NavigationManager.Uri, Icons.Material.Filled.Tag);
+            _breadcrumbInitialized = true;
+            return;
+        }
+
+        BreadcrumbService.ReplaceLast("Loading...", NavigationManager.Uri, Icons.Material.Filled.Tag);
     }
 
     private async Task GetTopic(CancellationToken cancellationToken)
@@ -229,7 +281,7 @@
             topic =>
             {
                 _topic = topic;
-                BreadcrumbService.ReplaceLast(topic.Name);
+                BreadcrumbService.ReplaceLast(topic.Name, NavigationManager.Uri);
                 return Task.CompletedTask;
             },
             () =>
@@ -318,6 +370,8 @@
 
     public void Dispose()
     {
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
         _searchDebounceCts?.Cancel();
         _searchDebounceCts?.Dispose();
     }
