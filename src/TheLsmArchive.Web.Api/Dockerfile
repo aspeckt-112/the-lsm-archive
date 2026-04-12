@@ -24,6 +24,7 @@ RUN dotnet publish "TheLsmArchive.Web.Api.csproj" -c Release -o /app/publish /p:
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
+RUN mkdir -p /app/logs
 EXPOSE 8080
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "TheLsmArchive.Web.Api.dll"]
