@@ -10,94 +10,77 @@ using TheLsmArchive.Web.Api.Features.System;
 using TheLsmArchive.Web.Api.Features.Topics;
 using TheLsmArchive.Web.Api.Infrastructure;
 
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .CreateBootstrapLogger();
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-try
-{
-    Log.Information("Starting web API host");
+EnsureConfiguredLogDirectoryExists(builder);
 
-    WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+builder.Services.AddSerilog((services, loggerConfiguration) => loggerConfiguration
+    .ReadFrom.Configuration(builder.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext());
 
-    EnsureConfiguredLogDirectoryExists(builder);
-
-    builder.Services.AddSerilog((services, loggerConfiguration) => loggerConfiguration
-        .ReadFrom.Configuration(builder.Configuration)
-        .ReadFrom.Services(services)
-        .Enrich.FromLogContext());
-
-    builder.Services
-        .AddDbContext(builder.Configuration, ServiceLifetime.Scoped)
-        .AddProblemDetails()
-        .AddScoped<ISearchService, SearchService>()
-        .AddScoped<IEpisodeService, EpisodeService>()
-        .AddScoped<IPersonService, PersonService>()
-        .AddScoped<ITopicService, TopicService>()
-        .AddScoped<ISystemService, SystemService>()
-        .AddExceptionHandler<GlobalExceptionHandler>()
-        .AddCors(options =>
-        {
-            if (builder.Environment.IsDevelopment())
-            {
-                options.AddDefaultPolicy(policy =>
-                {
-                    policy
-                        .AllowAnyOrigin()
-                        .AllowAnyHeader()
-                        .AllowAnyMethod();
-                });
-            }
-            else
-            {
-                options.AddDefaultPolicy(policy =>
-                {
-                    policy.WithOrigins("https://lsmarchive.com", "https://www.lsmarchive.com")
-                          .AllowAnyHeader()
-                          .AllowAnyMethod();
-                });
-            }
-        });
-
-    WebApplication app = builder.Build();
-
-    app.UseForwardedHeaders(new ForwardedHeadersOptions
+builder.Services
+    .AddDbContext(builder.Configuration, ServiceLifetime.Scoped)
+    .AddProblemDetails()
+    .AddScoped<ISearchService, SearchService>()
+    .AddScoped<IEpisodeService, EpisodeService>()
+    .AddScoped<IPersonService, PersonService>()
+    .AddScoped<ITopicService, TopicService>()
+    .AddScoped<ISystemService, SystemService>()
+    .AddExceptionHandler<GlobalExceptionHandler>()
+    .AddCors(options =>
     {
-        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+        if (builder.Environment.IsDevelopment())
+        {
+            options.AddDefaultPolicy(policy =>
+            {
+                policy
+                    .AllowAnyOrigin()
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+            });
+        }
+        else
+        {
+            options.AddDefaultPolicy(policy =>
+            {
+                policy.WithOrigins("https://lsmarchive.com", "https://www.lsmarchive.com")
+                      .AllowAnyHeader()
+                      .AllowAnyMethod();
+            });
+        }
     });
 
-    app.UseSerilogRequestLogging();
+WebApplication app = builder.Build();
 
-    app.UseExceptionHandler();
-
-    if (!app.Environment.IsEnvironment("Testing"))
-    {
-        await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
-        await using ReadWriteDbContext dbContext = scope.ServiceProvider.GetRequiredService<ReadWriteDbContext>();
-        await dbContext.Database.MigrateAsync();
-    }
-
-    app
-        .UseCors()
-        .UseHttpsRedirection();
-
-    app
-        .AddSearchEndpoints()
-        .AddEpisodeEndpoints()
-        .AddTopicEndpoints()
-        .AddPersonEndpoints()
-        .AddSystemEndpoints();
-
-    await app.RunAsync();
-}
-catch (Exception ex)
+app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
-    Log.Fatal(ex, "Web API host terminated unexpectedly");
-}
-finally
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
+app.UseSerilogRequestLogging();
+
+app.UseExceptionHandler();
+
+if (!app.Environment.IsEnvironment("Testing"))
 {
-    Log.CloseAndFlush();
+    await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
+    await using ReadWriteDbContext dbContext = scope.ServiceProvider.GetRequiredService<ReadWriteDbContext>();
+    await dbContext.Database.MigrateAsync();
 }
+
+app
+    .UseCors()
+    .UseHttpsRedirection();
+
+app
+    .AddSearchEndpoints()
+    .AddEpisodeEndpoints()
+    .AddTopicEndpoints()
+    .AddPersonEndpoints()
+    .AddSystemEndpoints();
+
+await app.RunAsync();
 
 static void EnsureConfiguredLogDirectoryExists(WebApplicationBuilder builder)
 {
