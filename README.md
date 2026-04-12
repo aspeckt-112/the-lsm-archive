@@ -80,6 +80,18 @@ dotnet run --project src/TheLsmArchive.Web.Frontend
 ```
 *Note: The frontend is pre-configured to connect to the API at `https://localhost:7229` (the default HTTPS profile). Ensure the API is running before launching the frontend. If you're using VS Code, you can use the provided `launch.json` to run the API and Frontend together. The recommended scenario is to run the ingestion tool first to get data in the database, then run the API and Frontend to develop features and test against real data.*
 
+## Logging
+
+The API uses Serilog and routes all `ILogger<T>` messages through the same Serilog pipeline. Logs are written to both standard output and a daily rolling file at `logs/api-.log` relative to the API content root. In Docker, that resolves to `/app/logs/api-.log`.
+
+To persist API log files on the host in production, mount a volume into the API container:
+
+```yaml
+web-api:
+   volumes:
+      - /opt/the-lsm-archive/logs/api:/app/logs
+```
+
 ## Testing
 
 Tests utilize **Testcontainers** to run against a real PostgreSQL instance. Ensure Docker is running before executing tests.
