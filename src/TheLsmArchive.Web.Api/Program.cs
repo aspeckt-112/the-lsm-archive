@@ -102,5 +102,3 @@ static void EnsureConfiguredLogDirectoryExists(WebApplicationBuilder builder)
         Directory.CreateDirectory(logDirectory);
     }
 }
-
-public partial class Program { }

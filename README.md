@@ -82,7 +82,10 @@ dotnet run --project src/TheLsmArchive.Web.Frontend
 
 ## Logging
 
-The API uses Serilog and routes all `ILogger<T>` messages through the same Serilog pipeline. Logs are written to both standard output and a daily rolling file at `logs/api-.log` relative to the API content root. In Docker, that resolves to `/app/logs/api-.log`.
+The API and Patreon ingestion worker use Serilog and route all `ILogger<T>` messages through the same Serilog pipeline. Logs are written to both standard output and daily rolling files relative to each application's content root:
+
+- API: `logs/api-.log` (`/app/logs/api-.log` in Docker)
+- Patreon ingestion: `logs/patreon-ingestion-.log` (`/app/logs/patreon-ingestion-.log` in Docker)
 
 To persist API log files on the host in production, mount a volume into the API container:
 
@@ -90,6 +93,14 @@ To persist API log files on the host in production, mount a volume into the API 
 web-api:
    volumes:
       - /opt/the-lsm-archive/logs/api:/app/logs
+```
+
+To persist Patreon ingestion log files on the host, mount a separate directory into the worker container:
+
+```yaml
+patreon-ingestion:
+   volumes:
+      - /opt/the-lsm-archive/logs/patreon-ingestion:/app/logs
 ```
 
 ## Testing
