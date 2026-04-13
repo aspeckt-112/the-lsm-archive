@@ -8,6 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
+using Serilog;
+
 using Polly;
 using Polly.RateLimiting;
 using Polly.Retry;
@@ -22,6 +24,13 @@ using TheLsmArchive.Patreon.Ingestion.Services.Abstractions;
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
 builder.Configuration.AddUserSecrets<Program>();
+
+EnsureConfiguredLogDirectoryExists(builder);
+
+builder.Services.AddSerilog((services, loggerConfiguration) => loggerConfiguration
+    .ReadFrom.Configuration(builder.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext());
 
 builder.Services
     .AddOptionsWithValidateOnStart<GeminiOptions>()
@@ -111,3 +120,24 @@ builder.Services.AddDbContext(builder.Configuration, ServiceLifetime.Singleton);
 IHost host = builder.Build();
 
 await host.RunAsync();
+
+static void EnsureConfiguredLogDirectoryExists(HostApplicationBuilder builder)
+{
+    string? configuredPath = builder.Configuration["Serilog:WriteTo:FileSink:Args:path"];
+
+    if (string.IsNullOrWhiteSpace(configuredPath))
+    {
+        return;
+    }
+
+    string fullPath = Path.IsPathRooted(configuredPath)
+        ? configuredPath
+        : Path.Combine(builder.Environment.ContentRootPath, configuredPath);
+
+    string? logDirectory = Path.GetDirectoryName(fullPath);
+
+    if (!string.IsNullOrWhiteSpace(logDirectory))
+    {
+        Directory.CreateDirectory(logDirectory);
+    }
+}
