@@ -35,11 +35,11 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
         {
-            services.AddScoped<IEpisodeService>(_ => EpisodeServiceMock.Object);
-            services.AddScoped<IPersonService>(_ => PersonServiceMock.Object);
-            services.AddScoped<ITopicService>(_ => TopicServiceMock.Object);
-            services.AddScoped<ISearchService>(_ => SearchServiceMock.Object);
-            services.AddScoped<ISystemService>(_ => SystemServiceMock.Object);
+            services.AddScoped(_ => EpisodeServiceMock.Object);
+            services.AddScoped(_ => PersonServiceMock.Object);
+            services.AddScoped(_ => TopicServiceMock.Object);
+            services.AddScoped(_ => SearchServiceMock.Object);
+            services.AddScoped(_ => SystemServiceMock.Object);
         });
     }
 }

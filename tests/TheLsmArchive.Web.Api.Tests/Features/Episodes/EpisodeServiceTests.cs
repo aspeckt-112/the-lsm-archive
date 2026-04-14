@@ -188,9 +188,13 @@ public class EpisodeServiceTests : BaseServiceIntegrationTest, IClassFixture<Ser
 
         PatreonPostEntity post = new()
         {
-            PatreonId = 200, Title = "Post 200", Link = "https://patreon.com/200",
-            Summary = "<p>A summary</p>", Published = DateTimeOffset.UtcNow,
-            AudioUrl = "https://audio.com/200", ShowId = show.Id
+            PatreonId = 200,
+            Title = "Post 200",
+            Link = "https://patreon.com/200",
+            Summary = "<p>A summary</p>",
+            Published = DateTimeOffset.UtcNow,
+            AudioUrl = "https://audio.com/200",
+            ShowId = show.Id
         };
         EpisodeEntity episodeEntity = new()
         {
@@ -265,24 +269,38 @@ public class EpisodeServiceTests : BaseServiceIntegrationTest, IClassFixture<Ser
 
         PatreonPostEntity post1 = new()
         {
-            PatreonId = 301, Title = "Post 301", Link = "https://patreon.com/301",
-            Summary = "Summary 301", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/301", ShowId = show.Id
+            PatreonId = 301,
+            Title = "Post 301",
+            Link = "https://patreon.com/301",
+            Summary = "Summary 301",
+            Published = DateTimeOffset.UtcNow,
+            AudioUrl = "https://audio.com/301",
+            ShowId = show.Id
         };
         PatreonPostEntity post2 = new()
         {
-            PatreonId = 302, Title = "Post 302", Link = "https://patreon.com/302",
-            Summary = "Summary 302", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/302", ShowId = show.Id
+            PatreonId = 302,
+            Title = "Post 302",
+            Link = "https://patreon.com/302",
+            Summary = "Summary 302",
+            Published = DateTimeOffset.UtcNow,
+            AudioUrl = "https://audio.com/302",
+            ShowId = show.Id
         };
 
         EpisodeEntity ep1 = new()
         {
-            Title = "Alpha Episode", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-2),
-            PatreonPost = post1, ShowId = show.Id
+            Title = "Alpha Episode",
+            ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-2),
+            PatreonPost = post1,
+            ShowId = show.Id
         };
         EpisodeEntity ep2 = new()
         {
-            Title = "Beta Episode", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-1),
-            PatreonPost = post2, ShowId = show.Id
+            Title = "Beta Episode",
+            ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-1),
+            PatreonPost = post2,
+            ShowId = show.Id
         };
 
         await InsertSingleInstanceOfEntityAsync(ep1);
@@ -314,26 +332,38 @@ public class EpisodeServiceTests : BaseServiceIntegrationTest, IClassFixture<Ser
 
         PatreonPostEntity post1 = new()
         {
-            PatreonId = 401, Title = "Post 401", Link = "https://patreon.com/401",
-            Summary = "Summary about gaming", Published = DateTimeOffset.UtcNow,
-            AudioUrl = "https://audio.com/401", ShowId = show.Id
+            PatreonId = 401,
+            Title = "Post 401",
+            Link = "https://patreon.com/401",
+            Summary = "Summary about gaming",
+            Published = DateTimeOffset.UtcNow,
+            AudioUrl = "https://audio.com/401",
+            ShowId = show.Id
         };
         PatreonPostEntity post2 = new()
         {
-            PatreonId = 402, Title = "Post 402", Link = "https://patreon.com/402",
-            Summary = "Summary about cooking", Published = DateTimeOffset.UtcNow,
-            AudioUrl = "https://audio.com/402", ShowId = show.Id
+            PatreonId = 402,
+            Title = "Post 402",
+            Link = "https://patreon.com/402",
+            Summary = "Summary about cooking",
+            Published = DateTimeOffset.UtcNow,
+            AudioUrl = "https://audio.com/402",
+            ShowId = show.Id
         };
 
         EpisodeEntity ep1 = new()
         {
-            Title = "Gaming Discussion", ReleaseDateUtc = DateTimeOffset.UtcNow,
-            PatreonPost = post1, ShowId = show.Id
+            Title = "Gaming Discussion",
+            ReleaseDateUtc = DateTimeOffset.UtcNow,
+            PatreonPost = post1,
+            ShowId = show.Id
         };
         EpisodeEntity ep2 = new()
         {
-            Title = "Cooking Tips", ReleaseDateUtc = DateTimeOffset.UtcNow,
-            PatreonPost = post2, ShowId = show.Id
+            Title = "Cooking Tips",
+            ReleaseDateUtc = DateTimeOffset.UtcNow,
+            PatreonPost = post2,
+            ShowId = show.Id
         };
 
         await InsertSingleInstanceOfEntityAsync(ep1);

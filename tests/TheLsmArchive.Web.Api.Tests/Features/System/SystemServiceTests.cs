@@ -31,15 +31,23 @@ public class SystemServiceTests : BaseServiceIntegrationTest, IClassFixture<Serv
 
         PatreonPostEntity post1 = new()
         {
-            PatreonId = 1, Title = "Post 1", Link = "https://patreon.com/1",
-            Summary = "Summary 1", Published = new DateTimeOffset(2024, 3, 15, 12, 0, 0, TimeSpan.Zero),
-            AudioUrl = "https://audio.com/1", ShowId = show.Id
+            PatreonId = 1,
+            Title = "Post 1",
+            Link = "https://patreon.com/1",
+            Summary = "Summary 1",
+            Published = new DateTimeOffset(2024, 3, 15, 12, 0, 0, TimeSpan.Zero),
+            AudioUrl = "https://audio.com/1",
+            ShowId = show.Id
         };
         PatreonPostEntity post2 = new()
         {
-            PatreonId = 2, Title = "Post 2", Link = "https://patreon.com/2",
-            Summary = "Summary 2", Published = new DateTimeOffset(2024, 6, 20, 12, 0, 0, TimeSpan.Zero),
-            AudioUrl = "https://audio.com/2", ShowId = show.Id
+            PatreonId = 2,
+            Title = "Post 2",
+            Link = "https://patreon.com/2",
+            Summary = "Summary 2",
+            Published = new DateTimeOffset(2024, 6, 20, 12, 0, 0, TimeSpan.Zero),
+            AudioUrl = "https://audio.com/2",
+            ShowId = show.Id
         };
 
         EpisodeEntity ep1 = new()
@@ -83,9 +91,13 @@ public class SystemServiceTests : BaseServiceIntegrationTest, IClassFixture<Serv
 
         PatreonPostEntity unlinkedPost = new()
         {
-            PatreonId = 1, Title = "Unlinked Post", Link = "https://patreon.com/1",
-            Summary = "Summary 1", Published = DateTimeOffset.UtcNow,
-            AudioUrl = "https://audio.com/1", ShowId = show.Id
+            PatreonId = 1,
+            Title = "Unlinked Post",
+            Link = "https://patreon.com/1",
+            Summary = "Summary 1",
+            Published = DateTimeOffset.UtcNow,
+            AudioUrl = "https://audio.com/1",
+            ShowId = show.Id
         };
         await InsertSingleInstanceOfEntityAsync(unlinkedPost);
 

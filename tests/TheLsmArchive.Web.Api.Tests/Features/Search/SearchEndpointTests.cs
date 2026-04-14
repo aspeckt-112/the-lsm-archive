@@ -6,7 +6,6 @@ using Moq;
 using TheLsmArchive.Models.Enums;
 using TheLsmArchive.Models.Request;
 using TheLsmArchive.Models.Response;
-using TheLsmArchive.Web.Api.Features.Search;
 
 namespace TheLsmArchive.Web.Api.Tests.Features.Search;
 
