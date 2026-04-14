@@ -77,9 +77,9 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
             .Returns(ResiliencePipeline.Empty);
 
         // Options
-        IOptions<RssFeedSources> feedOptions = global::Microsoft.Extensions.Options.Options.Create<RssFeedSources>(
+        IOptions<RssFeedSources> feedOptions = Microsoft.Extensions.Options.Options.Create<RssFeedSources>(
             [new RssFeedSource { Name = "Test Feed", Url = "https://test.com/rss" }]);
-        IOptions<PatreonIngestionOptions> ingestionOptions = global::Microsoft.Extensions.Options.Options.Create(
+        IOptions<PatreonIngestionOptions> ingestionOptions = Microsoft.Extensions.Options.Options.Create(
             new PatreonIngestionOptions { RefreshIntervalInMinutes = 60 });
 
         PatreonIngestionService service = new(
@@ -103,7 +103,7 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
         sb.AppendLine("<channel>");
         sb.AppendLine("<title>Sacred Symbols: A PlayStation Podcast</title>");
 
-        foreach (var (id, title, pubDate, desc) in items)
+        foreach ((int id, string? title, string? pubDate, string? desc) in items)
         {
             sb.AppendLine("<item>");
             sb.AppendLine($"<guid>{id}</guid>");
@@ -539,12 +539,7 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
                 (_, _, _, _, _) =>
                 {
                     int current = Interlocked.Increment(ref callCount);
-                    if (current == 2)
-                    {
-                        throw new InvalidOperationException("AI exploded on second post");
-                    }
-
-                    return Task.FromResult(goodSummary);
+                    return current == 2 ? throw new InvalidOperationException("AI exploded on second post") : Task.FromResult(goodSummary);
                 });
 
         await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();

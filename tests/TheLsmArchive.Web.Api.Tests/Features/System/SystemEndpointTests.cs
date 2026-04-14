@@ -3,8 +3,6 @@ using System.Net.Http.Json;
 
 using Moq;
 
-using TheLsmArchive.Web.Api.Features.System;
-
 namespace TheLsmArchive.Web.Api.Tests.Features.System;
 
 public class SystemEndpointTests : IClassFixture<CustomWebApplicationFactory>

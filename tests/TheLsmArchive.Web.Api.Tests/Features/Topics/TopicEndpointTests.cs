@@ -5,7 +5,6 @@ using Moq;
 
 using TheLsmArchive.Models.Request;
 using TheLsmArchive.Models.Response;
-using TheLsmArchive.Web.Api.Features.Topics;
 
 namespace TheLsmArchive.Web.Api.Tests.Features.Topics;
 

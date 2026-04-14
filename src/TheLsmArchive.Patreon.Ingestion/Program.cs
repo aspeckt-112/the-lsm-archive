@@ -8,12 +8,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
-using Serilog;
-
 using Polly;
 using Polly.RateLimiting;
 using Polly.Retry;
 using Polly.Timeout;
+
+using Serilog;
 
 using TheLsmArchive.Database;
 using TheLsmArchive.Patreon.Ingestion;

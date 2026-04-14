@@ -35,7 +35,7 @@ public class LsmArchiveClientServiceTests
     [Fact]
     public async Task GetPersonById_WithNegativeId_Throws()
     {
-        using MockHandler handler = new("""{"id":1,"name":"Test"}""");
+        using MockHandler handler = new(/*lang=json,strict*/ """{"id":1,"name":"Test"}""");
         LsmArchiveClientService service = CreateService(handler);
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
