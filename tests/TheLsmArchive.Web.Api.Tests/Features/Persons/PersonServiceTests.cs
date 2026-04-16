@@ -19,7 +19,7 @@ public class PersonServiceTests : BaseServiceIntegrationTest, IClassFixture<Serv
 
         _personService = new PersonService(
             loggerMock.Object,
-            ReadOnlyDbContext
+            DbContext
         );
     }
 

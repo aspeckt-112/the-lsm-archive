@@ -19,19 +19,19 @@ public sealed class SearchService : ISearchService
 
     private readonly ILogger<SearchService> _logger;
 
-    private readonly ReadOnlyDbContext _dbContext;
+    private readonly LsmArchiveDbContext _dbContext;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SearchService"/> class.
     /// </summary>
     /// <param name="logger">The logger.</param>
-    /// <param name="readOnlyDbContext">The read-only database context.</param>
+    /// <param name="dbContext">The database context.</param>
     public SearchService(
         ILogger<SearchService> logger,
-        ReadOnlyDbContext readOnlyDbContext)
+        LsmArchiveDbContext dbContext)
     {
         _logger = logger;
-        _dbContext = readOnlyDbContext;
+        _dbContext = dbContext;
     }
 
     /// <inheritdoc />
@@ -133,6 +133,7 @@ public sealed class SearchService : ISearchService
     private IQueryable<SearchProjection> QueryPersons(string pattern)
     {
         return _dbContext.Persons
+            .AsNoTracking()
             .Where(p => EF.Functions.ILike(p.Name, pattern))
             .Select(p => new SearchProjection { Id = p.Id, Name = p.Name, Type = EntityType.Person });
     }
@@ -140,6 +141,7 @@ public sealed class SearchService : ISearchService
     private IQueryable<SearchProjection> QueryTopics(string pattern)
     {
         return _dbContext.Topics
+            .AsNoTracking()
             .Where(t => EF.Functions.ILike(t.Name, pattern))
             .Select(t => new SearchProjection { Id = t.Id, Name = t.Name, Type = EntityType.Topic });
     }
@@ -147,6 +149,7 @@ public sealed class SearchService : ISearchService
     private IQueryable<SearchProjection> QueryEpisodes(string pattern)
     {
         return _dbContext.Episodes
+            .AsNoTracking()
             .Where(e => EF.Functions.ILike(e.Title, pattern) ||
                         EF.Functions.ILike(e.PatreonPost.Summary, pattern))
             .Select(e => new SearchProjection { Id = e.Id, Name = e.Title, Type = EntityType.Episode });

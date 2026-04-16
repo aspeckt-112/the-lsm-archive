@@ -12,12 +12,21 @@ namespace TheLsmArchive.Patreon.Ingestion.Tests;
 
 public class IngestionIntegrationTestFixture : IAsyncLifetime
 {
+    private sealed class TestDbContextFactory(DbContextOptions<LsmArchiveDbContext> dbContextOptions)
+        : IDbContextFactory<LsmArchiveDbContext>
+    {
+        public LsmArchiveDbContext CreateDbContext() => new(dbContextOptions);
+
+        public Task<LsmArchiveDbContext> CreateDbContextAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(CreateDbContext());
+    }
+
     private readonly PostgreSqlContainer _postgreSqlContainer =
         new PostgreSqlBuilder("postgres:13.22-alpine3.22").Build();
 
-    private DbContextOptions<ReadWriteDbContext>? _readWriteDbContextOptions;
+    private DbContextOptions<LsmArchiveDbContext>? _dbContextOptions;
 
-    private ReadWriteDbContext? _respawnDbContext;
+    private LsmArchiveDbContext? _respawnDbContext;
 
     private DbConnection? _respawnConnection;
 
@@ -31,18 +40,18 @@ public class IngestionIntegrationTestFixture : IAsyncLifetime
 
         ConnectionString = _postgreSqlContainer.GetConnectionString();
 
-        _readWriteDbContextOptions = new DbContextOptionsBuilder<ReadWriteDbContext>()
+        _dbContextOptions = new DbContextOptionsBuilder<LsmArchiveDbContext>()
             .UseNpgsql(ConnectionString)
             .UseSnakeCaseNamingConvention()
             .Options;
 
-        await using ReadWriteDbContext setupContext = new(_readWriteDbContextOptions);
+        await using LsmArchiveDbContext setupContext = new(_dbContextOptions);
         await setupContext.Database.EnsureCreatedAsync();
 
         // Enable pg_trgm extension for fuzzy matching (TrigramsSimilarity)
         await setupContext.Database.ExecuteSqlRawAsync("CREATE EXTENSION IF NOT EXISTS pg_trgm");
 
-        _respawnDbContext = new ReadWriteDbContext(_readWriteDbContextOptions);
+        _respawnDbContext = new LsmArchiveDbContext(_dbContextOptions);
         _respawnConnection = _respawnDbContext.Database.GetDbConnection();
 
         await _respawnConnection.OpenAsync();
@@ -76,6 +85,10 @@ public class IngestionIntegrationTestFixture : IAsyncLifetime
         await _postgreSqlContainer.DisposeAsync();
     }
 
-    public ReadWriteDbContext CreateReadWriteContext() => new(_readWriteDbContextOptions ??
+    public LsmArchiveDbContext CreateDbContext() => new(_dbContextOptions ??
         throw new InvalidOperationException("DbContext options have not been initialized."));
+
+    public IDbContextFactory<LsmArchiveDbContext> CreateDbContextFactory() =>
+        new TestDbContextFactory(_dbContextOptions ??
+            throw new InvalidOperationException("DbContext options have not been initialized."));
 }

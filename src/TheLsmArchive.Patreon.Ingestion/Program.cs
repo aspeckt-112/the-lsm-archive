@@ -115,7 +115,7 @@ builder.Services.AddSingleton(sp =>
     return new Google.GenAI.Client(apiKey: optionsValue.ApiKey, httpOptions: httpOptions);
 });
 
-builder.Services.AddDbContext(builder.Configuration, ServiceLifetime.Singleton);
+builder.Services.AddDbContextFactory(builder.Configuration);
 
 IHost host = builder.Build();
 

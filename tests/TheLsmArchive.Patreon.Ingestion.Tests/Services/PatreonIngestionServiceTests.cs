@@ -39,7 +39,6 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
     private async Task RunSingleIngestionCycleAsync(
         string rssXml,
         AiSummary aiSummary,
-        ReadWriteDbContext dbContext,
         IAiSummaryService? aiServiceOverride = null)
     {
         Mock<ILogger<PatreonIngestionService>> loggerMock = new();
@@ -89,7 +88,7 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
             pipelineProviderMock.Object,
             feedOptions,
             ingestionOptions,
-            dbContext);
+            _fixture.CreateDbContextFactory());
 
         // Execute a single ingestion cycle directly (no BackgroundService loop/delay)
         await service.ExecuteIngestionCycleAsync(TestContext.Current.CancellationToken);
@@ -103,7 +102,7 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
         sb.AppendLine("<channel>");
         sb.AppendLine("<title>Sacred Symbols: A PlayStation Podcast</title>");
 
-        foreach ((int id, string? title, string? pubDate, string? desc) in items)
+        foreach ((int id, string title, string pubDate, string desc) in items)
         {
             sb.AppendLine("<item>");
             sb.AppendLine($"<guid>{id}</guid>");
@@ -132,22 +131,20 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
             Guests: [],
             Topics: ["PlayStation 5", "Game Pass"]);
 
-        await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();
-
         // Act
-        await RunSingleIngestionCycleAsync(rssXml, aiSummary, dbContext);
+        await RunSingleIngestionCycleAsync(rssXml, aiSummary);
 
         // Assert — use a fresh context to avoid stale cache
-        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
+        await using LsmArchiveDbContext verifyContext = _fixture.CreateDbContext();
 
         // Show created
-        ShowEntity? show = await verifyContext.Shows.FirstOrDefaultAsync();
+        ShowEntity? show = await verifyContext.Shows.FirstOrDefaultAsync(TestContext.Current.CancellationToken);
         Assert.NotNull(show);
         Assert.Equal("Sacred Symbols: A PlayStation Podcast", show.Name);
         Assert.NotNull(show.LastSyncedAt);
 
         // Post ingested
-        PatreonPostEntity? post = await verifyContext.PatreonPosts.FirstOrDefaultAsync();
+        PatreonPostEntity? post = await verifyContext.PatreonPosts.FirstOrDefaultAsync(TestContext.Current.CancellationToken);
         Assert.NotNull(post);
         Assert.Equal(100, post.PatreonId);
         Assert.Equal("Episode 150: Big News", post.Title);
@@ -155,32 +152,32 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
         Assert.Null(post.ProcessingError);
 
         // Episode created
-        EpisodeEntity? episode = await verifyContext.Episodes.FirstOrDefaultAsync();
+        EpisodeEntity? episode = await verifyContext.Episodes.FirstOrDefaultAsync(TestContext.Current.CancellationToken);
         Assert.NotNull(episode);
         Assert.Equal("Episode 150: Big News", episode.Title);
 
         // Persons created
-        List<PersonEntity> persons = await verifyContext.Persons.OrderBy(p => p.Name).ToListAsync();
+        List<PersonEntity> persons = await verifyContext.Persons.OrderBy(p => p.Name).ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, persons.Count);
         Assert.Equal("Chris Ray Gun", persons[0].Name);
         Assert.Equal("Colin Moriarty", persons[1].Name);
 
         // Topics created
-        List<TopicEntity> topics = await verifyContext.Topics.OrderBy(t => t.Name).ToListAsync();
+        List<TopicEntity> topics = await verifyContext.Topics.OrderBy(t => t.Name).ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, topics.Count);
         Assert.Equal("Game Pass", topics[0].Name);
         Assert.Equal("PlayStation 5", topics[1].Name);
 
         // Person-Episode relationships
-        List<PersonEpisodeEntity> personEpisodes = await verifyContext.PersonEpisodes.ToListAsync();
+        List<PersonEpisodeEntity> personEpisodes = await verifyContext.PersonEpisodes.ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, personEpisodes.Count);
 
         // Topic-Episode relationships
-        List<TopicEpisodeEntity> topicEpisodes = await verifyContext.TopicEpisodes.ToListAsync();
+        List<TopicEpisodeEntity> topicEpisodes = await verifyContext.TopicEpisodes.ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, topicEpisodes.Count);
 
         // Person-Topic relationships (2 persons × 2 topics = 4)
-        List<PersonTopicEntity> personTopics = await verifyContext.PersonTopics.ToListAsync();
+        List<PersonTopicEntity> personTopics = await verifyContext.PersonTopics.ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(4, personTopics.Count);
     }
 
@@ -188,10 +185,10 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
     public async Task IngestPosts_SkipsDuplicatePatreonIds()
     {
         // Arrange — seed a post that already exists
-        await using ReadWriteDbContext seedContext = _fixture.CreateReadWriteContext();
+        await using LsmArchiveDbContext seedContext = _fixture.CreateDbContext();
         ShowEntity show = new() { Name = "Sacred Symbols: A PlayStation Podcast" };
         seedContext.Shows.Add(show);
-        await seedContext.SaveChangesAsync();
+        await seedContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         PatreonPostEntity existingPost = new()
         {
@@ -204,7 +201,7 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
             ShowId = show.Id
         };
         seedContext.PatreonPosts.Add(existingPost);
-        await seedContext.SaveChangesAsync();
+        await seedContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // RSS feed contains the same post ID (200)
         string rssXml = BuildRssXml(
@@ -212,14 +209,12 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
 
         AiSummary aiSummary = new(["Colin Moriarty"], [], ["PS5"]);
 
-        await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();
-
         // Act
-        await RunSingleIngestionCycleAsync(rssXml, aiSummary, dbContext);
+        await RunSingleIngestionCycleAsync(rssXml, aiSummary);
 
         // Assert — still only 1 post
-        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
-        int postCount = await verifyContext.PatreonPosts.CountAsync();
+        await using LsmArchiveDbContext verifyContext = _fixture.CreateDbContext();
+        int postCount = await verifyContext.PatreonPosts.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, postCount);
     }
 
@@ -227,14 +222,14 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
     public async Task ProcessPost_ReuseExistingPersonByNormalizedName()
     {
         // Arrange — seed a person that already exists
-        await using ReadWriteDbContext seedContext = _fixture.CreateReadWriteContext();
+        await using LsmArchiveDbContext seedContext = _fixture.CreateDbContext();
         PersonEntity existingPerson = new()
         {
             Name = "Colin Moriarty",
             NormalizedName = "colinmoriarty"
         };
         seedContext.Persons.Add(existingPerson);
-        await seedContext.SaveChangesAsync();
+        await seedContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         string rssXml = BuildRssXml(
             (300, "Episode 1", "Mon, 15 Jan 2024 10:00:00 GMT", "A discussion"));
@@ -245,14 +240,12 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
             Guests: [],
             Topics: ["PlayStation 5"]);
 
-        await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();
-
         // Act
-        await RunSingleIngestionCycleAsync(rssXml, aiSummary, dbContext);
+        await RunSingleIngestionCycleAsync(rssXml, aiSummary);
 
         // Assert — still only 1 person entity (reused, not duplicated)
-        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
-        int personCount = await verifyContext.Persons.CountAsync();
+        await using LsmArchiveDbContext verifyContext = _fixture.CreateDbContext();
+        int personCount = await verifyContext.Persons.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, personCount);
     }
 
@@ -260,14 +253,14 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
     public async Task ProcessPost_ReuseExistingTopicByNormalizedName()
     {
         // Arrange — seed an existing topic
-        await using ReadWriteDbContext seedContext = _fixture.CreateReadWriteContext();
+        await using LsmArchiveDbContext seedContext = _fixture.CreateDbContext();
         TopicEntity existingTopic = new()
         {
             Name = "PlayStation 5",
             NormalizedName = "playstation5"
         };
         seedContext.Topics.Add(existingTopic);
-        await seedContext.SaveChangesAsync();
+        await seedContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         string rssXml = BuildRssXml(
             (400, "Episode 2", "Tue, 16 Jan 2024 10:00:00 GMT", "Topic test"));
@@ -277,14 +270,12 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
             Guests: [],
             Topics: ["PlayStation 5"]);
 
-        await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();
-
         // Act
-        await RunSingleIngestionCycleAsync(rssXml, aiSummary, dbContext);
+        await RunSingleIngestionCycleAsync(rssXml, aiSummary);
 
         // Assert — still only 1 topic entity
-        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
-        int topicCount = await verifyContext.Topics.CountAsync();
+        await using LsmArchiveDbContext verifyContext = _fixture.CreateDbContext();
+        int topicCount = await verifyContext.Topics.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, topicCount);
     }
 
@@ -300,14 +291,12 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
             Guests: ["colin moriarty"], // same person, different case
             Topics: ["Gaming"]);
 
-        await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();
-
         // Act
-        await RunSingleIngestionCycleAsync(rssXml, aiSummary, dbContext);
+        await RunSingleIngestionCycleAsync(rssXml, aiSummary);
 
         // Assert — only 1 person entity created (deduplicated)
-        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
-        int personCount = await verifyContext.Persons.CountAsync();
+        await using LsmArchiveDbContext verifyContext = _fixture.CreateDbContext();
+        int personCount = await verifyContext.Persons.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, personCount);
     }
 
@@ -328,26 +317,23 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
                 It.IsAny<IEnumerable<string>?>()))
             .ThrowsAsync(new InvalidOperationException("AI service unavailable"));
 
-        await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();
-
         // Act
         await RunSingleIngestionCycleAsync(
             rssXml,
             new AiSummary([], [], []), // won't be used
-            dbContext,
             failingAiService.Object);
 
         // Assert — post was ingested but remains unprocessed.
         // The AI call fails before the DB transaction, so ProcessingError is not set
         // and the post stays in the "needs processing" state (EpisodeId == null).
-        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
-        PatreonPostEntity? post = await verifyContext.PatreonPosts.FirstOrDefaultAsync();
+        await using LsmArchiveDbContext verifyContext = _fixture.CreateDbContext();
+        PatreonPostEntity? post = await verifyContext.PatreonPosts.FirstOrDefaultAsync(TestContext.Current.CancellationToken);
         Assert.NotNull(post);
         Assert.Equal(600, post.PatreonId);
         Assert.Null(post.EpisodeId);
 
         // No episode should have been created
-        int episodeCount = await verifyContext.Episodes.CountAsync();
+        int episodeCount = await verifyContext.Episodes.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(0, episodeCount);
     }
 
@@ -368,18 +354,15 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
                 It.IsAny<IEnumerable<string>?>()))
             .ThrowsAsync(new InvalidOperationException("Gemini down"));
 
-        await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();
-
         // Act
         await RunSingleIngestionCycleAsync(
             rssXml,
             new AiSummary([], [], []),
-            dbContext,
             failingAiService.Object);
 
         // Assert — LastSyncedAt should NOT be set
-        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
-        ShowEntity? show = await verifyContext.Shows.FirstOrDefaultAsync();
+        await using LsmArchiveDbContext verifyContext = _fixture.CreateDbContext();
+        ShowEntity? show = await verifyContext.Shows.FirstOrDefaultAsync(TestContext.Current.CancellationToken);
         Assert.NotNull(show);
         Assert.Null(show.LastSyncedAt);
     }
@@ -397,33 +380,31 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
             Guests: [],
             Topics: ["PlayStation 5"]);
 
-        await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();
-
         // Act
-        await RunSingleIngestionCycleAsync(rssXml, aiSummary, dbContext);
+        await RunSingleIngestionCycleAsync(rssXml, aiSummary);
 
         // Assert
-        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
-        int postCount = await verifyContext.PatreonPosts.CountAsync();
+        await using LsmArchiveDbContext verifyContext = _fixture.CreateDbContext();
+        int postCount = await verifyContext.PatreonPosts.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, postCount);
 
-        int episodeCount = await verifyContext.Episodes.CountAsync();
+        int episodeCount = await verifyContext.Episodes.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, episodeCount);
 
         // Person should be deduplicated across both posts (same host)
-        int personCount = await verifyContext.Persons.CountAsync();
+        int personCount = await verifyContext.Persons.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, personCount);
 
         // Topic should be deduplicated across both posts
-        int topicCount = await verifyContext.Topics.CountAsync();
+        int topicCount = await verifyContext.Topics.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, topicCount);
 
         // Each episode has 1 person-episode link = 2 total
-        int personEpisodeCount = await verifyContext.PersonEpisodes.CountAsync();
+        int personEpisodeCount = await verifyContext.PersonEpisodes.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, personEpisodeCount);
 
         // Each episode has 1 topic-episode link = 2 total
-        int topicEpisodeCount = await verifyContext.TopicEpisodes.CountAsync();
+        int topicEpisodeCount = await verifyContext.TopicEpisodes.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, topicEpisodeCount);
     }
 
@@ -438,21 +419,19 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
             Guests: ["Greg Miller"],
             Topics: ["Industry News"]);
 
-        await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();
-
         // Act
-        await RunSingleIngestionCycleAsync(rssXml, aiSummary, dbContext);
+        await RunSingleIngestionCycleAsync(rssXml, aiSummary);
 
         // Assert
-        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
+        await using LsmArchiveDbContext verifyContext = _fixture.CreateDbContext();
 
-        List<PersonEntity> persons = await verifyContext.Persons.OrderBy(p => p.Name).ToListAsync();
+        List<PersonEntity> persons = await verifyContext.Persons.OrderBy(p => p.Name).ToListAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, persons.Count);
         Assert.Equal("Colin Moriarty", persons[0].Name);
         Assert.Equal("Greg Miller", persons[1].Name);
 
         // Both host and guest are linked to the episode
-        int personEpisodeCount = await verifyContext.PersonEpisodes.CountAsync();
+        int personEpisodeCount = await verifyContext.PersonEpisodes.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, personEpisodeCount);
     }
 
@@ -460,10 +439,10 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
     public async Task GetOrCreateShow_ReusesExistingShowWithCaseInsensitiveMatch()
     {
         // Arrange — pre-seed a show
-        await using ReadWriteDbContext seedContext = _fixture.CreateReadWriteContext();
+        await using LsmArchiveDbContext seedContext = _fixture.CreateDbContext();
         ShowEntity existingShow = new() { Name = "Sacred Symbols: A PlayStation Podcast" };
         seedContext.Shows.Add(existingShow);
-        await seedContext.SaveChangesAsync();
+        await seedContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // RSS feed title matches in different casing pattern (ILike will match)
         string rssXml = BuildRssXml(
@@ -471,14 +450,12 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
 
         AiSummary aiSummary = new(["Colin Moriarty"], [], ["PS5"]);
 
-        await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();
-
         // Act
-        await RunSingleIngestionCycleAsync(rssXml, aiSummary, dbContext);
+        await RunSingleIngestionCycleAsync(rssXml, aiSummary);
 
         // Assert — still only 1 show (reused)
-        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
-        int showCount = await verifyContext.Shows.CountAsync();
+        await using LsmArchiveDbContext verifyContext = _fixture.CreateDbContext();
+        int showCount = await verifyContext.Shows.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, showCount);
     }
 
@@ -494,25 +471,23 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
             Guests: [],
             Topics: ["Dark Souls"]);
 
-        await using ReadWriteDbContext dbContext1 = _fixture.CreateReadWriteContext();
-        await RunSingleIngestionCycleAsync(rssXml, aiSummary, dbContext1);
+        await RunSingleIngestionCycleAsync(rssXml, aiSummary);
 
         // Act — run the same ingestion cycle again (simulates re-ingestion)
-        await using ReadWriteDbContext dbContext2 = _fixture.CreateReadWriteContext();
-        await RunSingleIngestionCycleAsync(rssXml, aiSummary, dbContext2);
+        await RunSingleIngestionCycleAsync(rssXml, aiSummary);
 
         // Assert — no duplicates
-        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
-        int postCount = await verifyContext.PatreonPosts.CountAsync();
+        await using LsmArchiveDbContext verifyContext = _fixture.CreateDbContext();
+        int postCount = await verifyContext.PatreonPosts.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, postCount);
 
-        int episodeCount = await verifyContext.Episodes.CountAsync();
+        int episodeCount = await verifyContext.Episodes.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, episodeCount);
 
-        int personCount = await verifyContext.Persons.CountAsync();
+        int personCount = await verifyContext.Persons.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, personCount);
 
-        int topicCount = await verifyContext.Topics.CountAsync();
+        int topicCount = await verifyContext.Topics.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, topicCount);
     }
 
@@ -542,17 +517,15 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
                     return current == 2 ? throw new InvalidOperationException("AI exploded on second post") : Task.FromResult(goodSummary);
                 });
 
-        await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();
-
         // Act
-        await RunSingleIngestionCycleAsync(rssXml, goodSummary, dbContext, aiServiceMock.Object);
+        await RunSingleIngestionCycleAsync(rssXml, goodSummary, aiServiceMock.Object);
 
         // Assert — first post succeeded, second failed
-        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
+        await using LsmArchiveDbContext verifyContext = _fixture.CreateDbContext();
 
         List<PatreonPostEntity> posts = await verifyContext.PatreonPosts
             .OrderBy(p => p.PatreonId)
-            .ToListAsync();
+            .ToListAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(2, posts.Count);
 
@@ -564,7 +537,7 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
         Assert.Null(posts[1].EpisodeId);
 
         // LastSyncedAt should NOT be set since there was an error
-        ShowEntity? show = await verifyContext.Shows.FirstOrDefaultAsync();
+        ShowEntity? show = await verifyContext.Shows.FirstOrDefaultAsync(TestContext.Current.CancellationToken);
         Assert.NotNull(show);
         Assert.Null(show.LastSyncedAt);
     }
@@ -581,14 +554,12 @@ public class PatreonIngestionServiceTests : IClassFixture<IngestionIntegrationTe
             Guests: ["Jose Garcia"], // Same person without accents
             Topics: ["Gaming"]);
 
-        await using ReadWriteDbContext dbContext = _fixture.CreateReadWriteContext();
-
         // Act
-        await RunSingleIngestionCycleAsync(rssXml, aiSummary, dbContext);
+        await RunSingleIngestionCycleAsync(rssXml, aiSummary);
 
         // Assert — deduplicated to 1 person
-        await using ReadWriteDbContext verifyContext = _fixture.CreateReadWriteContext();
-        int personCount = await verifyContext.Persons.CountAsync();
+        await using LsmArchiveDbContext verifyContext = _fixture.CreateDbContext();
+        int personCount = await verifyContext.Persons.CountAsync(TestContext.Current.CancellationToken);
         Assert.Equal(1, personCount);
     }
 

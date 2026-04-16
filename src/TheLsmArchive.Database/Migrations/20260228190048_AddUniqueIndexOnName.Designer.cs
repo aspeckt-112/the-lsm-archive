@@ -11,7 +11,7 @@ using TheLsmArchive.Database.DbContext;
 
 namespace TheLsmArchive.Database.Migrations
 {
-    [DbContext(typeof(ReadWriteDbContext))]
+    [DbContext(typeof(LsmArchiveDbContext))]
     [Migration("20260228190048_AddUniqueIndexOnName")]
     partial class AddUniqueIndexOnName
     {

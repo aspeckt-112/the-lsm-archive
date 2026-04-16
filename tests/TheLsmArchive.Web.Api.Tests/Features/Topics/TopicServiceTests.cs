@@ -20,7 +20,7 @@ public class TopicServiceTests : BaseServiceIntegrationTest, IClassFixture<Servi
 
         _topicService = new TopicService(
             loggerMock.Object,
-            ReadOnlyDbContext
+            DbContext
         );
     }
 

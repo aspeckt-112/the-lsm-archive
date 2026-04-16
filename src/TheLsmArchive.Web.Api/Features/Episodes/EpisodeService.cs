@@ -12,19 +12,19 @@ public sealed class EpisodeService : IEpisodeService
 {
     private readonly ILogger<EpisodeService> _logger;
 
-    private readonly ReadOnlyDbContext _dbContext;
+    private readonly LsmArchiveDbContext _dbContext;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="EpisodeService"/> class.
     /// </summary>
     /// <param name="logger">The logger.</param>
-    /// <param name="readOnlyDbContext">The read-only database context.</param>
+    /// <param name="dbContext">The database context.</param>
     public EpisodeService(
         ILogger<EpisodeService> logger,
-        ReadOnlyDbContext readOnlyDbContext)
+        LsmArchiveDbContext dbContext)
     {
         _logger = logger;
-        _dbContext = readOnlyDbContext;
+        _dbContext = dbContext;
     }
 
     /// <inheritdoc />
@@ -44,6 +44,7 @@ public sealed class EpisodeService : IEpisodeService
                 SummaryHtml: episode.PatreonPost.Summary);
 
         return _dbContext.Episodes
+            .AsNoTracking()
             .Include(episode => episode.PatreonPost)
             .Where(e => e.Id == id)
             .Select(mapToEpisode)
@@ -65,6 +66,7 @@ public sealed class EpisodeService : IEpisodeService
         _logger.LogInformation("Getting episodes for person with ID: {Id}", id);
 
         IQueryable<PersonEpisodeEntity> baseQuery = _dbContext.PersonEpisodes
+            .AsNoTracking()
             .Include(pe => pe.Episode)
                 .ThenInclude(e => e.PatreonPost)
             .Include(pe => pe.Episode)
@@ -119,6 +121,7 @@ public sealed class EpisodeService : IEpisodeService
                 SummaryHtml: personEpisode.Episode.PatreonPost.Summary);
 
         return _dbContext.PersonEpisodes
+            .AsNoTracking()
             .Include(pe => pe.Episode)
                 .ThenInclude(e => e.PatreonPost)
             .Where(pe => pe.PersonId == id)
@@ -144,6 +147,7 @@ public sealed class EpisodeService : IEpisodeService
                 SummaryHtml: episode.PatreonPost.Summary);
 
         return _dbContext.Episodes
+            .AsNoTracking()
             .Include(e => e.PatreonPost)
             .Where(e => e.ReleaseDateUtc >= lastWeek)
             .OrderByDescending(e => e.ReleaseDateUtc)
@@ -160,6 +164,7 @@ public sealed class EpisodeService : IEpisodeService
         _logger.LogInformation("Getting a random existing episode ID.");
 
         var bounds = await _dbContext.Episodes
+            .AsNoTracking()
             .GroupBy(_ => 1)
             .Select(group => new
             {
@@ -171,6 +176,7 @@ public sealed class EpisodeService : IEpisodeService
         long randomCandidateId = Random.Shared.Next(bounds.MinId, bounds.MaxId + 1);
 
         return await _dbContext.Episodes
+        .AsNoTracking()
         .Where(x => x.Id >= randomCandidateId)
         .Select(x => x.Id)
         .FirstAsync(cancellationToken);

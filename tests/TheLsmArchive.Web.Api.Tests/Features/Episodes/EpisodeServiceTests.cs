@@ -20,7 +20,7 @@ public class EpisodeServiceTests : BaseServiceIntegrationTest, IClassFixture<Ser
 
         _episodeService = new EpisodeService(
             loggerMock.Object,
-            ReadOnlyDbContext
+            DbContext
         );
     }
 

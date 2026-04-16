@@ -15,11 +15,9 @@ public class ServiceIntegrationTestFixture : IAsyncLifetime
     private readonly PostgreSqlContainer _postgreSqlContainer =
         new PostgreSqlBuilder("postgres:13.22-alpine3.22").Build();
 
-    private DbContextOptions<ReadOnlyDbContext>? _readOnlyDbContextOptions;
+    private DbContextOptions<LsmArchiveDbContext>? _dbContextOptions;
 
-    private DbContextOptions<ReadWriteDbContext>? _readWriteDbContextOptions;
-
-    private ReadWriteDbContext? _respawnDbContext;
+    private LsmArchiveDbContext? _respawnDbContext;
 
     private DbConnection? _respawnConnection;
 
@@ -31,20 +29,16 @@ public class ServiceIntegrationTestFixture : IAsyncLifetime
 
         string? connectionString = _postgreSqlContainer.GetConnectionString();
 
-        _readOnlyDbContextOptions =
-            new DbContextOptionsBuilder<ReadOnlyDbContext>()
+        _dbContextOptions =
+            new DbContextOptionsBuilder<LsmArchiveDbContext>()
                 .UseNpgsql(connectionString)
+            .UseSnakeCaseNamingConvention()
                 .Options;
 
-        _readWriteDbContextOptions =
-            new DbContextOptionsBuilder<ReadWriteDbContext>()
-                .UseNpgsql(connectionString)
-                .Options;
+        using LsmArchiveDbContext dbContext = new(_dbContextOptions);
+        await dbContext.Database.EnsureCreatedAsync();
 
-        using ReadWriteDbContext readWriteDbContext = new(_readWriteDbContextOptions);
-        await readWriteDbContext.Database.EnsureCreatedAsync();
-
-        _respawnDbContext = new ReadWriteDbContext(_readWriteDbContextOptions);
+        _respawnDbContext = new LsmArchiveDbContext(_dbContextOptions);
         _respawnConnection = _respawnDbContext.Database.GetDbConnection();
 
         await _respawnConnection.OpenAsync();
@@ -78,9 +72,6 @@ public class ServiceIntegrationTestFixture : IAsyncLifetime
         await _postgreSqlContainer.DisposeAsync();
     }
 
-    public ReadOnlyDbContext CreateReadOnlyContext() => new(_readOnlyDbContextOptions ??
-        throw new InvalidOperationException("The ReadOnlyDbContextOptions have not been initialized."));
-
-    public ReadWriteDbContext CreateReadWriteContext() => new(_readWriteDbContextOptions ??
-        throw new InvalidOperationException("The ReadWriteDbContextOptions have not been initialized."));
+    public LsmArchiveDbContext CreateDbContext() => new(_dbContextOptions ??
+        throw new InvalidOperationException("The DbContextOptions have not been initialized."));
 }

@@ -18,7 +18,7 @@ public class SystemServiceTests : BaseServiceIntegrationTest, IClassFixture<Serv
 
         _systemService = new SystemService(
             loggerMock.Object,
-            ReadOnlyDbContext
+            DbContext
         );
     }
 
@@ -68,12 +68,12 @@ public class SystemServiceTests : BaseServiceIntegrationTest, IClassFixture<Serv
         await InsertSingleInstanceOfEntityAsync(ep1);
         await InsertSingleInstanceOfEntityAsync(ep2);
 
-        // Link posts to episodes via the base class ReadWriteDbContext
-        PatreonPostEntity trackedPost1 = (await ReadWriteDbContext.PatreonPosts.FindAsync(post1.Id))!;
-        PatreonPostEntity trackedPost2 = (await ReadWriteDbContext.PatreonPosts.FindAsync(post2.Id))!;
+        // Link posts to episodes via a separate tracked DbContext instance.
+        PatreonPostEntity trackedPost1 = (await WriteDbContext.PatreonPosts.FindAsync([post1.Id], TestContext.Current.CancellationToken))!;
+        PatreonPostEntity trackedPost2 = (await WriteDbContext.PatreonPosts.FindAsync([post2.Id], TestContext.Current.CancellationToken))!;
         trackedPost1.EpisodeId = ep1.Id;
         trackedPost2.EpisodeId = ep2.Id;
-        await ReadWriteDbContext.SaveChangesAsync();
+        await WriteDbContext.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         // Act
         DateTimeOffset lastSync = await _systemService.GetLastDataSyncDateTimeAsync(TestContext.Current.CancellationToken);

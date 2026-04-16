@@ -8,7 +8,7 @@ using TheLsmArchive.Database.DbContext;
 namespace TheLsmArchive.Database.Migrations;
 
 /// <inheritdoc />
-[DbContext(typeof(ReadWriteDbContext))]
+[DbContext(typeof(LsmArchiveDbContext))]
 [Migration("20260308211500_AddPersonNormalizedNameKey")]
 public partial class AddPersonNormalizedNameKey : Migration
 {

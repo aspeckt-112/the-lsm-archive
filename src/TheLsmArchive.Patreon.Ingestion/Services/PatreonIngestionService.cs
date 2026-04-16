@@ -20,10 +20,14 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 /// </summary>
 public sealed class PatreonIngestionService : BackgroundService
 {
+    private sealed record ShowReference(int Id, string Name);
+
+    private sealed record PendingPost(int Id, string Title, string? ProcessingError);
+
     private readonly ILogger<PatreonIngestionService> _logger;
     private readonly PatreonRssParser _rssParser;
     private readonly IAiSummaryService _aiSummaryService;
-    private readonly ReadWriteDbContext _readWriteDbContext;
+    private readonly IDbContextFactory<LsmArchiveDbContext> _dbContextFactory;
     private readonly ResiliencePipeline _aiSummaryPipeline;
     private readonly List<RssFeedSource> _sources;
     private readonly TimeSpan _ingestionInterval;
@@ -35,12 +39,12 @@ public sealed class PatreonIngestionService : BackgroundService
         ResiliencePipelineProvider<string> pipelineProvider,
         IOptions<RssFeedSources> feedOptions,
         IOptions<PatreonIngestionOptions> ingestionOptions,
-        ReadWriteDbContext readWriteDbContext)
+        IDbContextFactory<LsmArchiveDbContext> dbContextFactory)
     {
         _logger = logger;
         _rssParser = rssParser;
         _aiSummaryService = aiSummaryService;
-        _readWriteDbContext = readWriteDbContext;
+        _dbContextFactory = dbContextFactory;
         _aiSummaryPipeline = pipelineProvider.GetPipeline(Constants.AiSummaryPipelineName);
         _sources = feedOptions.Value;
         _ingestionInterval = TimeSpan.FromMinutes(ingestionOptions.Value.RefreshIntervalInMinutes);
@@ -82,13 +86,13 @@ public sealed class PatreonIngestionService : BackgroundService
                 {
                     _logger.LogInformation("Processing feed '{FeedTitle}'", feed.Title);
 
-                    ShowEntity showEntity = await GetOrCreateShowAsync(feed.Title, cancellationToken);
+                    ShowReference show = await GetOrCreateShowAsync(feed.Title, cancellationToken);
 
-                    await IngestPostsAsync(showEntity, feed, cancellationToken);
+                    await IngestPostsAsync(show.Id, feed, cancellationToken);
 
                     // Get all posts needing processing (new posts + posts with previous errors)
-                    List<PatreonPostEntity> postsToProcess =
-                        await GetPostsNeedingProcessingAsync(showEntity.Id, cancellationToken);
+                    List<PendingPost> postsToProcess =
+                        await GetPostsNeedingProcessingAsync(show.Id, cancellationToken);
 
                     // Log retry attempts
                     int retryCount = postsToProcess.Count(p => p.ProcessingError != null);
@@ -104,11 +108,11 @@ public sealed class PatreonIngestionService : BackgroundService
                     int successCount = 0;
                     int errorCount = 0;
 
-                    foreach (PatreonPostEntity post in postsToProcess)
+                    foreach (PendingPost post in postsToProcess)
                     {
                         try
                         {
-                            await ProcessPostAsync(showEntity, post, cancellationToken);
+                            await ProcessPostAsync(show, post, cancellationToken);
                             successCount++;
                         }
                         catch (Exception postEx)
@@ -121,13 +125,13 @@ public sealed class PatreonIngestionService : BackgroundService
                     // Only update last synced timestamp if all posts were processed successfully
                     if (errorCount == 0)
                     {
-                        await UpdateShowLastSyncedAtAsync(showEntity, cancellationToken);
+                        await UpdateShowLastSyncedAtAsync(show.Id, cancellationToken);
                     }
                     else
                     {
                         _logger.LogWarning(
                             "Skipping LastSyncedAt update for show '{ShowName}' due to {ErrorCount} failed posts",
-                            showEntity.Name,
+                            show.Name,
                             errorCount);
                     }
 
@@ -154,26 +158,35 @@ public sealed class PatreonIngestionService : BackgroundService
     }
 
     private async Task ProcessPostAsync(
-        ShowEntity showEntity,
-        PatreonPostEntity postEntity,
+        ShowReference show,
+        PendingPost post,
         CancellationToken cancellationToken)
     {
-        bool isRetry = postEntity.ProcessingError != null;
+        bool isRetry = post.ProcessingError is not null;
 
         if (isRetry)
         {
             _logger.LogInformation(
                 "Retrying processing for post '{PostTitle}' (previous error: {Error})",
-                postEntity.Title,
-                postEntity.ProcessingError);
+                post.Title,
+                post.ProcessingError);
         }
+
+        await using LsmArchiveDbContext contextForAi = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        PatreonPostEntity postEntity = await contextForAi.PatreonPosts
+            .AsNoTracking()
+            .Include(p => p.Show)
+            .FirstOrDefaultAsync(p => p.Id == post.Id, cancellationToken)
+            ?? throw new InvalidOperationException($"Patreon post with ID {post.Id} was not found.");
+
+        ShowEntity showEntity = postEntity.Show;
 
         // Gather context and generate AI summary outside the execution strategy so
         // transient-retry doesn't re-invoke the expensive Gemini call.
         ResilienceContext resilienceContext = ResilienceContextPool.Shared.Get(cancellationToken);
 
         (List<string> knownPersons, List<string> knownTopics) =
-            await GetKnownContextAsync(showEntity.Id, cancellationToken);
+            await GetKnownContextAsync(show.Id, cancellationToken);
 
         AiSummary aiSummary;
 
@@ -196,18 +209,25 @@ public sealed class PatreonIngestionService : BackgroundService
 
         // Wrap all DB mutations in the execution strategy so the
         // NpgsqlRetryingExecutionStrategy can retry transient failures.
-        IExecutionStrategy strategy = _readWriteDbContext.Database.CreateExecutionStrategy();
+        await using LsmArchiveDbContext strategyContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        IExecutionStrategy strategy = strategyContext.Database.CreateExecutionStrategy();
 
         await strategy.ExecuteAsync(async () =>
         {
+            await using LsmArchiveDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
             await using IDbContextTransaction transaction =
-                await _readWriteDbContext.Database.BeginTransactionAsync(cancellationToken);
+                await dbContext.Database.BeginTransactionAsync(cancellationToken);
 
             try
             {
+                PatreonPostEntity trackedPostEntity = await dbContext.PatreonPosts
+                    .Include(p => p.Show)
+                    .FirstOrDefaultAsync(p => p.Id == post.Id, cancellationToken)
+                    ?? throw new InvalidOperationException($"Patreon post with ID {post.Id} was not found.");
+
                 // Create the episode
                 EpisodeEntity episodeEntity =
-                    await GetOrCreateEpisodeAsync(showEntity, postEntity, cancellationToken);
+                    await GetOrCreateEpisodeAsync(dbContext, trackedPostEntity, cancellationToken);
 
                 // Resolve all unique persons, deduplicated by normalized name to avoid
                 // creating duplicate entities when the AI returns case/spelling variants.
@@ -224,7 +244,7 @@ public sealed class PatreonIngestionService : BackgroundService
 
                     _logger.LogInformation("Processing person '{Person}'", personName);
                     resolvedPersons[normalized] =
-                        await GetOrCreatePersonAsync(personName, cancellationToken);
+                        await GetOrCreatePersonAsync(dbContext, personName, cancellationToken);
                 }
 
                 // Resolve all unique topics, same deduplication strategy.
@@ -241,21 +261,21 @@ public sealed class PatreonIngestionService : BackgroundService
 
                     _logger.LogInformation("Processing topic '{Topic}'", topicName);
                     resolvedTopics[normalized] =
-                        await GetOrCreateTopicAsync(topicName, cancellationToken);
+                        await GetOrCreateTopicAsync(dbContext, topicName, cancellationToken);
                 }
 
                 // Clear any previous processing error
-                postEntity.ProcessingError = null;
+                trackedPostEntity.ProcessingError = null;
 
                 // Flush new entities so they receive database-generated IDs.
-                await _readWriteDbContext.SaveChangesAsync(cancellationToken);
+                await dbContext.SaveChangesAsync(cancellationToken);
 
                 // Upsert all relationships via INSERT … ON CONFLICT DO NOTHING.
                 // This is idempotent — duplicates from fuzzy-match collisions or
                 // retries are silently ignored by the database.
                 foreach (PersonEntity person in resolvedPersons.Values)
                 {
-                    await _readWriteDbContext.Database.ExecuteSqlInterpolatedAsync(
+                    await dbContext.Database.ExecuteSqlInterpolatedAsync(
                         $"""
                          INSERT INTO person_episodes (person_id, episode_id)
                          VALUES ({person.Id}, {episodeEntity.Id})
@@ -266,7 +286,7 @@ public sealed class PatreonIngestionService : BackgroundService
 
                 foreach (TopicEntity topic in resolvedTopics.Values)
                 {
-                    await _readWriteDbContext.Database.ExecuteSqlInterpolatedAsync(
+                    await dbContext.Database.ExecuteSqlInterpolatedAsync(
                         $"""
                          INSERT INTO topic_episodes (topic_id, episode_id)
                          VALUES ({topic.Id}, {episodeEntity.Id})
@@ -279,7 +299,7 @@ public sealed class PatreonIngestionService : BackgroundService
                 {
                     foreach (TopicEntity topic in resolvedTopics.Values)
                     {
-                        await _readWriteDbContext.Database.ExecuteSqlInterpolatedAsync(
+                        await dbContext.Database.ExecuteSqlInterpolatedAsync(
                             $"""
                              INSERT INTO person_topics (person_id, topic_id)
                              VALUES ({person.Id}, {topic.Id})
@@ -290,67 +310,63 @@ public sealed class PatreonIngestionService : BackgroundService
                 }
 
                 // Set the episode ID on the post (episode.Id is now generated)
-                postEntity.EpisodeId = episodeEntity.Id;
+                trackedPostEntity.EpisodeId = episodeEntity.Id;
 
                 // Save the updated post and commit the transaction
-                await _readWriteDbContext.SaveChangesAsync(cancellationToken);
+                await dbContext.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 
-                _logger.LogInformation("Successfully processed post '{PostTitle}'", postEntity.Title);
+                _logger.LogInformation("Successfully processed post '{PostTitle}'", post.Title);
             }
             catch (Exception ex)
             {
                 _logger.LogError(
                     ex,
                     "Failed to process post '{PostTitle}'. Error will be saved for retry.",
-                    postEntity.Title);
+                    post.Title);
 
                 // Rollback the transaction
                 await transaction.RollbackAsync(cancellationToken);
 
-                // Record the error via raw SQL, bypassing the change tracker.
-                // After a rollback the tracker may contain entities in Added state
-                // (e.g. a new EpisodeEntity created before the first SaveChangesAsync).
-                // Using SaveChangesAsync here would inadvertently persist those stale
-                // entities outside the transaction.
-                postEntity.ProcessingError = ex.Message;
-                await _readWriteDbContext.Database.ExecuteSqlInterpolatedAsync(
-                    $"UPDATE patreon_posts SET processing_error = {ex.Message} WHERE id = {postEntity.Id}",
-                    cancellationToken);
+                await SaveProcessingErrorAsync(post.Id, ex.Message, cancellationToken);
 
                 throw;
             }
         });
     }
 
-    private async Task<ShowEntity> GetOrCreateShowAsync(string name, CancellationToken cancellationToken)
+    private async Task<ShowReference> GetOrCreateShowAsync(string name, CancellationToken cancellationToken)
     {
-        ShowEntity? existingShowEntity = await _readWriteDbContext.Shows
+        await using LsmArchiveDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        ShowEntity? existingShowEntity = await dbContext.Shows
             .FirstOrDefaultAsync(s => EF.Functions.ILike(s.Name, name), cancellationToken);
 
         if (existingShowEntity is not null)
         {
-            return existingShowEntity;
+            return new ShowReference(existingShowEntity.Id, existingShowEntity.Name);
         }
 
         _logger.LogInformation("Show '{ShowName}' not found. Creating new show record.", name);
 
         ShowEntity newShowEntity = new() { Name = name };
 
-        await _readWriteDbContext.Shows.AddAsync(newShowEntity, cancellationToken);
-        await _readWriteDbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.Shows.AddAsync(newShowEntity, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
-        return newShowEntity;
+        return new ShowReference(newShowEntity.Id, newShowEntity.Name);
     }
 
     private async Task IngestPostsAsync(
-        ShowEntity showEntity,
+        int showId,
         PatreonFeed feed,
         CancellationToken cancellationToken)
     {
+        await using LsmArchiveDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
         // Load all existing post IDs for this show to avoid N+1 queries
-        HashSet<int> existingPatreonIds = await _readWriteDbContext.PatreonPosts
-            .Where(x => x.ShowId == showEntity.Id)
+        HashSet<int> existingPatreonIds = await dbContext.PatreonPosts
+            .Where(x => x.ShowId == showId)
             .Select(x => x.PatreonId)
             .ToHashSetAsync(cancellationToken);
 
@@ -361,26 +377,32 @@ public sealed class PatreonIngestionService : BackgroundService
                 continue;
             }
 
-            PatreonPostEntity postEntity = feedPost.ToEntity(showEntity.Id);
-            await _readWriteDbContext.PatreonPosts.AddAsync(postEntity, cancellationToken);
+            PatreonPostEntity postEntity = feedPost.ToEntity(showId);
+            await dbContext.PatreonPosts.AddAsync(postEntity, cancellationToken);
         }
 
-        await _readWriteDbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
-    private Task<List<PatreonPostEntity>> GetPostsNeedingProcessingAsync(
+    private async Task<List<PendingPost>> GetPostsNeedingProcessingAsync(
         int showId,
         CancellationToken cancellationToken)
     {
-        return _readWriteDbContext.PatreonPosts
+        await using LsmArchiveDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        return await dbContext.PatreonPosts
+            .AsNoTracking()
             .Where(p => p.ShowId == showId && (p.ProcessingError != null || p.EpisodeId == null))
+            .Select(p => new PendingPost(p.Id, p.Title, p.ProcessingError))
             .ToListAsync(cancellationToken);
     }
 
-    private async Task<EpisodeEntity> GetOrCreateEpisodeAsync(ShowEntity showEntity,
-        PatreonPostEntity post, CancellationToken cancellationToken)
+    private async Task<EpisodeEntity> GetOrCreateEpisodeAsync(
+        LsmArchiveDbContext dbContext,
+        PatreonPostEntity post,
+        CancellationToken cancellationToken)
     {
-        EpisodeEntity? existingEpisodeEntity = await _readWriteDbContext.Episodes
+        EpisodeEntity? existingEpisodeEntity = await dbContext.Episodes
             .FirstOrDefaultAsync(e => e.PatreonPostId == post.Id, cancellationToken);
 
         if (existingEpisodeEntity is not null)
@@ -395,13 +417,13 @@ public sealed class PatreonIngestionService : BackgroundService
 
         var episodeEntity = new EpisodeEntity
         {
-            Show = showEntity,
+            ShowId = post.ShowId,
             Title = post.Title,
             ReleaseDateUtc = post.Published.UtcDateTime,
             PatreonPost = post
         };
 
-        _readWriteDbContext.Episodes.Add(episodeEntity);
+        dbContext.Episodes.Add(episodeEntity);
 
         return episodeEntity;
     }
@@ -410,8 +432,10 @@ public sealed class PatreonIngestionService : BackgroundService
         int showId,
         CancellationToken cancellationToken)
     {
+        await using LsmArchiveDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
         // 1. Get persons associated with this show (hosts/frequent guests)
-        List<string> persons = await _readWriteDbContext.PersonEpisodes
+        List<string> persons = await dbContext.PersonEpisodes
             .Where(pe => pe.Episode.ShowId == showId)
             .GroupBy(pe => pe.Person.Name)
             .OrderByDescending(g => g.Count())
@@ -420,7 +444,7 @@ public sealed class PatreonIngestionService : BackgroundService
             .ToListAsync(cancellationToken);
 
         // 2. Get recent topics for this show (context for ongoing discussions)
-        List<string> topics = await _readWriteDbContext.TopicEpisodes
+        List<string> topics = await dbContext.TopicEpisodes
             .Where(te => te.Episode.ShowId == showId)
             .GroupBy(te => te.Topic.Name)
             .Select(g => new
@@ -436,13 +460,16 @@ public sealed class PatreonIngestionService : BackgroundService
         return (persons, topics);
     }
 
-    private async Task<PersonEntity> GetOrCreatePersonAsync(string name, CancellationToken cancellationToken)
+    private async Task<PersonEntity> GetOrCreatePersonAsync(
+        LsmArchiveDbContext dbContext,
+        string name,
+        CancellationToken cancellationToken)
     {
         name = name.Trim();
         string normalizedName = LookupKeyNormalizer.Normalize(name);
 
         // 1. Try exact match first using canonical normalized form.
-        PersonEntity? personEntity = await _readWriteDbContext.Persons
+        PersonEntity? personEntity = await dbContext.Persons
             .FirstOrDefaultAsync(p => p.NormalizedName == normalizedName, cancellationToken);
 
         if (personEntity is not null)
@@ -457,7 +484,7 @@ public sealed class PatreonIngestionService : BackgroundService
         }
 
         // 2. Try fuzzy match (Postgres trigram similarity)
-        personEntity = await _readWriteDbContext.Persons
+        personEntity = await dbContext.Persons
             .Where(p => EF.Functions.TrigramsSimilarity(p.Name, name) > 0.8)
             .OrderByDescending(p => EF.Functions.TrigramsSimilarity(p.Name, name))
             .FirstOrDefaultAsync(cancellationToken);
@@ -474,18 +501,21 @@ public sealed class PatreonIngestionService : BackgroundService
         }
 
         personEntity = new PersonEntity { Name = name, NormalizedName = normalizedName };
-        _readWriteDbContext.Persons.Add(personEntity);
+        dbContext.Persons.Add(personEntity);
 
         return personEntity;
     }
 
-    private async Task<TopicEntity> GetOrCreateTopicAsync(string name, CancellationToken cancellationToken)
+    private async Task<TopicEntity> GetOrCreateTopicAsync(
+        LsmArchiveDbContext dbContext,
+        string name,
+        CancellationToken cancellationToken)
     {
         name = name.Trim();
         string normalizedName = LookupKeyNormalizer.Normalize(name);
 
         // 1. Try exact match first using canonical normalized form.
-        TopicEntity? topicEntity = await _readWriteDbContext.Topics
+        TopicEntity? topicEntity = await dbContext.Topics
             .FirstOrDefaultAsync(t => t.NormalizedName == normalizedName, cancellationToken);
 
         if (topicEntity is not null)
@@ -502,7 +532,7 @@ public sealed class PatreonIngestionService : BackgroundService
         // 2. Try fuzzy match (Postgres trigram similarity)
         // A threshold of 0.8 ensures high similarity while allowing for punctuation/typo differences.
         // This prevents distinct topics like "Game Name" and "Game Name Remaster" from being merged.
-        topicEntity = await _readWriteDbContext.Topics
+        topicEntity = await dbContext.Topics
             .Where(t => EF.Functions.TrigramsSimilarity(t.Name, name) > 0.8)
             .OrderByDescending(t => EF.Functions.TrigramsSimilarity(t.Name, name))
             .FirstOrDefaultAsync(cancellationToken);
@@ -519,14 +549,33 @@ public sealed class PatreonIngestionService : BackgroundService
         }
 
         topicEntity = new TopicEntity { Name = name, NormalizedName = normalizedName };
-        _readWriteDbContext.Topics.Add(topicEntity);
+        dbContext.Topics.Add(topicEntity);
 
         return topicEntity;
     }
 
-    private async Task UpdateShowLastSyncedAtAsync(ShowEntity showEntity, CancellationToken cancellationToken)
+    private async Task SaveProcessingErrorAsync(int postId, string errorMessage, CancellationToken cancellationToken)
     {
+        await using LsmArchiveDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        PatreonPostEntity postEntity = await dbContext.PatreonPosts
+            .FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
+            ?? throw new InvalidOperationException($"Patreon post with ID {postId} was not found.");
+
+        postEntity.ProcessingError = errorMessage;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task UpdateShowLastSyncedAtAsync(int showId, CancellationToken cancellationToken)
+    {
+        await using LsmArchiveDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        ShowEntity showEntity = await dbContext.Shows
+            .FirstOrDefaultAsync(show => show.Id == showId, cancellationToken)
+            ?? throw new InvalidOperationException($"Show with ID {showId} was not found.");
+
         showEntity.LastSyncedAt = DateTimeOffset.UtcNow;
-        await _readWriteDbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 }

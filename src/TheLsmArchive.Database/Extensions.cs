@@ -34,7 +34,7 @@ public static class Extensions
                                           "Please add it to your appsettings.json or environment variables."
                                       );
 
-            void configureOptions(DbContextOptionsBuilder options)
+            void ConfigureOptions(DbContextOptionsBuilder options)
             {
                 options.UseNpgsql(
                     connectionString,
@@ -45,9 +45,38 @@ public static class Extensions
                 options.UseSnakeCaseNamingConvention();
             }
 
-            services.AddDbContext<ReadOnlyDbContext>(configureOptions, serviceLifetime);
-            services.AddDbContext<ReadWriteDbContext>(configureOptions, serviceLifetime);
+            services.AddDbContext<LsmArchiveDbContext>(ConfigureOptions, serviceLifetime);
 
+
+            return services;
+        }
+
+        /// <summary>
+        /// Adds the DbContext factory to the service collection.
+        /// </summary>
+        /// <param name="configuration">The application configuration.</param>
+        /// <returns>The updated service collection.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the connection string is not found.</exception>
+        public IServiceCollection AddDbContextFactory(IConfiguration configuration)
+        {
+            string connectionString = configuration.GetConnectionString("thelsmarchive")
+                                      ?? throw new InvalidOperationException(
+                                          "The connection string 'thelsmarchive' is not configured. " +
+                                          "Please add it to your appsettings.json or environment variables."
+                                      );
+
+            void ConfigureOptions(DbContextOptionsBuilder options)
+            {
+                options.UseNpgsql(
+                    connectionString,
+                    npgsqlOptions => npgsqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 3,
+                        maxRetryDelay: TimeSpan.FromSeconds(5),
+                        errorCodesToAdd: null));
+                options.UseSnakeCaseNamingConvention();
+            }
+
+            services.AddDbContextFactory<LsmArchiveDbContext>(ConfigureOptions);
 
             return services;
         }
