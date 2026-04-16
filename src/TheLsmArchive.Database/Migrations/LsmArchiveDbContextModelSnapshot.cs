@@ -10,8 +10,8 @@ using TheLsmArchive.Database.DbContext;
 
 namespace TheLsmArchive.Database.Migrations
 {
-    [DbContext(typeof(ReadWriteDbContext))]
-    partial class ReadWriteDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(LsmArchiveDbContext))]
+    partial class LsmArchiveDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {

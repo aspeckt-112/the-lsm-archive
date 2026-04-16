@@ -69,9 +69,9 @@ internal static class EpisodeEndpoints
 
 Always use `TypedResults` and `Results<T1, T2>` return types on handlers.
 
-### Read/write DbContext split
+### Database context
 
-Services that only read use `ReadOnlyDbContext`; services that write use `ReadWriteDbContext`. Both share the same `BaseDbContext` and configuration; the split is intentional for CQRS-style clarity.
+Use the single `LsmArchiveDbContext` everywhere. Read-heavy services should call `AsNoTracking()` explicitly at query roots instead of relying on a separate read-only context type, and background ingestion creates short-lived contexts via `IDbContextFactory<LsmArchiveDbContext>`.
 
 ### Centralized NuGet versions
 

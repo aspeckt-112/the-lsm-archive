@@ -65,7 +65,7 @@ app.UseExceptionHandler();
 if (!app.Environment.IsEnvironment("Testing"))
 {
     await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
-    await using ReadWriteDbContext dbContext = scope.ServiceProvider.GetRequiredService<ReadWriteDbContext>();
+    await using LsmArchiveDbContext dbContext = scope.ServiceProvider.GetRequiredService<LsmArchiveDbContext>();
     await dbContext.Database.MigrateAsync();
 }
 

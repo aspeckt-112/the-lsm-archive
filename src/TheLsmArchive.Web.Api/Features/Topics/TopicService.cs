@@ -11,19 +11,19 @@ namespace TheLsmArchive.Web.Api.Features.Topics;
 public sealed class TopicService : ITopicService
 {
     private readonly ILogger<TopicService> _logger;
-    private readonly ReadOnlyDbContext _dbContext;
+    private readonly LsmArchiveDbContext _dbContext;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TopicService"/> class.
     /// </summary>
     /// <param name="logger">The logger.</param>
-    /// <param name="readOnlyDbContext">The read-only database context.</param>
+    /// <param name="dbContext">The database context.</param>
     public TopicService(
         ILogger<TopicService> logger,
-        ReadOnlyDbContext readOnlyDbContext)
+        LsmArchiveDbContext dbContext)
     {
         _logger = logger;
-        _dbContext = readOnlyDbContext;
+        _dbContext = dbContext;
     }
 
     /// <inheritdoc />
@@ -42,6 +42,7 @@ public sealed class TopicService : ITopicService
                 Name: topic.Name);
 
         return _dbContext.Topics
+            .AsNoTracking()
             .Where(t => t.Id == id)
             .Select(mapToTopic)
             .FirstOrDefaultAsync(cancellationToken);
@@ -62,6 +63,7 @@ public sealed class TopicService : ITopicService
         _logger.LogInformation("Getting timeline for topic with ID: {Id}", id);
 
         bool topicExists = await _dbContext.Topics
+            .AsNoTracking()
             .AnyAsync(t => t.Id == id, cancellationToken);
 
         if (!topicExists)
@@ -70,6 +72,7 @@ public sealed class TopicService : ITopicService
         }
 
         var dateRange = await _dbContext.TopicEpisodes
+            .AsNoTracking()
             .Where(te => te.TopicId == id)
             .GroupBy(te => te.TopicId)
             .Select(g => new
@@ -80,6 +83,7 @@ public sealed class TopicService : ITopicService
             .FirstOrDefaultAsync(cancellationToken);
 
         IQueryable<TopicEpisodeEntity> baseQuery = _dbContext.TopicEpisodes
+            .AsNoTracking()
             .Include(te => te.Episode)
                 .ThenInclude(e => e.PatreonPost)
             .Include(te => te.Episode)
@@ -146,6 +150,7 @@ public sealed class TopicService : ITopicService
                 Name: topicEpisode.Topic.Name);
 
         return _dbContext.TopicEpisodes
+            .AsNoTracking()
             .Include(te => te.Topic)
             .Where(te => te.EpisodeId == id)
             .OrderBy(te => te.Topic.Name)
@@ -166,9 +171,10 @@ public sealed class TopicService : ITopicService
         const int mostDiscussedTopicCount = 25;
 
         return _dbContext.PersonEpisodes
+            .AsNoTracking()
             .Where(personEpisode => personEpisode.PersonId == id)
             .Join(
-                _dbContext.TopicEpisodes,
+                _dbContext.TopicEpisodes.AsNoTracking(),
                 personEpisode => personEpisode.EpisodeId,
                 topicEpisode => topicEpisode.EpisodeId,
                 (_, topicEpisode) => new
@@ -200,9 +206,10 @@ public sealed class TopicService : ITopicService
         const int mostDiscussedAlongsideCount = 25;
 
         return _dbContext.TopicEpisodes
+            .AsNoTracking()
             .Where(te => te.TopicId == id)
             .Join(
-                _dbContext.TopicEpisodes,
+                _dbContext.TopicEpisodes.AsNoTracking(),
                 source => source.EpisodeId,
                 other => other.EpisodeId,
                 (_, other) => new
@@ -242,6 +249,7 @@ public sealed class TopicService : ITopicService
                 Name: personTopic.Topic.Name);
 
         IQueryable<PersonTopicEntity> baseQuery = _dbContext.PersonTopics
+            .AsNoTracking()
             .Include(pt => pt.Topic)
             .Where(pt => pt.PersonId == id);
 

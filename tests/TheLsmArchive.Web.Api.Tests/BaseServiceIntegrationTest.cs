@@ -10,26 +10,26 @@ public abstract class BaseServiceIntegrationTest : IAsyncLifetime
     public BaseServiceIntegrationTest(ServiceIntegrationTestFixture fixture)
     {
         _fixture = fixture;
-        ReadOnlyDbContext = _fixture.CreateReadOnlyContext();
-        ReadWriteDbContext = _fixture.CreateReadWriteContext();
+        DbContext = _fixture.CreateDbContext();
+        WriteDbContext = _fixture.CreateDbContext();
     }
 
-    protected ReadOnlyDbContext ReadOnlyDbContext { get; }
+    protected LsmArchiveDbContext DbContext { get; }
 
-    protected ReadWriteDbContext ReadWriteDbContext { get; }
+    protected LsmArchiveDbContext WriteDbContext { get; }
 
     public async ValueTask InitializeAsync() => await _fixture.ResetDatabaseAsync();
 
     public async ValueTask DisposeAsync()
     {
-        await ReadOnlyDbContext.DisposeAsync();
-        await ReadWriteDbContext.DisposeAsync();
+        await DbContext.DisposeAsync();
+        await WriteDbContext.DisposeAsync();
     }
 
     protected async Task InsertSingleInstanceOfEntityAsync<TEntity>(TEntity entity)
         where TEntity : BaseEntity
     {
-        using ReadWriteDbContext context = _fixture.CreateReadWriteContext();
+        using LsmArchiveDbContext context = _fixture.CreateDbContext();
         context.Set<TEntity>().Add(entity);
         await context.SaveChangesAsync();
     }

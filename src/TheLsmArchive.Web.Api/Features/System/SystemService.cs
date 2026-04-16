@@ -6,19 +6,19 @@ namespace TheLsmArchive.Web.Api.Features.System;
 public sealed class SystemService : ISystemService
 {
     private readonly ILogger<SystemService> _logger;
-    private readonly ReadOnlyDbContext _dbContext;
+    private readonly LsmArchiveDbContext _dbContext;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SystemService"/> class.
     /// </summary>
     /// <param name="logger">The logger.</param>
-    /// <param name="readOnlyDbContext">The read-only database context.</param>
+    /// <param name="dbContext">The database context.</param>
     public SystemService(
         ILogger<SystemService> logger,
-        ReadOnlyDbContext readOnlyDbContext)
+        LsmArchiveDbContext dbContext)
     {
         _logger = logger;
-        _dbContext = readOnlyDbContext;
+        _dbContext = dbContext;
     }
 
     /// <inheritdoc />
@@ -27,6 +27,7 @@ public sealed class SystemService : ISystemService
         _logger.LogInformation("Getting the date and time of the last data synchronization.");
 
         return _dbContext.PatreonPosts
+            .AsNoTracking()
             .OrderByDescending(p => p.Published)
             .Where(p => p.EpisodeId != null)
             .Select(p => p.Published)

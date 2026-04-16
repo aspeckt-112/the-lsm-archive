@@ -2,18 +2,18 @@ using Microsoft.EntityFrameworkCore;
 
 using TheLsmArchive.Database.Entities;
 
-namespace TheLsmArchive.Database.DbContext.Abstractions;
+namespace TheLsmArchive.Database.DbContext;
 
 /// <summary>
-/// The base database context.
+/// The application database context.
 /// </summary>
-public abstract class BaseDbContext : Microsoft.EntityFrameworkCore.DbContext
+public class LsmArchiveDbContext : Microsoft.EntityFrameworkCore.DbContext
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="BaseDbContext"/> class.
+    /// Initializes a new instance of the <see cref="LsmArchiveDbContext"/> class.
     /// </summary>
-    /// <param name="options"></param>
-    protected BaseDbContext(DbContextOptions options) : base(options)
+    /// <param name="options">The database context options.</param>
+    public LsmArchiveDbContext(DbContextOptions<LsmArchiveDbContext> options) : base(options)
     {
     }
 
@@ -21,7 +21,7 @@ public abstract class BaseDbContext : Microsoft.EntityFrameworkCore.DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(LsmArchiveDbContext).Assembly);
     }
 
     /// <summary>

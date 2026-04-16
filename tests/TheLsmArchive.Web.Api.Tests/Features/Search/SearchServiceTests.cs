@@ -21,7 +21,7 @@ public class SearchServiceTests : BaseServiceIntegrationTest, IClassFixture<Serv
 
         _searchService = new SearchService(
             loggerMock.Object,
-            ReadOnlyDbContext
+            DbContext
         );
     }
 
@@ -173,7 +173,7 @@ public class SearchServiceTests : BaseServiceIntegrationTest, IClassFixture<Serv
 
         await InsertSingleInstanceOfEntityAsync(episode);
 
-        SearchRequest request = new(shortTerm, EntityType.All);
+        SearchRequest request = new(shortTerm);
 
         // Act
         PagedResponse<SearchResult> result = await _searchService.RunSearchAsync(request, TestContext.Current.CancellationToken);
@@ -222,7 +222,7 @@ public class SearchServiceTests : BaseServiceIntegrationTest, IClassFixture<Serv
 
         await InsertSingleInstanceOfEntityAsync(episode);
 
-        SearchRequest request = new(longTerm, EntityType.All);
+        SearchRequest request = new(longTerm);
 
         // Act
         PagedResponse<SearchResult> result = await _searchService.RunSearchAsync(request, TestContext.Current.CancellationToken);
