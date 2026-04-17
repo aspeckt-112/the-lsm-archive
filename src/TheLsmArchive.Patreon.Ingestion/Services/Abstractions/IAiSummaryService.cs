@@ -25,6 +25,6 @@ public interface IAiSummaryService
         ShowEntity show,
         PatreonPostEntity patreonPost,
         CancellationToken cancellationToken,
-        IEnumerable<string>? knownPersons = null,
-        IEnumerable<string>? knownTopics = null);
+        IList<string>? knownPersons = null,
+        IList<string>? knownTopics = null);
 }

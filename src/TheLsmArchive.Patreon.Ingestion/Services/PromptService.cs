@@ -25,8 +25,8 @@ public class PromptService
     /// <param name="knownTopics">Optional list of known topics for context.</param>
     public string GetSummarySystemPrompt(
         string showName,
-        IEnumerable<string>? knownPersons = null,
-        IEnumerable<string>? knownTopics = null)
+        IList<string>? knownPersons = null,
+        IList<string>? knownTopics = null)
     {
         var sb = new StringBuilder();
 
@@ -35,8 +35,6 @@ public class PromptService
         sb.AppendLine("Ignore any timestamps or timecodes (e.g., '0:00:00') in the description.");
 
         // 2. Output Rules
-        sb.AppendLine("Output strictly valid JSON.");
-        sb.AppendLine("Return exactly one JSON object with this shape: {\"hosts\": [], \"guests\": [], \"topics\": []}.");
         sb.AppendLine("Do not include markdown, code fences, prose, comments, or additional properties.");
         sb.AppendLine("All array values must contain only strings.");
         sb.AppendLine("Extract the names of the hosts into the 'hosts' array.");
@@ -109,8 +107,6 @@ public class PromptService
             case ShowName.PunchingUp:
                 sb.AppendLine(
                     "Context: From episode 1 to episode 24, the hosts were 'Dustin Furman', 'Dagan Moriarty', 'Micah Moriarty' and 'Gene Park'. From episode 25 to episode 38, the hosts were 'Dustin Furman', 'Micah Moriarty' and 'Gene Park'. From episode 39, the hosts are 'Brad Ellis', 'Micah Moriarty' and 'Gene Park'. Sometimes there are guests - they might be named in the title or description.");
-                break;
-            default:
                 break;
         }
 

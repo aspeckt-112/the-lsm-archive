@@ -28,8 +28,6 @@
     <Project Path="src/TheLsmArchive.Web.Frontend/TheLsmArchive.Web.Frontend.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/TheLsmArchive.Web.Api.Tests/TheLsmArchive.Web.Api.Tests.csproj" />
-    <Project Path="tests/TheLsmArchive.Patreon.Ingestion.Tests/TheLsmArchive.Patreon.Ingestion.Tests.csproj" />
-    <Project Path="tests/TheLsmArchive.ApiClient.Tests/TheLsmArchive.ApiClient.Tests.csproj" />
+    <Project Path="tests/TheLsmArchive.Patreon.Ingestion.Unit.Tests/TheLsmArchive.Patreon.Ingestion.Unit.Tests.csproj" />
   </Folder>
 </Solution>

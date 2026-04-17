@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Xml.Linq;
 
 namespace TheLsmArchive.Patreon.Ingestion;
@@ -40,21 +41,30 @@ internal static class Extensions
             }
 
             string dateString = element.Value.Trim();
+            const string gmtDateFormat = "ddd, dd MMM yyyy HH':'mm':'ss 'GMT'";
 
             string[] dateFormats =
             [
                 "ddd, dd MMM yyyy HH':'mm':'ss zzz",
-                "ddd, dd MMM yyyy HH':'mm':'ss 'GMT'",
+                gmtDateFormat,
                 "dd MMM yyyy HH':'mm':'ss zzz"
             ];
 
             foreach (string dateFormat in dateFormats)
             {
+                DateTimeStyles dateTimeStyles = DateTimeStyles.AllowWhiteSpaces;
+
+                if (dateFormat == gmtDateFormat)
+                {
+                    dateTimeStyles |= DateTimeStyles.AssumeUniversal;
+                    dateTimeStyles |= DateTimeStyles.AdjustToUniversal;
+                }
+
                 if (DateTimeOffset.TryParseExact(
                         dateString,
                         dateFormat,
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        System.Globalization.DateTimeStyles.AllowWhiteSpaces,
+                        CultureInfo.InvariantCulture,
+                        dateTimeStyles,
                         out DateTimeOffset result))
                 {
                     return result;

@@ -7,6 +7,7 @@
     </PropertyGroup>
 
     <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+        <IsPackable>false</IsPackable>
         <OutputType>Exe</OutputType>
     </PropertyGroup>
 
@@ -14,6 +15,7 @@
 
         <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest"/>
         <Using Include="Xunit"/>
+        <Using Include="Xunit.Assert" Static="true"/>
 
         <PackageReference Include="Microsoft.NET.Test.Sdk" />
         <PackageReference Include="Moq" />

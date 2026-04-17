@@ -1,23 +1,25 @@
 using System.Text;
 
-namespace TheLsmArchive.Patreon.Ingestion;
+namespace TheLsmArchive.Patreon.Ingestion.Helpers;
 
 /// <summary>
 /// Produces canonical lookup keys by stripping accents, punctuation, and whitespace.
 /// </summary>
-public static class LookupKeyNormalizer
+internal static class LookupKeyNormalizer
 {
     /// <summary>
     /// Normalizes a value into a canonical, accent-free, lowercase, alphanumeric key
     /// suitable for deduplication lookups.
     /// </summary>
     /// <param name="value">The value to normalize.</param>
-    /// <returns>
-    /// A lowercase alphanumeric string with accents and non-letter/digit characters removed.
-    /// Falls back to <c>value.Trim().ToLowerInvariant()</c> when no alphanumeric characters remain.
-    /// </returns>
+    /// <returns>A lowercase alphanumeric string with accents and non-letter/digit characters removed.</returns>
     public static string Normalize(string value)
     {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
         string trimmed = value.Trim();
 
         // 1. Decompose characters with accents into base + mark (e.g. 'é' -> 'e' + '´')
@@ -31,8 +33,6 @@ public static class LookupKeyNormalizer
                 .Select(char.ToLowerInvariant)
         ];
 
-        return alphanumericLowered.Length == 0
-            ? trimmed.ToLowerInvariant()
-            : new string(alphanumericLowered);
+        return new string(alphanumericLowered);
     }
 }

@@ -16,7 +16,7 @@ using Polly.Timeout;
 using Serilog;
 
 using TheLsmArchive.Database;
-using TheLsmArchive.Patreon.Ingestion;
+using TheLsmArchive.Patreon.Ingestion.Constants;
 using TheLsmArchive.Patreon.Ingestion.Options;
 using TheLsmArchive.Patreon.Ingestion.Services;
 using TheLsmArchive.Patreon.Ingestion.Services.Abstractions;
@@ -77,7 +77,6 @@ builder.Services.AddResiliencePipeline(
                 UseJitter = true,
                 ShouldHandle = new PredicateBuilder()
                     .Handle<HttpRequestException>()
-                    .Handle<InvalidOperationException>()
                     .Handle<TimeoutRejectedException>()
                     .Handle<RateLimiterRejectedException>() // Retry on rate limit rejections
             });

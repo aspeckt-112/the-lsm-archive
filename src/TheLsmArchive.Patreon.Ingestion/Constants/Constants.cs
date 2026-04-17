@@ -1,4 +1,4 @@
-namespace TheLsmArchive.Patreon.Ingestion;
+namespace TheLsmArchive.Patreon.Ingestion.Constants;
 
 /// <summary>
 /// Constants used throughout the Patreon Ingestion project.

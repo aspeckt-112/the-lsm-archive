@@ -9,6 +9,7 @@ using Polly.Registry;
 
 using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
+using TheLsmArchive.Patreon.Ingestion.Helpers;
 using TheLsmArchive.Patreon.Ingestion.Models;
 using TheLsmArchive.Patreon.Ingestion.Options;
 using TheLsmArchive.Patreon.Ingestion.Services.Abstractions;
@@ -45,7 +46,7 @@ public sealed class PatreonIngestionService : BackgroundService
         _rssParser = rssParser;
         _aiSummaryService = aiSummaryService;
         _dbContextFactory = dbContextFactory;
-        _aiSummaryPipeline = pipelineProvider.GetPipeline(Constants.AiSummaryPipelineName);
+        _aiSummaryPipeline = pipelineProvider.GetPipeline(Constants.Constants.AiSummaryPipelineName);
         _sources = feedOptions.Value;
         _ingestionInterval = TimeSpan.FromMinutes(ingestionOptions.Value.RefreshIntervalInMinutes);
     }

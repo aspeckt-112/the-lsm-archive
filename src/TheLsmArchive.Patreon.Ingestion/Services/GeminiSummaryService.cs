@@ -24,7 +24,9 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 public sealed class GeminiSummaryService : IAiSummaryService
 {
     private const string HostsPropertyName = "hosts";
+
     private const string GuestsPropertyName = "guests";
+
     private const string TopicsPropertyName = "topics";
 
     private readonly ILogger<GeminiSummaryService> _logger;
@@ -34,7 +36,6 @@ public sealed class GeminiSummaryService : IAiSummaryService
     private readonly PromptService _promptService;
 
     private readonly string _model;
-
 
     private static readonly Schema _responseSchema = new()
     {
@@ -78,8 +79,8 @@ public sealed class GeminiSummaryService : IAiSummaryService
         ShowEntity show,
         PatreonPostEntity patreonPost,
         CancellationToken cancellationToken,
-        IEnumerable<string>? knownPersons = null,
-        IEnumerable<string>? knownTopics = null)
+        IList<string>? knownPersons = null,
+        IList<string>? knownTopics = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -95,7 +96,7 @@ public sealed class GeminiSummaryService : IAiSummaryService
             Role = "user",
             Parts =
             [
-                new Part { Text = $"Title: {patreonPost.Title}\nDescription: {HtmlSanitizer.StripHtml(patreonPost.Summary)}" }
+                new Part { Text = $"Title: {patreonPost.Title}\nDescription: {Helpers.HtmlSanitizer.StripHtml(patreonPost.Summary)}" }
             ]
         };
 
@@ -110,57 +111,97 @@ public sealed class GeminiSummaryService : IAiSummaryService
                     ResponseSchema = _responseSchema,
                     SystemInstruction = systemInstruction,
                     Temperature = 0.5f
-                });
+                },
+                cancellationToken);
 
-            // Safe response parsing with guards
-            if (response.Candidates?.Count == 0)
-            {
-                _logger.LogWarning(
-                    "Gemini returned no candidates for post {PostId}",
-                    patreonPost.Id);
+            return ParseAiSummary(response);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (InvalidDataException ex)
+        {
+            _logger.LogWarning(
+                "Gemini returned an invalid response for post {PostId}: {ErrorMessage}",
+                patreonPost.Id,
+                ex.Message);
 
-                throw new InvalidOperationException("Received empty candidates from Gemini.");
-            }
-
-            Content? content = response!.Candidates![0].Content;
-
-            if (content?.Parts?.Count == 0)
-            {
-                _logger.LogWarning(
-                    "Gemini returned no content parts for post {PostId}",
-                    patreonPost.Id);
-
-                throw new InvalidOperationException("Received empty content parts from Gemini.");
-            }
-
-            string? jsonText = content!.Parts![0].Text;
-
-            if (string.IsNullOrWhiteSpace(jsonText))
-            {
-                _logger.LogWarning("Gemini returned empty JSON for post {PostId}", patreonPost.Id);
-                throw new InvalidOperationException("Received empty response from Gemini.");
-            }
-
-            // Deserialize
-            GeminiResponseDto? resultDto = JsonSerializer.Deserialize<GeminiResponseDto>(
-                jsonText,
-                _jsonSerializerOptions);
-
-            if (resultDto == null)
-            {
-                _logger.LogWarning("Gemini returned null JSON for post {PostId}", patreonPost.Id);
-                throw new InvalidOperationException("Failed to deserialize Gemini response.");
-            }
-
-            return new AiSummary(
-                resultDto.Hosts,
-                resultDto.Guests,
-                resultDto.Topics);
+            throw;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to generate summary for post {Title}", patreonPost.Title);
             throw;
         }
+    }
+
+    internal static AiSummary ParseAiSummary(GenerateContentResponse response)
+    {
+        string jsonText = ExtractJsonText(response);
+
+        GeminiResponseDto resultDto;
+
+        try
+        {
+            resultDto = JsonSerializer.Deserialize<GeminiResponseDto>(
+                jsonText,
+                _jsonSerializerOptions)
+                ?? throw new InvalidDataException("Failed to deserialize Gemini response.");
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidDataException("Failed to deserialize Gemini response.", ex);
+        }
+
+        return CreateAiSummary(resultDto);
+    }
+
+    private static string ExtractJsonText(GenerateContentResponse response)
+    {
+        if (response.Candidates is not { Count: > 0 })
+        {
+            throw new InvalidDataException("Received empty candidates from Gemini.");
+        }
+
+        Content? content = response.Candidates[0].Content;
+
+        if (content?.Parts is not { Count: > 0 })
+        {
+            throw new InvalidDataException("Received empty content parts from Gemini.");
+        }
+
+        Part firstPart = content.Parts[0];
+        string? jsonText = firstPart.Text;
+
+        return !string.IsNullOrWhiteSpace(jsonText)
+            ? jsonText
+            : throw new InvalidDataException("Received empty response from Gemini.");
+    }
+
+    private static AiSummary CreateAiSummary(GeminiResponseDto resultDto)
+    {
+        string[] hosts = SanitizeValues(resultDto.Hosts);
+        string[] guests =
+        [
+            .. SanitizeValues(resultDto.Guests)
+                .Except(hosts, StringComparer.OrdinalIgnoreCase)
+        ];
+        string[] topics = SanitizeValues(resultDto.Topics);
+
+        return new AiSummary(hosts, guests, topics);
+    }
+
+    private static string[] SanitizeValues(IEnumerable<string?>? values)
+    {
+        return values is null
+            ? []
+            :
+            [
+                .. values
+                    .Where(static value => !string.IsNullOrWhiteSpace(value))
+                    .Select(static value => value!.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+            ];
     }
 }
