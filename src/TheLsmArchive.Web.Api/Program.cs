@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
 
 using Serilog;
 
 using TheLsmArchive.Database;
+using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Web.Api.Features.Episodes;
 using TheLsmArchive.Web.Api.Features.Persons;
 using TheLsmArchive.Web.Api.Features.Search;

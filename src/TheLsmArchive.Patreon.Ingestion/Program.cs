@@ -16,6 +16,7 @@ using Polly.Timeout;
 using Serilog;
 
 using TheLsmArchive.Database;
+using TheLsmArchive.Domain.Services;
 using TheLsmArchive.Patreon.Ingestion.Constants;
 using TheLsmArchive.Patreon.Ingestion.Options;
 using TheLsmArchive.Patreon.Ingestion.Services;
@@ -55,7 +56,8 @@ builder.Services
     .AddSingleton<IAiSummaryService, GeminiSummaryService>()
     .AddHostedService<PatreonIngestionService>()
     .AddSingleton<PatreonRssParser>()
-    .AddSingleton<PromptService>();
+    .AddSingleton<PromptService>()
+    .AddSingleton<ShowService>();
 
 builder.Services.AddResiliencePipeline(
    Constants.AiSummaryPipelineName,

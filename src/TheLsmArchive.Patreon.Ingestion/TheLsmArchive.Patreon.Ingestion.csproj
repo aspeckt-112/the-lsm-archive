@@ -11,6 +11,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\TheLsmArchive.Database\TheLsmArchive.Database.csproj" />
+        <ProjectReference Include="..\TheLsmArchive.Domain\TheLsmArchive.Domain.csproj" />
     </ItemGroup>
 
     <ItemGroup>

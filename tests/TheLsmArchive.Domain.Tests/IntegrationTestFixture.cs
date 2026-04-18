@@ -1,7 +1,6 @@
 using System.Data.Common;
 
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 using Respawn;
@@ -9,11 +8,11 @@ using Respawn;
 using Testcontainers.PostgreSql;
 
 using TheLsmArchive.Database.DbContext;
-using TheLsmArchive.Patreon.Ingestion.Services.Database;
+using TheLsmArchive.Domain.Services;
 
-namespace TheLsmArchive.Patreon.Ingestion.Integration.Tests;
+namespace TheLsmArchive.Domain.Tests;
 
-public sealed class IntegrationTestFixture : IAsyncLifetime
+public class IntegrationTestFixture
 {
     private readonly PostgreSqlContainer _postgresSqlContainer =
         new PostgreSqlBuilder("postgres:13.22-alpine3.22").Build();
@@ -45,14 +44,13 @@ public sealed class IntegrationTestFixture : IAsyncLifetime
         await using LsmArchiveDbContext dbContext = CreateDbContext();
         await dbContext.Database.MigrateAsync();
 
-        ConfigurationManager configuration = new();
-        configuration["ConnectionStrings:thelsmarchive"] = connectionString;
-
         IServiceCollection serviceCollection = new ServiceCollection()
             .AddLogging()
             .AddSingleton<ShowService>();
 
-        Database.Extensions.AddDbContext(serviceCollection, configuration, ServiceLifetime.Singleton);
+        serviceCollection.AddDbContext<LsmArchiveDbContext>(
+            options => Database.Extensions.ConfigureDbContextOptions(options, connectionString),
+            ServiceLifetime.Singleton);
 
         _serviceProvider = serviceCollection.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
 
@@ -67,8 +65,6 @@ public sealed class IntegrationTestFixture : IAsyncLifetime
             SchemasToInclude = ["public"],
             DbAdapter = DbAdapter.Postgres
         });
-
-
     }
 
     public async ValueTask DisposeAsync()

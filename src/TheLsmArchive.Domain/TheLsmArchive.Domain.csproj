@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <ProjectReference Include="..\TheLsmArchive.Models\TheLsmArchive.Models.csproj" />
+        <ProjectReference Include="..\TheLsmArchive.Database\TheLsmArchive.Database.csproj" />
+    </ItemGroup>
+
+        <ItemGroup>
+        <Using Include="Microsoft.EntityFrameworkCore" />
+        <Using Include="TheLsmArchive.Database.DbContext" />
+    </ItemGroup>
+
+</Project>

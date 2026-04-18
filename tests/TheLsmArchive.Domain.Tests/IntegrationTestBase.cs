@@ -2,7 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 using TheLsmArchive.Database.DbContext;
 
-namespace TheLsmArchive.Patreon.Ingestion.Integration.Tests;
+namespace TheLsmArchive.Domain.Tests;
 
 [Collection<IntegrationTestCollectionDefinition>]
 public abstract class IntegrationTestBase(IntegrationTestFixture fixture) : IAsyncLifetime

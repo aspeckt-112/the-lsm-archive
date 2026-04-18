@@ -22,13 +22,14 @@
     <Project Path="src/TheLsmArchive.ApiClient/TheLsmArchive.ApiClient.csproj" />
     <Project Path="src/TheLsmArchive.Common/TheLsmArchive.Common.csproj" />
     <Project Path="src/TheLsmArchive.Database/TheLsmArchive.Database.csproj" />
+    <Project Path="src/TheLsmArchive.Domain/TheLsmArchive.Domain.csproj" />
     <Project Path="src/TheLsmArchive.Models/TheLsmArchive.Models.csproj" />
     <Project Path="src/TheLsmArchive.Patreon.Ingestion/TheLsmArchive.Patreon.Ingestion.csproj" />
     <Project Path="src/TheLsmArchive.Web.Api/TheLsmArchive.Web.Api.csproj" />
     <Project Path="src/TheLsmArchive.Web.Frontend/TheLsmArchive.Web.Frontend.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/TheLsmArchive.Patreon.Ingestion.Integration.Tests/TheLsmArchive.Patreon.Ingestion.Integration.Tests.csproj" />
+    <Project Path="tests/TheLsmArchive.Domain.Tests/TheLsmArchive.Domain.Tests.csproj" />
     <Project Path="tests/TheLsmArchive.Patreon.Ingestion.Unit.Tests/TheLsmArchive.Patreon.Ingestion.Unit.Tests.csproj" />
   </Folder>
 </Solution>

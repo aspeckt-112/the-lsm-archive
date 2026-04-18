@@ -9,6 +9,8 @@ using Polly.Registry;
 
 using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
+using TheLsmArchive.Domain.Models;
+using TheLsmArchive.Domain.Services;
 using TheLsmArchive.Patreon.Ingestion.Helpers;
 using TheLsmArchive.Patreon.Ingestion.Models;
 using TheLsmArchive.Patreon.Ingestion.Options;
@@ -33,6 +35,7 @@ public sealed class PatreonIngestionService : BackgroundService
     private readonly IAiSummaryService _aiSummaryService;
 
     private readonly IDbContextFactory<LsmArchiveDbContext> _dbContextFactory;
+    private readonly ShowService _showService;
 
     private readonly ResiliencePipeline _aiSummaryPipeline;
 
@@ -47,12 +50,14 @@ public sealed class PatreonIngestionService : BackgroundService
         ResiliencePipelineProvider<string> pipelineProvider,
         IOptions<RssFeedSources> feedOptions,
         IOptions<PatreonIngestionOptions> ingestionOptions,
-        IDbContextFactory<LsmArchiveDbContext> dbContextFactory)
+        IDbContextFactory<LsmArchiveDbContext> dbContextFactory,
+        ShowService showService)
     {
         _logger = logger;
         _rssParser = rssParser;
         _aiSummaryService = aiSummaryService;
         _dbContextFactory = dbContextFactory;
+        _showService = showService;
         _aiSummaryPipeline = pipelineProvider.GetPipeline(Constants.Constants.AiSummaryPipelineName);
         _sources = feedOptions.Value;
         _ingestionInterval = TimeSpan.FromMinutes(ingestionOptions.Value.RefreshIntervalInMinutes);
@@ -62,7 +67,16 @@ public sealed class PatreonIngestionService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            await ExecuteIngestionCycleAsync(stoppingToken);
+            _logger.LogInformation(
+                "Starting Patreon ingestion cycle. Next run in {IntervalMinutes} minutes.",
+                _ingestionInterval.TotalMinutes);
+
+            await foreach (PatreonFeed feed in _rssParser.ParseFeedsAsync(_sources, stoppingToken))
+            {
+                Show show = await _showService.GetOrCreateAsync(feed.Title, stoppingToken);
+            }
+
+            // await ExecuteIngestionCycleAsync(stoppingToken);
 
             try
             {

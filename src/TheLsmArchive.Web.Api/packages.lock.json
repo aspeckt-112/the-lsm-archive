@@ -257,6 +257,13 @@
           "TheLsmArchive.Common": "[1.0.0, )"
         }
       },
+      "thelsmarchive.domain": {
+        "type": "Project",
+        "dependencies": {
+          "TheLsmArchive.Database": "[1.0.0, )",
+          "TheLsmArchive.Models": "[1.0.0, )"
+        }
+      },
       "thelsmarchive.models": {
         "type": "Project"
       },
