@@ -2,7 +2,7 @@ using System.Text.Json;
 
 using Google.GenAI.Types;
 
-using TheLsmArchive.Patreon.Ingestion.Services;
+using TheLsmArchive.Patreon.Ingestion.Services.AI;
 
 namespace TheLsmArchive.Patreon.Ingestion.Unit.Tests.Services;
 

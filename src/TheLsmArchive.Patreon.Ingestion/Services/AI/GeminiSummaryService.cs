@@ -16,7 +16,7 @@ using Content = Google.GenAI.Types.Content;
 using GenAI = Google.GenAI.Types;
 using Part = Google.GenAI.Types.Part;
 
-namespace TheLsmArchive.Patreon.Ingestion.Services;
+namespace TheLsmArchive.Patreon.Ingestion.Services.AI;
 
 /// <summary>
 /// The Gemini AI summary service implementation.

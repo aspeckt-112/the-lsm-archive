@@ -20,6 +20,8 @@ using TheLsmArchive.Patreon.Ingestion.Constants;
 using TheLsmArchive.Patreon.Ingestion.Options;
 using TheLsmArchive.Patreon.Ingestion.Services;
 using TheLsmArchive.Patreon.Ingestion.Services.Abstractions;
+using TheLsmArchive.Patreon.Ingestion.Services.AI;
+using TheLsmArchive.Patreon.Ingestion.Services.RSS;
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 

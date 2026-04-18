@@ -2,7 +2,7 @@ using System.Text;
 
 using TheLsmArchive.Common.Constants;
 
-namespace TheLsmArchive.Patreon.Ingestion.Services;
+namespace TheLsmArchive.Patreon.Ingestion.Services.AI;
 
 /// <summary>
 /// The system instruction service.

@@ -34,21 +34,21 @@ public static class Extensions
                                           "Please add it to your appsettings.json or environment variables."
                                       );
 
-            void ConfigureOptions(DbContextOptionsBuilder options)
-            {
-                options.UseNpgsql(
-                    connectionString,
-                    npgsqlOptions => npgsqlOptions.EnableRetryOnFailure(
-                        maxRetryCount: 3,
-                        maxRetryDelay: TimeSpan.FromSeconds(5),
-                        errorCodesToAdd: null));
-                options.UseSnakeCaseNamingConvention();
-            }
-
-            services.AddDbContext<LsmArchiveDbContext>(ConfigureOptions, serviceLifetime);
-
+            services.AddDbContext<LsmArchiveDbContext>(options => ConfigureDbContextOptions(options, connectionString), serviceLifetime);
 
             return services;
+        }
+
+        public static void ConfigureDbContextOptions(DbContextOptionsBuilder options, string connectionString)
+        {
+            options.UseNpgsql(
+                connectionString,
+                npgsqlOptions => npgsqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 3,
+                    maxRetryDelay: TimeSpan.FromSeconds(5),
+                    errorCodesToAdd: null));
+
+            options.UseSnakeCaseNamingConvention();
         }
 
         /// <summary>

@@ -12,8 +12,7 @@
     </PropertyGroup>
 
     <ItemGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
-
-        <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest"/>
+    
         <Using Include="Xunit"/>
         <Using Include="Xunit.Assert" Static="true"/>
 

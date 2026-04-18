@@ -13,6 +13,7 @@ using TheLsmArchive.Patreon.Ingestion.Helpers;
 using TheLsmArchive.Patreon.Ingestion.Models;
 using TheLsmArchive.Patreon.Ingestion.Options;
 using TheLsmArchive.Patreon.Ingestion.Services.Abstractions;
+using TheLsmArchive.Patreon.Ingestion.Services.RSS;
 
 namespace TheLsmArchive.Patreon.Ingestion.Services;
 
@@ -26,11 +27,17 @@ public sealed class PatreonIngestionService : BackgroundService
     private sealed record PendingPost(int Id, string Title, string? ProcessingError);
 
     private readonly ILogger<PatreonIngestionService> _logger;
+
     private readonly PatreonRssParser _rssParser;
+
     private readonly IAiSummaryService _aiSummaryService;
+
     private readonly IDbContextFactory<LsmArchiveDbContext> _dbContextFactory;
+
     private readonly ResiliencePipeline _aiSummaryPipeline;
+
     private readonly List<RssFeedSource> _sources;
+
     private readonly TimeSpan _ingestionInterval;
 
     public PatreonIngestionService(
