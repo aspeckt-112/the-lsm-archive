@@ -12,7 +12,7 @@ using TheLsmArchive.Domain.Services;
 
 namespace TheLsmArchive.Domain.Tests;
 
-public class IntegrationTestFixture
+public class IntegrationTestFixture : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgresSqlContainer =
         new PostgreSqlBuilder("postgres:13.22-alpine3.22").Build();
