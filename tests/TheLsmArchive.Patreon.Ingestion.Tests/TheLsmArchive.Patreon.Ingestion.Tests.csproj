@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TheLsmArchive.Patreon.Ingestion\TheLsmArchive.Patreon.Ingestion.csproj" />
+    <ProjectReference Include="..\TheLsmArchive.Testing.Database\TheLsmArchive.Testing.Database.csproj" />
   </ItemGroup>
 
 </Project>

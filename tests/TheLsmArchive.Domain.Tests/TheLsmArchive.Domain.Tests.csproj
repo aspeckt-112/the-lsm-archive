@@ -2,11 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TheLsmArchive.Domain\TheLsmArchive.Domain.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Testcontainers.PostgreSql" />
-    <PackageReference Include="Respawn" />
+    <ProjectReference Include="..\TheLsmArchive.Testing.Database\TheLsmArchive.Testing.Database.csproj" />
   </ItemGroup>
 
 </Project>

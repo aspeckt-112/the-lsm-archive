@@ -31,5 +31,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/TheLsmArchive.Domain.Tests/TheLsmArchive.Domain.Tests.csproj" />
     <Project Path="tests/TheLsmArchive.Patreon.Ingestion.Tests/TheLsmArchive.Patreon.Ingestion.Tests.csproj" />
+    <Project Path="tests/TheLsmArchive.Testing.Database/TheLsmArchive.Testing.Database.csproj" />
   </Folder>
 </Solution>
