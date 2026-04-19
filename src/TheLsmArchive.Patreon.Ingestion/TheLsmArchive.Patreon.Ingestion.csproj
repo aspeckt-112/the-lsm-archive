@@ -6,7 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <InternalsVisibleTo Include="TheLsmArchive.Patreon.Ingestion.Unit.Tests" />
+        <InternalsVisibleTo Include="TheLsmArchive.Patreon.Ingestion.Tests" />
     </ItemGroup>
 
     <ItemGroup>

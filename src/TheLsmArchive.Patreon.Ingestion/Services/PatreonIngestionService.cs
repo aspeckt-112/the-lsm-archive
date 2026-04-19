@@ -15,6 +15,7 @@ using TheLsmArchive.Patreon.Ingestion.Helpers;
 using TheLsmArchive.Patreon.Ingestion.Models;
 using TheLsmArchive.Patreon.Ingestion.Options;
 using TheLsmArchive.Patreon.Ingestion.Services.Abstractions;
+using TheLsmArchive.Patreon.Ingestion.Services.Database;
 using TheLsmArchive.Patreon.Ingestion.Services.RSS;
 
 namespace TheLsmArchive.Patreon.Ingestion.Services;
@@ -36,7 +37,7 @@ public sealed class PatreonIngestionService : BackgroundService
 
     private readonly IDbContextFactory<LsmArchiveDbContext> _dbContextFactory;
     private readonly ShowService _showService;
-
+    private readonly PatreonService _patreonService;
     private readonly ResiliencePipeline _aiSummaryPipeline;
 
     private readonly List<RssFeedSource> _sources;
@@ -51,13 +52,15 @@ public sealed class PatreonIngestionService : BackgroundService
         IOptions<RssFeedSources> feedOptions,
         IOptions<PatreonIngestionOptions> ingestionOptions,
         IDbContextFactory<LsmArchiveDbContext> dbContextFactory,
-        ShowService showService)
+        ShowService showService,
+        PatreonService patreonService)
     {
         _logger = logger;
         _rssParser = rssParser;
         _aiSummaryService = aiSummaryService;
         _dbContextFactory = dbContextFactory;
         _showService = showService;
+        _patreonService = patreonService;
         _aiSummaryPipeline = pipelineProvider.GetPipeline(Constants.Constants.AiSummaryPipelineName);
         _sources = feedOptions.Value;
         _ingestionInterval = TimeSpan.FromMinutes(ingestionOptions.Value.RefreshIntervalInMinutes);
@@ -74,6 +77,10 @@ public sealed class PatreonIngestionService : BackgroundService
             await foreach (PatreonFeed feed in _rssParser.ParseFeedsAsync(_sources, stoppingToken))
             {
                 Show show = await _showService.GetOrCreateAsync(feed.Title, stoppingToken);
+
+                _logger.LogInformation("Ingesting feed '{FeedTitle}' for show ID {ShowId}", feed.Title, show.Id);
+
+                await _patreonService.IngestFeed(show.Id, feed, stoppingToken);
             }
 
             // await ExecuteIngestionCycleAsync(stoppingToken);

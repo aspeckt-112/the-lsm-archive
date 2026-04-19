@@ -1,6 +1,6 @@
 using TheLsmArchive.Patreon.Ingestion.Helpers;
 
-namespace TheLsmArchive.Patreon.Ingestion.Unit.Tests.Helpers;
+namespace TheLsmArchive.Patreon.Ingestion.Tests.Helpers;
 
 public class LookupKeyNormalizerTests
 {

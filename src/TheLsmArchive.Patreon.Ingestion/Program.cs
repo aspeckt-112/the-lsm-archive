@@ -22,6 +22,7 @@ using TheLsmArchive.Patreon.Ingestion.Options;
 using TheLsmArchive.Patreon.Ingestion.Services;
 using TheLsmArchive.Patreon.Ingestion.Services.Abstractions;
 using TheLsmArchive.Patreon.Ingestion.Services.AI;
+using TheLsmArchive.Patreon.Ingestion.Services.Database;
 using TheLsmArchive.Patreon.Ingestion.Services.RSS;
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
@@ -57,7 +58,8 @@ builder.Services
     .AddHostedService<PatreonIngestionService>()
     .AddSingleton<PatreonRssParser>()
     .AddSingleton<PromptService>()
-    .AddSingleton<ShowService>();
+    .AddSingleton<ShowService>()
+    .AddSingleton<PatreonService>();
 
 builder.Services.AddResiliencePipeline(
    Constants.AiSummaryPipelineName,

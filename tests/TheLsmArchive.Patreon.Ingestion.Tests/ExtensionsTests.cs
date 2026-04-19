@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Xml.Linq;
 
-namespace TheLsmArchive.Patreon.Ingestion.Unit.Tests;
+namespace TheLsmArchive.Patreon.Ingestion.Tests;
 
 public class ExtensionsTests
 {

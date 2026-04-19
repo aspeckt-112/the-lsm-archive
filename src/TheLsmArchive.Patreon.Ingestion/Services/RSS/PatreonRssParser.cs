@@ -1,5 +1,6 @@
 using System.Xml.Linq;
 
+using TheLsmArchive.Domain.Models;
 using TheLsmArchive.Patreon.Ingestion.Models;
 using TheLsmArchive.Patreon.Ingestion.Options;
 
