@@ -1,7 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 
-using TheLsmArchive.Database.DbContext;
-
 namespace TheLsmArchive.Testing.Database;
 
 /// <summary>
@@ -11,42 +9,24 @@ namespace TheLsmArchive.Testing.Database;
 public abstract class DatabaseIntegrationTestBase<TFixture>(TFixture fixture)
     where TFixture : DatabaseIntegrationTestFixture
 {
-    /// <summary>
-    /// Gets the concrete fixture instance for the current test class.
-    /// </summary>
-    protected TFixture Fixture { get; } = fixture;
+    private IServiceScope? _scope;
+
+    private IServiceScope Scope => _scope
+        ?? throw new InvalidOperationException("The test scope has not been initialized. Ensure that InitializeAsync has been called.");
+
+    protected TService Get<TService>() where TService : class => Scope.ServiceProvider.GetRequiredService<TService>();
 
     /// <summary>
-    /// Gets the fixture's root service provider.
-    /// </summary>
-    protected IServiceProvider Services => Fixture.Services;
-
-    /// <summary>
-    /// Creates a new scope from the fixture service provider.
-    /// </summary>
-    protected IServiceScope CreateScope() => Fixture.CreateScope();
-
-    /// <summary>
-    /// Creates a new DbContext using the fixture's configured options.
-    /// </summary>
-    protected LsmArchiveDbContext CreateDbContext() => Fixture.CreateDbContext();
-
-    /// <summary>
-    /// Resets the database back to an empty application state.
-    /// </summary>
-    protected Task ResetToEmptyStateAsync() => Fixture.ResetToEmptyStateAsync();
-
-    /// <summary>
-    /// Resets the shared database state and then runs any derived-class setup.
+    /// Resets the shared database state, creates the per-test scope, and then runs any derived-class setup.
     /// </summary>
     public virtual async ValueTask InitializeAsync()
     {
-        await Fixture.ResetToEmptyStateAsync();
+        _scope = fixture.CreateScope();
         await InitializeAsyncCore();
     }
 
     /// <summary>
-    /// Runs any derived-class cleanup and then resets the shared database state.
+    /// Runs any derived-class cleanup, disposes the per-test scope, and then resets the shared database state.
     /// </summary>
     public virtual async ValueTask DisposeAsync()
     {
@@ -56,7 +36,9 @@ public abstract class DatabaseIntegrationTestBase<TFixture>(TFixture fixture)
         }
         finally
         {
-            await Fixture.ResetToEmptyStateAsync();
+            _scope?.Dispose();
+            _scope = null;
+            await fixture.ResetToEmptyStateAsync();
         }
     }
 

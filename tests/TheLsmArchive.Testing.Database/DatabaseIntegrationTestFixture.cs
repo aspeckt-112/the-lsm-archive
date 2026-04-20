@@ -22,18 +22,15 @@ public abstract class DatabaseIntegrationTestFixture
 
     private DbContextOptions<LsmArchiveDbContext>? _dbContextOptions;
 
-    private ServiceProvider? _serviceProvider;
-
     private LsmArchiveDbContext? _resetDbContext;
 
     private DbConnection? _resetConnection;
 
     private Respawner? _respawner;
 
-    /// <summary>
-    /// Gets the service provider built for the current test assembly's registrations.
-    /// </summary>
-    public IServiceProvider Services => _serviceProvider
+    private ServiceProvider? _serviceProvider;
+
+    private IServiceProvider Services => _serviceProvider
         ?? throw new InvalidOperationException("The integration test fixture has not been initialized.");
 
     /// <summary>
@@ -134,7 +131,7 @@ public abstract class DatabaseIntegrationTestFixture
     protected virtual void ConfigureDatabaseServices(IServiceCollection services, string connectionString)
     {
         services.AddDbContext<LsmArchiveDbContext>(
-            options => global::TheLsmArchive.Database.Extensions.ConfigureDbContextOptions(options, connectionString),
+            options => TheLsmArchive.Database.Extensions.ConfigureDbContextOptions(options, connectionString),
             ServiceLifetime.Singleton);
     }
 
@@ -154,7 +151,7 @@ public abstract class DatabaseIntegrationTestFixture
     private static DbContextOptions<LsmArchiveDbContext> CreateDbContextOptions(string connectionString)
     {
         DbContextOptionsBuilder<LsmArchiveDbContext> optionsBuilder = new();
-        global::TheLsmArchive.Database.Extensions.ConfigureDbContextOptions(optionsBuilder, connectionString);
+        TheLsmArchive.Database.Extensions.ConfigureDbContextOptions(optionsBuilder, connectionString);
         return optionsBuilder.Options;
     }
 }

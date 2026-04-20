@@ -1,6 +1,6 @@
 using TheLsmArchive.Patreon.Ingestion.Helpers;
 
-namespace TheLsmArchive.Patreon.Ingestion.Tests.Helpers;
+namespace TheLsmArchive.Patreon.Ingestion.Tests.Tests.Helpers;
 
 public class HtmlSanitizerTests
 {

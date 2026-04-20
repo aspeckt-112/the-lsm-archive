@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using TheLsmArchive.Domain.Services;
 using TheLsmArchive.Testing.Database;
 
-namespace TheLsmArchive.Domain.Tests;
+namespace TheLsmArchive.Domain.Tests.Infrastructure;
 
 /// <summary>
 /// Domain test fixture that adds Domain-specific services to the shared database test infrastructure.

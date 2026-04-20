@@ -1,12 +1,12 @@
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 
 using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
 using TheLsmArchive.Domain.Models;
 using TheLsmArchive.Domain.Services;
+using TheLsmArchive.Domain.Tests.Infrastructure;
 
-namespace TheLsmArchive.Domain.Tests.Services;
+namespace TheLsmArchive.Domain.Tests.Tests.Services;
 
 public sealed class ShowServiceTests(IntegrationTestFixture fixture) : IntegrationTestBase(fixture)
 {
@@ -16,9 +16,7 @@ public sealed class ShowServiceTests(IntegrationTestFixture fixture) : Integrati
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        using IServiceScope scope = CreateScope();
-
-        LsmArchiveDbContext dbContext = scope.ServiceProvider.GetRequiredService<LsmArchiveDbContext>();
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
 
         ShowEntity existingShowEntity = new() { Name = "Test Show" };
 
@@ -26,7 +24,7 @@ public sealed class ShowServiceTests(IntegrationTestFixture fixture) : Integrati
         await dbContext.SaveChangesAsync(cancellationToken);
 
         // Act
-        ShowService showService = scope.ServiceProvider.GetRequiredService<ShowService>();
+        ShowService showService = Get<ShowService>();
         Show show = await showService.GetOrCreateAsync(existingShowEntity.Name, cancellationToken);
 
         // Assert
@@ -40,14 +38,12 @@ public sealed class ShowServiceTests(IntegrationTestFixture fixture) : Integrati
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        using IServiceScope scope = CreateScope();
-
         // Act
-        ShowService showService = scope.ServiceProvider.GetRequiredService<ShowService>();
+        ShowService showService = Get<ShowService>();
         Show show = await showService.GetOrCreateAsync("New Test Show", cancellationToken);
 
         // Assert
-        LsmArchiveDbContext dbContext = scope.ServiceProvider.GetRequiredService<LsmArchiveDbContext>();
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
 
         Show createdShowEntity = await dbContext.Shows
             .Where(s => s.Id == show.Id)

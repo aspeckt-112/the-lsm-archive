@@ -30,18 +30,13 @@ public sealed class PatreonIngestionService : BackgroundService
     private sealed record PendingPost(int Id, string Title, string? ProcessingError);
 
     private readonly ILogger<PatreonIngestionService> _logger;
-
     private readonly PatreonRssParser _rssParser;
-
     private readonly IAiSummaryService _aiSummaryService;
-
     private readonly IDbContextFactory<LsmArchiveDbContext> _dbContextFactory;
     private readonly ShowService _showService;
     private readonly PatreonService _patreonService;
     private readonly ResiliencePipeline _aiSummaryPipeline;
-
     private readonly List<RssFeedSource> _sources;
-
     private readonly TimeSpan _ingestionInterval;
 
     public PatreonIngestionService(
@@ -113,10 +108,13 @@ public sealed class PatreonIngestionService : BackgroundService
             {
                 try
                 {
+                    // Done
                     _logger.LogInformation("Processing feed '{FeedTitle}'", feed.Title);
 
+                    // Done
                     ShowReference show = await GetOrCreateShowAsync(feed.Title, cancellationToken);
 
+                    // Done
                     await IngestPostsAsync(show.Id, feed, cancellationToken);
 
                     // Get all posts needing processing (new posts + posts with previous errors)

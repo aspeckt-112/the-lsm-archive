@@ -1,4 +1,4 @@
-namespace TheLsmArchive.Patreon.Ingestion.Tests;
+namespace TheLsmArchive.Patreon.Ingestion.Tests.Infrastructure;
 
 /// <summary>
 /// xUnit collection definition for Patreon ingestion integration tests.

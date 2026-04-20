@@ -5,4 +5,8 @@
     <ProjectReference Include="..\TheLsmArchive.Testing.Database\TheLsmArchive.Testing.Database.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Tests\" />
+  </ItemGroup>
+
 </Project>

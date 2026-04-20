@@ -36,11 +36,17 @@ public sealed class PatreonService
     /// <param name="cancellationToken">The cancellation token to observe while performing the ingestion operation.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
     public async Task IngestFeed(
-        int showId, 
+        int showId,
         PatreonFeed feed,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation("Ingesting feed '{FeedTitle}' for show ID {ShowId}", feed.Title, showId);
+
+        if (!_dbContext.Shows.Any(s => s.Id == showId))
+        {
+            _logger.LogError("Show with ID {ShowId} does not exist in the database. Cannot ingest feed '{FeedTitle}'.", showId, feed.Title);
+            throw new InvalidOperationException($"Show with ID {showId} does not exist in the database.");
+        }
 
         HashSet<int> existingPostIds = await _dbContext.PatreonPosts
             .AsNoTracking()
