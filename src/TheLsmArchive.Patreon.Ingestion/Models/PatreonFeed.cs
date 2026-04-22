@@ -1,5 +1,3 @@
-using TheLsmArchive.Domain.Models;
-
 namespace TheLsmArchive.Patreon.Ingestion.Models;
 
 /// <summary>
