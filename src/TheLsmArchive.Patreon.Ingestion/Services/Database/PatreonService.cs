@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -42,11 +44,7 @@ public sealed class PatreonService
     {
         _logger.LogInformation("Ingesting feed '{FeedTitle}' for show ID {ShowId}", feed.Title, showId);
 
-        if (!_dbContext.Shows.Any(s => s.Id == showId))
-        {
-            _logger.LogError("Show with ID {ShowId} does not exist in the database. Cannot ingest feed '{FeedTitle}'.", showId, feed.Title);
-            throw new InvalidOperationException($"Show with ID {showId} does not exist in the database.");
-        }
+        await ThrowIfShowDoesNotExist(showId, cancellationToken);
 
         HashSet<int> existingPostIds = await _dbContext.PatreonPosts
             .AsNoTracking()
@@ -70,5 +68,36 @@ public sealed class PatreonService
         _logger.LogInformation("Saving changes to the database for feed '{FeedTitle}' and show ID {ShowId}.", feed.Title, showId);
         await _dbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Finished ingesting feed '{FeedTitle}' for show ID {ShowId}.", feed.Title, showId);
+    }
+
+    public async Task<ImmutableList<PendingPost>> GetPendingPosts(
+        int showId,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Retrieving pending posts for show ID {ShowId}.", showId);
+
+        await ThrowIfShowDoesNotExist(showId, cancellationToken);
+
+        List<PendingPost> pendingPosts = await _dbContext.PatreonPosts
+            .AsNoTracking()
+            .Where(p => p.ShowId == showId && (p.ProcessingError != null || p.EpisodeId == null))
+            .Select(p => new PendingPost(p.PatreonId, p.Title, p.ProcessingError))
+            .ToListAsync(cancellationToken);
+
+        _logger.LogInformation("Retrieved {Count} pending posts for show ID {ShowId}.", pendingPosts.Count, showId);
+        return [.. pendingPosts];
+    }
+
+    private async Task ThrowIfShowDoesNotExist(int showId, CancellationToken cancellationToken)
+    {
+        bool showExists = await _dbContext.Shows
+            .AsNoTracking()
+            .AnyAsync(s => s.Id == showId, cancellationToken);
+
+        if (!showExists)
+        {
+            _logger.LogError("Show with ID {ShowId} does not exist in the database.", showId);
+            throw new InvalidOperationException($"Show with ID {showId} does not exist in the database.");
+        }
     }
 }

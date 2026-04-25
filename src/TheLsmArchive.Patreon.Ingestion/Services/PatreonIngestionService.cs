@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Hosting;
@@ -26,8 +28,6 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 public sealed class PatreonIngestionService : BackgroundService
 {
     private sealed record ShowReference(int Id, string Name);
-
-    private sealed record PendingPost(int Id, string Title, string? ProcessingError);
 
     private readonly ILogger<PatreonIngestionService> _logger;
     private readonly PatreonRssParser _rssParser;
@@ -76,6 +76,8 @@ public sealed class PatreonIngestionService : BackgroundService
                 _logger.LogInformation("Ingesting feed '{FeedTitle}' for show ID {ShowId}", feed.Title, show.Id);
 
                 await _patreonService.IngestFeed(show.Id, feed, stoppingToken);
+
+                ImmutableList<PendingPost> postsToProcess = await _patreonService.GetPendingPosts(show.Id, stoppingToken);
             }
 
             // await ExecuteIngestionCycleAsync(stoppingToken);
@@ -117,6 +119,7 @@ public sealed class PatreonIngestionService : BackgroundService
                     // Done
                     await IngestPostsAsync(show.Id, feed, cancellationToken);
 
+                    // Done
                     // Get all posts needing processing (new posts + posts with previous errors)
                     List<PendingPost> postsToProcess =
                         await GetPostsNeedingProcessingAsync(show.Id, cancellationToken);
