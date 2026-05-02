@@ -1,6 +1,6 @@
 using TheLsmArchive.Testing.Database;
 
-namespace TheLsmArchive.Patreon.Ingestion.Tests.Infrastructure;
+namespace TheLsmArchive.Patreon.Ingestion.Tests.Fixtures;
 
 /// <summary>
 /// Base class for Patreon ingestion integration tests.

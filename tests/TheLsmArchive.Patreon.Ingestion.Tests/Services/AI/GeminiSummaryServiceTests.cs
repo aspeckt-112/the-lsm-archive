@@ -4,7 +4,7 @@ using Google.GenAI.Types;
 
 using TheLsmArchive.Patreon.Ingestion.Services.AI;
 
-namespace TheLsmArchive.Patreon.Ingestion.Tests.Tests.Services.AI;
+namespace TheLsmArchive.Patreon.Ingestion.Tests.Services.AI;
 
 public class GeminiSummaryServiceTests
 {

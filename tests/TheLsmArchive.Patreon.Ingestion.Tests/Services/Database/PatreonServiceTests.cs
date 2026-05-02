@@ -6,9 +6,9 @@ using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
 using TheLsmArchive.Patreon.Ingestion.Models;
 using TheLsmArchive.Patreon.Ingestion.Services.Database;
-using TheLsmArchive.Patreon.Ingestion.Tests.Infrastructure;
+using TheLsmArchive.Patreon.Ingestion.Tests.Fixtures;
 
-namespace TheLsmArchive.Patreon.Ingestion.Tests.Tests.Services.Database;
+namespace TheLsmArchive.Patreon.Ingestion.Tests.Services.Database;
 
 public sealed class PatreonServiceTests(IntegrationTestFixture fixture) : IntegrationTestBase(fixture)
 {

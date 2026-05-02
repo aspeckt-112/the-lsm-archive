@@ -5,7 +5,7 @@ using TheLsmArchive.Domain.Services;
 using TheLsmArchive.Patreon.Ingestion.Services.Database;
 using TheLsmArchive.Testing.Database;
 
-namespace TheLsmArchive.Patreon.Ingestion.Tests.Infrastructure;
+namespace TheLsmArchive.Patreon.Ingestion.Tests.Fixtures;
 
 /// <summary>
 /// Patreon ingestion test fixture that adds ingestion-specific database services to the shared infrastructure.
