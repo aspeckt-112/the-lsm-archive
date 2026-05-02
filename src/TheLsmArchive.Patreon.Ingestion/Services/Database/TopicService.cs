@@ -27,20 +27,20 @@ public sealed class TopicService
     }
 
     /// <summary>
-    /// Returns the existing <see cref="TopicEntity"/> matching the given name, or creates and tracks a new one.
+    /// Returns the ID of the existing topic matching the given name, or creates a new topic record and returns its ID.
     /// Matching first attempts an exact normalized-key lookup, then falls back to Postgres trigram similarity (threshold 0.8).
-    /// The caller is responsible for calling <c>SaveChangesAsync</c> to persist any newly created entity.
     /// </summary>
     /// <param name="name">The topic's display name.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The existing or newly created <see cref="TopicEntity"/>.</returns>
-    public async Task<TopicEntity> GetOrCreateAsync(string name, CancellationToken cancellationToken)
+    /// <returns>The ID of the existing or newly created topic.</returns>
+    public async Task<int> GetOrCreateAsync(string name, CancellationToken cancellationToken)
     {
         name = name.Trim();
         string normalizedName = LookupKeyNormalizer.Normalize(name);
 
         // 1. Exact match via canonical normalized key.
         TopicEntity? topic = await _dbContext.Topics
+            .AsNoTracking()
             .FirstOrDefaultAsync(t => t.NormalizedName == normalizedName, cancellationToken);
 
         if (topic is not null)
@@ -49,13 +49,14 @@ public sealed class TopicService
                 "Topic '{TopicName}' already exists with ID {TopicId} (normalized key: {NormalizedName})",
                 name, topic.Id, normalizedName);
 
-            return topic;
+            return topic.Id;
         }
 
         // 2. Fuzzy match via Postgres trigram similarity.
         // A threshold of 0.8 ensures high similarity while preventing distinct topics like
         // "Game Name" and "Game Name Remaster" from being merged.
         topic = await _dbContext.Topics
+            .AsNoTracking()
             .Where(t => EF.Functions.TrigramsSimilarity(t.Name, name) > 0.8)
             .OrderByDescending(t => EF.Functions.TrigramsSimilarity(t.Name, name))
             .FirstOrDefaultAsync(cancellationToken);
@@ -66,12 +67,13 @@ public sealed class TopicService
                 "Fuzzy matched topic '{InputName}' to existing topic '{MatchedName}' (ID {TopicId})",
                 name, topic.Name, topic.Id);
 
-            return topic;
+            return topic.Id;
         }
 
         topic = new TopicEntity { Name = name, NormalizedName = normalizedName };
         _dbContext.Topics.Add(topic);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return topic;
+        return topic.Id;
     }
 }

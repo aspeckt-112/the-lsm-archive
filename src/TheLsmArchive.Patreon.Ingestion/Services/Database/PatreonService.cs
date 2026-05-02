@@ -89,6 +89,26 @@ public sealed class PatreonService
     }
 
     /// <summary>
+    /// Marks the given post as successfully processed by setting its episode ID and clearing any processing error.
+    /// Also flushes any pending relationship rows added to the shared <see cref="LsmArchiveDbContext"/> by
+    /// <see cref="TheLsmArchive.Patreon.Ingestion.Services.Database.RelationshipService"/>.
+    /// </summary>
+    /// <param name="postId">The database ID of the Patreon post.</param>
+    /// <param name="episodeId">The ID of the episode that was created for the post.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    public async Task MarkPostAsProcessedAsync(int postId, int episodeId, CancellationToken cancellationToken)
+    {
+        PatreonPostEntity postEntity = await _dbContext.PatreonPosts
+            .FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
+            ?? throw new InvalidOperationException($"Patreon post with ID {postId} was not found.");
+
+        postEntity.EpisodeId = episodeId;
+        postEntity.ProcessingError = null;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// Persists a processing error message on the given post for retry on the next ingestion cycle.
     /// </summary>
     /// <param name="postId">The database ID of the Patreon post.</param>

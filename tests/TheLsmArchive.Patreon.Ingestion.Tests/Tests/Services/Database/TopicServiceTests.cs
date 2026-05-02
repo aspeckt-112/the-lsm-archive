@@ -19,18 +19,14 @@ public sealed class TopicServiceTests(IntegrationTestFixture fixture) : Integrat
         TopicService topicService = Get<TopicService>();
 
         // Act
-        TopicEntity topic = await topicService.GetOrCreateAsync("Dark Souls", cancellationToken);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        int topicId = await topicService.GetOrCreateAsync("Dark Souls", cancellationToken);
 
         // Assert
-        NotNull(topic);
-        True(topic.Id > 0);
-        Equal("Dark Souls", topic.Name);
-        NotNull(topic.NormalizedName);
+        True(topicId > 0);
 
         TopicEntity? persisted = await dbContext.Topics
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == topic.Id, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == topicId, cancellationToken);
 
         NotNull(persisted);
         Equal("Dark Souls", persisted.Name);
@@ -51,10 +47,10 @@ public sealed class TopicServiceTests(IntegrationTestFixture fixture) : Integrat
         TopicService topicService = Get<TopicService>();
 
         // Act — same name produces same normalized key
-        TopicEntity result = await topicService.GetOrCreateAsync("Elden Ring", cancellationToken);
+        int result = await topicService.GetOrCreateAsync("Elden Ring", cancellationToken);
 
         // Assert
-        Equal(existing.Id, result.Id);
+        Equal(existing.Id, result);
 
         int count = await dbContext.Topics.CountAsync(cancellationToken);
         Equal(1, count);
@@ -75,10 +71,10 @@ public sealed class TopicServiceTests(IntegrationTestFixture fixture) : Integrat
         TopicService topicService = Get<TopicService>();
 
         // Act — slight variation that passes trigram similarity > 0.8 but has a different normalized key
-        TopicEntity result = await topicService.GetOrCreateAsync("Bloodborne ", cancellationToken);
+        int result = await topicService.GetOrCreateAsync("Bloodborne ", cancellationToken);
 
         // Assert
-        Equal(existing.Id, result.Id);
+        Equal(existing.Id, result);
     }
 
     [Fact]
@@ -91,10 +87,14 @@ public sealed class TopicServiceTests(IntegrationTestFixture fixture) : Integrat
         TopicService topicService = Get<TopicService>();
 
         // Act
-        TopicEntity topic = await topicService.GetOrCreateAsync("  Sekiro  ", cancellationToken);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        int topicId = await topicService.GetOrCreateAsync("  Sekiro  ", cancellationToken);
 
         // Assert
-        Equal("Sekiro", topic.Name);
+        TopicEntity? persisted = await dbContext.Topics
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == topicId, cancellationToken);
+
+        NotNull(persisted);
+        Equal("Sekiro", persisted.Name);
     }
 }

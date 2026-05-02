@@ -26,17 +26,17 @@ public sealed class EpisodeService
     }
 
     /// <summary>
-    /// Returns the existing <see cref="EpisodeEntity"/> for the given post, or creates and tracks a new one if none exists.
-    /// The caller is responsible for calling <c>SaveChangesAsync</c> to persist any newly created entity.
+    /// Returns the ID of the existing episode for the given post, or creates a new episode record and returns its ID.
     /// </summary>
     /// <param name="post">The Patreon post entity the episode is linked to.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The existing or newly created <see cref="EpisodeEntity"/>.</returns>
-    public async Task<EpisodeEntity> GetOrCreateAsync(
+    /// <returns>The ID of the existing or newly created episode.</returns>
+    public async Task<int> GetOrCreateAsync(
         PatreonPostEntity post,
         CancellationToken cancellationToken)
     {
         EpisodeEntity? existingEpisode = await _dbContext.Episodes
+            .AsNoTracking()
             .FirstOrDefaultAsync(e => e.PatreonPostId == post.Id, cancellationToken);
 
         if (existingEpisode is not null)
@@ -46,7 +46,7 @@ public sealed class EpisodeService
                 post.Title,
                 existingEpisode.Id);
 
-            return existingEpisode;
+            return existingEpisode.Id;
         }
 
         var episode = new EpisodeEntity
@@ -54,11 +54,12 @@ public sealed class EpisodeService
             ShowId = post.ShowId,
             Title = post.Title,
             ReleaseDateUtc = post.Published.UtcDateTime,
-            PatreonPost = post
+            PatreonPostId = post.Id
         };
 
         _dbContext.Episodes.Add(episode);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return episode;
+        return episode.Id;
     }
 }

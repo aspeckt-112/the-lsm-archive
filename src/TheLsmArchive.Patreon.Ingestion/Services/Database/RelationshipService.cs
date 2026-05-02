@@ -27,98 +27,95 @@ public sealed class RelationshipService
     }
 
     /// <summary>
-    /// Ensures each person in <paramref name="persons"/> is linked to <paramref name="episode"/>.
+    /// Ensures each person in <paramref name="personIds"/> is linked to the episode with <paramref name="episodeId"/>.
     /// Persons that are already linked are silently skipped.
     /// </summary>
-    /// <param name="persons">The persons to link.</param>
-    /// <param name="episode">The episode to link them to.</param>
+    /// <param name="personIds">The IDs of the persons to link.</param>
+    /// <param name="episodeId">The ID of the episode to link them to.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     public async Task LinkPersonsToEpisodeAsync(
-        IReadOnlyCollection<PersonEntity> persons,
-        EpisodeEntity episode,
+        IReadOnlyCollection<int> personIds,
+        int episodeId,
         CancellationToken cancellationToken)
     {
-        if (persons.Count == 0)
+        if (personIds.Count == 0)
         {
             return;
         }
 
         HashSet<int> existingPersonIds = await _dbContext.PersonEpisodes
-            .Where(pe => pe.EpisodeId == episode.Id)
+            .Where(pe => pe.EpisodeId == episodeId)
             .Select(pe => pe.PersonId)
             .ToHashSetAsync(cancellationToken);
 
-        foreach (PersonEntity person in persons)
+        foreach (int personId in personIds)
         {
-            if (existingPersonIds.Contains(person.Id))
+            if (existingPersonIds.Contains(personId))
             {
                 continue;
             }
 
             _dbContext.PersonEpisodes.Add(new PersonEpisodeEntity
             {
-                PersonId = person.Id,
-                EpisodeId = episode.Id
+                PersonId = personId,
+                EpisodeId = episodeId
             });
         }
     }
 
     /// <summary>
-    /// Ensures each topic in <paramref name="topics"/> is linked to <paramref name="episode"/>.
+    /// Ensures each topic in <paramref name="topicIds"/> is linked to the episode with <paramref name="episodeId"/>.
     /// Topics that are already linked are silently skipped.
     /// </summary>
-    /// <param name="topics">The topics to link.</param>
-    /// <param name="episode">The episode to link them to.</param>
+    /// <param name="topicIds">The IDs of the topics to link.</param>
+    /// <param name="episodeId">The ID of the episode to link them to.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     public async Task LinkTopicsToEpisodeAsync(
-        IReadOnlyCollection<TopicEntity> topics,
-        EpisodeEntity episode,
+        IReadOnlyCollection<int> topicIds,
+        int episodeId,
         CancellationToken cancellationToken)
     {
-        if (topics.Count == 0)
+        if (topicIds.Count == 0)
         {
             return;
         }
 
         HashSet<int> existingTopicIds = await _dbContext.TopicEpisodes
-            .Where(te => te.EpisodeId == episode.Id)
+            .Where(te => te.EpisodeId == episodeId)
             .Select(te => te.TopicId)
             .ToHashSetAsync(cancellationToken);
 
-        foreach (TopicEntity topic in topics)
+        foreach (int topicId in topicIds)
         {
-            if (existingTopicIds.Contains(topic.Id))
+            if (existingTopicIds.Contains(topicId))
             {
                 continue;
             }
 
             _dbContext.TopicEpisodes.Add(new TopicEpisodeEntity
             {
-                TopicId = topic.Id,
-                EpisodeId = episode.Id
+                TopicId = topicId,
+                EpisodeId = episodeId
             });
         }
     }
 
     /// <summary>
-    /// Ensures every person–topic pair in the cross-product of <paramref name="persons"/> × <paramref name="topics"/> is linked.
+    /// Ensures every person–topic pair in the cross-product of <paramref name="personIds"/> × <paramref name="topicIds"/> is linked.
     /// Pairs that are already linked are silently skipped.
     /// </summary>
-    /// <param name="persons">The persons.</param>
-    /// <param name="topics">The topics.</param>
+    /// <param name="personIds">The IDs of the persons.</param>
+    /// <param name="topicIds">The IDs of the topics.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     public async Task LinkPersonsToTopicsAsync(
-        IReadOnlyCollection<PersonEntity> persons,
-        IReadOnlyCollection<TopicEntity> topics,
+        IReadOnlyCollection<int> personIds,
+        IReadOnlyCollection<int> topicIds,
         CancellationToken cancellationToken)
     {
-        if (persons.Count == 0 || topics.Count == 0)
+        if (personIds.Count == 0 || topicIds.Count == 0)
         {
             return;
         }
-
-        var personIds = persons.Select(p => p.Id).ToList();
-        var topicIds = topics.Select(t => t.Id).ToList();
 
         var existingLinkRows = await _dbContext.PersonTopics
             .Where(pt => personIds.Contains(pt.PersonId) && topicIds.Contains(pt.TopicId))
@@ -127,19 +124,19 @@ public sealed class RelationshipService
 
         var existingLinks = existingLinkRows.Select(x => (x.PersonId, x.TopicId)).ToHashSet();
 
-        foreach (PersonEntity person in persons)
+        foreach (int personId in personIds)
         {
-            foreach (TopicEntity topic in topics)
+            foreach (int topicId in topicIds)
             {
-                if (existingLinks.Contains((person.Id, topic.Id)))
+                if (existingLinks.Contains((personId, topicId)))
                 {
                     continue;
                 }
 
                 _dbContext.PersonTopics.Add(new PersonTopicEntity
                 {
-                    PersonId = person.Id,
-                    TopicId = topic.Id
+                    PersonId = personId,
+                    TopicId = topicId
                 });
             }
         }

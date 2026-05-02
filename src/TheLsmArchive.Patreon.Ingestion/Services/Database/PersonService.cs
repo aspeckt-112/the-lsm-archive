@@ -27,20 +27,20 @@ public sealed class PersonService
     }
 
     /// <summary>
-    /// Returns the existing <see cref="PersonEntity"/> matching the given name, or creates and tracks a new one.
+    /// Returns the ID of the existing person matching the given name, or creates a new person record and returns its ID.
     /// Matching first attempts an exact normalized-key lookup, then falls back to Postgres trigram similarity (threshold 0.8).
-    /// The caller is responsible for calling <c>SaveChangesAsync</c> to persist any newly created entity.
     /// </summary>
     /// <param name="name">The person's display name.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>The existing or newly created <see cref="PersonEntity"/>.</returns>
-    public async Task<PersonEntity> GetOrCreateAsync(string name, CancellationToken cancellationToken)
+    /// <returns>The ID of the existing or newly created person.</returns>
+    public async Task<int> GetOrCreateAsync(string name, CancellationToken cancellationToken)
     {
         name = name.Trim();
         string normalizedName = LookupKeyNormalizer.Normalize(name);
 
         // 1. Exact match via canonical normalized key.
         PersonEntity? person = await _dbContext.Persons
+            .AsNoTracking()
             .FirstOrDefaultAsync(p => p.NormalizedName == normalizedName, cancellationToken);
 
         if (person is not null)
@@ -49,11 +49,12 @@ public sealed class PersonService
                 "Person '{Person}' already exists with ID {PersonId} (normalized key: {NormalizedName})",
                 name, person.Id, normalizedName);
 
-            return person;
+            return person.Id;
         }
 
         // 2. Fuzzy match via Postgres trigram similarity.
         person = await _dbContext.Persons
+            .AsNoTracking()
             .Where(p => EF.Functions.TrigramsSimilarity(p.Name, name) > 0.8)
             .OrderByDescending(p => EF.Functions.TrigramsSimilarity(p.Name, name))
             .FirstOrDefaultAsync(cancellationToken);
@@ -64,12 +65,13 @@ public sealed class PersonService
                 "Fuzzy matched person '{InputName}' to existing person '{MatchedName}' (ID {PersonId})",
                 name, person.Name, person.Id);
 
-            return person;
+            return person.Id;
         }
 
         person = new PersonEntity { Name = name, NormalizedName = normalizedName };
         _dbContext.Persons.Add(person);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return person;
+        return person.Id;
     }
 }

@@ -15,23 +15,23 @@ public sealed class RelationshipServiceTests(IntegrationTestFixture fixture) : I
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        (LsmArchiveDbContext dbContext, EpisodeEntity episode, List<PersonEntity> persons, _) =
+        (LsmArchiveDbContext dbContext, int episodeId, List<int> personIds, _) =
             await GetSeededDbContext(cancellationToken);
 
         RelationshipService relationshipService = Get<RelationshipService>();
 
         // Act
-        await relationshipService.LinkPersonsToEpisodeAsync(persons, episode, cancellationToken);
+        await relationshipService.LinkPersonsToEpisodeAsync(personIds, episodeId, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         // Assert
         List<PersonEpisodeEntity> links = await dbContext.PersonEpisodes
-            .Where(pe => pe.EpisodeId == episode.Id)
+            .Where(pe => pe.EpisodeId == episodeId)
             .ToListAsync(cancellationToken);
 
         Equal(2, links.Count);
-        Contains(links, l => l.PersonId == persons[0].Id);
-        Contains(links, l => l.PersonId == persons[1].Id);
+        Contains(links, l => l.PersonId == personIds[0]);
+        Contains(links, l => l.PersonId == personIds[1]);
     }
 
     [Fact]
@@ -40,25 +40,25 @@ public sealed class RelationshipServiceTests(IntegrationTestFixture fixture) : I
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        (LsmArchiveDbContext dbContext, EpisodeEntity episode, List<PersonEntity> persons, _) =
+        (LsmArchiveDbContext dbContext, int episodeId, List<int> personIds, _) =
             await GetSeededDbContext(cancellationToken);
 
         dbContext.PersonEpisodes.Add(new PersonEpisodeEntity
         {
-            PersonId = persons[0].Id,
-            EpisodeId = episode.Id
+            PersonId = personIds[0],
+            EpisodeId = episodeId
         });
         await dbContext.SaveChangesAsync(cancellationToken);
 
         RelationshipService relationshipService = Get<RelationshipService>();
 
         // Act — link the same persons again (retry scenario)
-        await relationshipService.LinkPersonsToEpisodeAsync(persons, episode, cancellationToken);
+        await relationshipService.LinkPersonsToEpisodeAsync(personIds, episodeId, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         // Assert — person[0] link already existed; person[1] is new
         int count = await dbContext.PersonEpisodes
-            .CountAsync(pe => pe.EpisodeId == episode.Id, cancellationToken);
+            .CountAsync(pe => pe.EpisodeId == episodeId, cancellationToken);
 
         Equal(2, count);
     }
@@ -69,23 +69,23 @@ public sealed class RelationshipServiceTests(IntegrationTestFixture fixture) : I
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        (LsmArchiveDbContext dbContext, EpisodeEntity episode, _, List<TopicEntity> topics) =
+        (LsmArchiveDbContext dbContext, int episodeId, _, List<int> topicIds) =
             await GetSeededDbContext(cancellationToken);
 
         RelationshipService relationshipService = Get<RelationshipService>();
 
         // Act
-        await relationshipService.LinkTopicsToEpisodeAsync(topics, episode, cancellationToken);
+        await relationshipService.LinkTopicsToEpisodeAsync(topicIds, episodeId, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         // Assert
         List<TopicEpisodeEntity> links = await dbContext.TopicEpisodes
-            .Where(te => te.EpisodeId == episode.Id)
+            .Where(te => te.EpisodeId == episodeId)
             .ToListAsync(cancellationToken);
 
         Equal(2, links.Count);
-        Contains(links, l => l.TopicId == topics[0].Id);
-        Contains(links, l => l.TopicId == topics[1].Id);
+        Contains(links, l => l.TopicId == topicIds[0]);
+        Contains(links, l => l.TopicId == topicIds[1]);
     }
 
     [Fact]
@@ -94,25 +94,25 @@ public sealed class RelationshipServiceTests(IntegrationTestFixture fixture) : I
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        (LsmArchiveDbContext dbContext, EpisodeEntity episode, _, List<TopicEntity> topics) =
+        (LsmArchiveDbContext dbContext, int episodeId, _, List<int> topicIds) =
             await GetSeededDbContext(cancellationToken);
 
         dbContext.TopicEpisodes.Add(new TopicEpisodeEntity
         {
-            TopicId = topics[0].Id,
-            EpisodeId = episode.Id
+            TopicId = topicIds[0],
+            EpisodeId = episodeId
         });
         await dbContext.SaveChangesAsync(cancellationToken);
 
         RelationshipService relationshipService = Get<RelationshipService>();
 
         // Act — link the same topics again (retry scenario)
-        await relationshipService.LinkTopicsToEpisodeAsync(topics, episode, cancellationToken);
+        await relationshipService.LinkTopicsToEpisodeAsync(topicIds, episodeId, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         // Assert — topics[0] already existed; topics[1] is new
         int count = await dbContext.TopicEpisodes
-            .CountAsync(te => te.EpisodeId == episode.Id, cancellationToken);
+            .CountAsync(te => te.EpisodeId == episodeId, cancellationToken);
 
         Equal(2, count);
     }
@@ -123,20 +123,20 @@ public sealed class RelationshipServiceTests(IntegrationTestFixture fixture) : I
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        (LsmArchiveDbContext dbContext, _, List<PersonEntity> persons, List<TopicEntity> topics) =
+        (LsmArchiveDbContext dbContext, _, List<int> personIds, List<int> topicIds) =
             await GetSeededDbContext(cancellationToken);
 
         RelationshipService relationshipService = Get<RelationshipService>();
 
         // Act
-        await relationshipService.LinkPersonsToTopicsAsync(persons, topics, cancellationToken);
+        await relationshipService.LinkPersonsToTopicsAsync(personIds, topicIds, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         // Assert — 2 persons × 2 topics = 4 links
         int count = await dbContext.PersonTopics
             .CountAsync(
-                pt => persons.Select(p => p.Id).Contains(pt.PersonId)
-                   && topics.Select(t => t.Id).Contains(pt.TopicId),
+                pt => personIds.Contains(pt.PersonId)
+                   && topicIds.Contains(pt.TopicId),
                 cancellationToken);
 
         Equal(4, count);
@@ -148,34 +148,34 @@ public sealed class RelationshipServiceTests(IntegrationTestFixture fixture) : I
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        (LsmArchiveDbContext dbContext, _, List<PersonEntity> persons, List<TopicEntity> topics) =
+        (LsmArchiveDbContext dbContext, _, List<int> personIds, List<int> topicIds) =
             await GetSeededDbContext(cancellationToken);
 
         // Seed one existing link
         dbContext.PersonTopics.Add(new PersonTopicEntity
         {
-            PersonId = persons[0].Id,
-            TopicId = topics[0].Id
+            PersonId = personIds[0],
+            TopicId = topicIds[0]
         });
         await dbContext.SaveChangesAsync(cancellationToken);
 
         RelationshipService relationshipService = Get<RelationshipService>();
 
         // Act — link the full cross-product again (retry scenario)
-        await relationshipService.LinkPersonsToTopicsAsync(persons, topics, cancellationToken);
+        await relationshipService.LinkPersonsToTopicsAsync(personIds, topicIds, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         // Assert — 2 × 2 = 4 total, no duplicates
         int count = await dbContext.PersonTopics
             .CountAsync(
-                pt => persons.Select(p => p.Id).Contains(pt.PersonId)
-                   && topics.Select(t => t.Id).Contains(pt.TopicId),
+                pt => personIds.Contains(pt.PersonId)
+                   && topicIds.Contains(pt.TopicId),
                 cancellationToken);
 
         Equal(4, count);
     }
 
-    private async Task<(LsmArchiveDbContext dbContext, EpisodeEntity episode, List<PersonEntity> persons, List<TopicEntity> topics)>
+    private async Task<(LsmArchiveDbContext dbContext, int episodeId, List<int> personIds, List<int> topicIds)>
         GetSeededDbContext(CancellationToken cancellationToken)
     {
         LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
@@ -227,6 +227,10 @@ public sealed class RelationshipServiceTests(IntegrationTestFixture fixture) : I
         dbContext.Topics.AddRange(topics);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return (dbContext, episode, persons, topics);
+        return (
+            dbContext,
+            episode.Id,
+            persons.Select(p => p.Id).ToList(),
+            topics.Select(t => t.Id).ToList());
     }
 }

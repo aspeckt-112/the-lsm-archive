@@ -19,21 +19,18 @@ public sealed class PersonServiceTests(IntegrationTestFixture fixture) : Integra
         PersonService personService = Get<PersonService>();
 
         // Act
-        PersonEntity person = await personService.GetOrCreateAsync("Alice Smith", cancellationToken);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        int personId = await personService.GetOrCreateAsync("Alice Smith", cancellationToken);
 
         // Assert
-        NotNull(person);
-        True(person.Id > 0);
-        Equal("Alice Smith", person.Name);
-        NotNull(person.NormalizedName);
+        True(personId > 0);
 
         PersonEntity? persisted = await dbContext.Persons
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == person.Id, cancellationToken);
+            .FirstOrDefaultAsync(p => p.Id == personId, cancellationToken);
 
         NotNull(persisted);
         Equal("Alice Smith", persisted.Name);
+        NotNull(persisted.NormalizedName);
     }
 
     [Fact]
@@ -51,10 +48,10 @@ public sealed class PersonServiceTests(IntegrationTestFixture fixture) : Integra
         PersonService personService = Get<PersonService>();
 
         // Act — same name, normalized key is identical
-        PersonEntity result = await personService.GetOrCreateAsync("Bob Jones", cancellationToken);
+        int result = await personService.GetOrCreateAsync("Bob Jones", cancellationToken);
 
         // Assert
-        Equal(existing.Id, result.Id);
+        Equal(existing.Id, result);
 
         int count = await dbContext.Persons.CountAsync(cancellationToken);
         Equal(1, count);
@@ -75,10 +72,10 @@ public sealed class PersonServiceTests(IntegrationTestFixture fixture) : Integra
         PersonService personService = Get<PersonService>();
 
         // Act — slight variation that passes trigram similarity > 0.8 but has a different normalized key
-        PersonEntity result = await personService.GetOrCreateAsync("Charlie  Brown", cancellationToken);
+        int result = await personService.GetOrCreateAsync("Charlie  Brown", cancellationToken);
 
         // Assert
-        Equal(existing.Id, result.Id);
+        Equal(existing.Id, result);
     }
 
     [Fact]
@@ -91,10 +88,14 @@ public sealed class PersonServiceTests(IntegrationTestFixture fixture) : Integra
         PersonService personService = Get<PersonService>();
 
         // Act
-        PersonEntity person = await personService.GetOrCreateAsync("  Diana Prince  ", cancellationToken);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        int personId = await personService.GetOrCreateAsync("  Diana Prince  ", cancellationToken);
 
         // Assert
-        Equal("Diana Prince", person.Name);
+        PersonEntity? persisted = await dbContext.Persons
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == personId, cancellationToken);
+
+        NotNull(persisted);
+        Equal("Diana Prince", persisted.Name);
     }
 }

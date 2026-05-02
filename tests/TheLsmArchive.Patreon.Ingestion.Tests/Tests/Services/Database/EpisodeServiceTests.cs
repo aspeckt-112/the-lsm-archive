@@ -20,24 +20,21 @@ public sealed class EpisodeServiceTests(IntegrationTestFixture fixture) : Integr
         EpisodeService episodeService = Get<EpisodeService>();
 
         // Act
-        EpisodeEntity episode = await episodeService.GetOrCreateAsync(postEntity, cancellationToken);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        int episodeId = await episodeService.GetOrCreateAsync(postEntity, cancellationToken);
 
         // Assert
-        NotNull(episode);
-        True(episode.Id > 0);
-        Equal(postEntity.ShowId, episode.ShowId);
-        Equal(postEntity.Title, episode.Title);
-        Equal(postEntity.Published.UtcDateTime, episode.ReleaseDateUtc);
-        Equal(postEntity.Id, episode.PatreonPostId);
+        True(episodeId > 0);
 
-        // Verify it was persisted
         EpisodeEntity? persisted = await dbContext.Episodes
             .AsNoTracking()
             .FirstOrDefaultAsync(e => e.PatreonPostId == postEntity.Id, cancellationToken);
 
         NotNull(persisted);
-        Equal(episode.Id, persisted.Id);
+        Equal(episodeId, persisted.Id);
+        Equal(postEntity.ShowId, persisted.ShowId);
+        Equal(postEntity.Title, persisted.Title);
+        Equal(postEntity.Published.UtcDateTime, persisted.ReleaseDateUtc);
+        Equal(postEntity.Id, persisted.PatreonPostId);
     }
 
     [Fact]
@@ -62,10 +59,10 @@ public sealed class EpisodeServiceTests(IntegrationTestFixture fixture) : Integr
         EpisodeService episodeService = Get<EpisodeService>();
 
         // Act
-        EpisodeEntity result = await episodeService.GetOrCreateAsync(postEntity, cancellationToken);
+        int result = await episodeService.GetOrCreateAsync(postEntity, cancellationToken);
 
         // Assert
-        Equal(existingEpisode.Id, result.Id);
+        Equal(existingEpisode.Id, result);
 
         int episodeCount = await dbContext.Episodes
             .CountAsync(e => e.PatreonPostId == postEntity.Id, cancellationToken);
