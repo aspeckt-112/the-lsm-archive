@@ -73,9 +73,6 @@ public sealed class PatreonPostProcessingService
     /// <param name="cancellationToken">The cancellation token.</param>
     public async Task ProcessPostsForShow(int showId, PendingPost pendingPost, CancellationToken cancellationToken)
     {
-        // Clear any state left by a previous post so the tracker stays lean.
-        _dbContext.ChangeTracker.Clear();
-
         bool isRetry = pendingPost.ProcessingError is not null;
 
         if (isRetry)
@@ -118,75 +115,80 @@ public sealed class PatreonPostProcessingService
             ResilienceContextPool.Shared.Return(resilienceContext);
         }
 
-        await using IDbContextTransaction transaction =
-            await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+        IExecutionStrategy strategy = _dbContext.Database.CreateExecutionStrategy();
 
-        try
+        await strategy.ExecuteAsync(async () =>
         {
-            int episodeId = await _episodeService.GetOrCreateAsync(postEntity, cancellationToken);
+            await using IDbContextTransaction transaction =
+                await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
-            // Resolve unique persons, deduplicated by normalized key to prevent duplicate
-            // records when the AI returns case/spelling variants of the same name.
-            var seenPersonKeys = new HashSet<string>();
-            var personIds = new List<int>();
-
-            foreach (string name in aiSummary.Hosts.Concat(aiSummary.Guests))
+            try
             {
-                string key = LookupKeyNormalizer.Normalize(name);
+                int episodeId = await _episodeService.GetOrCreateAsync(postEntity, cancellationToken);
 
-                if (!seenPersonKeys.Add(key))
+                // Resolve unique persons, deduplicated by normalized key to prevent duplicate
+                // records when the AI returns case/spelling variants of the same name.
+                var seenPersonKeys = new HashSet<string>();
+                var personIds = new List<int>();
+
+                foreach (string name in aiSummary.Hosts.Concat(aiSummary.Guests))
                 {
-                    continue;
+                    string key = LookupKeyNormalizer.Normalize(name);
+
+                    if (!seenPersonKeys.Add(key))
+                    {
+                        continue;
+                    }
+
+                    _logger.LogInformation("Processing person '{Person}'", name);
+                    personIds.Add(await _personService.GetOrCreateAsync(name, cancellationToken));
                 }
 
-                _logger.LogInformation("Processing person '{Person}'", name);
-                personIds.Add(await _personService.GetOrCreateAsync(name, cancellationToken));
-            }
+                // Resolve unique topics using the same deduplication strategy.
+                var seenTopicKeys = new HashSet<string>();
+                var topicIds = new List<int>();
 
-            // Resolve unique topics using the same deduplication strategy.
-            var seenTopicKeys = new HashSet<string>();
-            var topicIds = new List<int>();
-
-            foreach (string name in aiSummary.Topics)
-            {
-                string key = LookupKeyNormalizer.Normalize(name);
-
-                if (!seenTopicKeys.Add(key))
+                foreach (string name in aiSummary.Topics)
                 {
-                    continue;
+                    string key = LookupKeyNormalizer.Normalize(name);
+
+                    if (!seenTopicKeys.Add(key))
+                    {
+                        continue;
+                    }
+
+                    _logger.LogInformation("Processing topic '{Topic}'", name);
+                    topicIds.Add(await _topicService.GetOrCreateAsync(name, cancellationToken));
                 }
 
-                _logger.LogInformation("Processing topic '{Topic}'", name);
-                topicIds.Add(await _topicService.GetOrCreateAsync(name, cancellationToken));
+                await _relationshipService.LinkPersonsToEpisodeAsync(personIds, episodeId, cancellationToken);
+                await _relationshipService.LinkTopicsToEpisodeAsync(topicIds, episodeId, cancellationToken);
+                await _relationshipService.LinkPersonsToTopicsAsync(personIds, topicIds, cancellationToken);
+
+                // Flush the pending relationship rows and mark the post as processed.
+                await _patreonService.MarkPostAsProcessedAsync(pendingPost.Id, episodeId, cancellationToken);
+
+                await transaction.CommitAsync(cancellationToken);
+
+                _logger.LogInformation("Successfully processed post '{PostTitle}'", pendingPost.Title);
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to process post '{PostTitle}'. Error will be saved for retry.",
+                    pendingPost.Title);
 
-            await _relationshipService.LinkPersonsToEpisodeAsync(personIds, episodeId, cancellationToken);
-            await _relationshipService.LinkTopicsToEpisodeAsync(topicIds, episodeId, cancellationToken);
-            await _relationshipService.LinkPersonsToTopicsAsync(personIds, topicIds, cancellationToken);
+                await transaction.RollbackAsync(cancellationToken);
 
-            // Flush the pending relationship rows and mark the post as processed.
-            await _patreonService.MarkPostAsProcessedAsync(pendingPost.Id, episodeId, cancellationToken);
+                // Clear stale tracked state from the failed attempt before saving the error.
+                _dbContext.ChangeTracker.Clear();
 
-            await transaction.CommitAsync(cancellationToken);
+                await _patreonService.SaveProcessingErrorAsync(pendingPost.Id, ex.Message, cancellationToken);
 
-            _logger.LogInformation("Successfully processed post '{PostTitle}'", pendingPost.Title);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(
-                ex,
-                "Failed to process post '{PostTitle}'. Error will be saved for retry.",
-                pendingPost.Title);
-
-            await transaction.RollbackAsync(cancellationToken);
-
-            // Clear stale tracked state from the failed attempt before saving the error.
-            _dbContext.ChangeTracker.Clear();
-
-            await _patreonService.SaveProcessingErrorAsync(pendingPost.Id, ex.Message, cancellationToken);
-
-            throw;
-        }
+                throw;
+            }
+        });
     }
 
     private async Task<(List<string> Persons, List<string> Topics)> GetKnownContextAsync(
