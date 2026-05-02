@@ -164,12 +164,12 @@ public sealed class PatreonServiceTests(IntegrationTestFixture fixture) : Integr
         Equal(2, pendingPosts.Count);
 
         PendingPost pendingPost1 = pendingPosts[0];
-        Equal(pendingPostEntity1.PatreonId, pendingPost1.Id);
+        Equal(pendingPostEntity1.Id, pendingPost1.Id);
         Equal(pendingPostEntity1.Title, pendingPost1.Title);
         Null(pendingPost1.ProcessingError);
 
         PendingPost pendingPost2 = pendingPosts[1];
-        Equal(pendingPostEntity2.PatreonId, pendingPost2.Id);
+        Equal(pendingPostEntity2.Id, pendingPost2.Id);
         Equal(pendingPostEntity2.Title, pendingPost2.Title);
         Null(pendingPost2.ProcessingError);
     }
@@ -198,12 +198,12 @@ public sealed class PatreonServiceTests(IntegrationTestFixture fixture) : Integr
         Equal(2, pendingPosts.Count);
 
         PendingPost pendingPost1 = pendingPosts[0];
-        Equal(pendingPostEntity1.PatreonId, pendingPost1.Id);
+        Equal(pendingPostEntity1.Id, pendingPost1.Id);
         Equal(pendingPostEntity1.Title, pendingPost1.Title);
         Equal(pendingPostEntity1.ProcessingError, pendingPost1.ProcessingError);
 
         PendingPost pendingPost2 = pendingPosts[1];
-        Equal(pendingPostEntity2.PatreonId, pendingPost2.Id);
+        Equal(pendingPostEntity2.Id, pendingPost2.Id);
         Equal(pendingPostEntity2.Title, pendingPost2.Title);
         Equal(pendingPostEntity2.ProcessingError, pendingPost2.ProcessingError);
     }

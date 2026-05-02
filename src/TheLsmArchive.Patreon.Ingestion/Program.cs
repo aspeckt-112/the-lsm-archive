@@ -54,12 +54,17 @@ builder.Services.AddOptionsWithValidateOnStart<PatreonIngestionOptions>()
     .ValidateDataAnnotations();
 
 builder.Services
-    .AddSingleton<IAiSummaryService, GeminiSummaryService>()
     .AddHostedService<PatreonIngestionService>()
+    .AddSingleton<IAiSummaryService, GeminiSummaryService>()
     .AddSingleton<PatreonRssParser>()
     .AddSingleton<PromptService>()
     .AddSingleton<ShowService>()
-    .AddSingleton<PatreonService>();
+    .AddSingleton<PatreonService>()
+    .AddSingleton<EpisodeService>()
+    .AddSingleton<PersonService>()
+    .AddSingleton<TopicService>()
+    .AddSingleton<RelationshipService>()
+    .AddSingleton<PatreonPostProcessingService>();
 
 builder.Services.AddResiliencePipeline(
    Constants.AiSummaryPipelineName,
@@ -120,7 +125,7 @@ builder.Services.AddSingleton(sp =>
     return new Google.GenAI.Client(apiKey: optionsValue.ApiKey, httpOptions: httpOptions);
 });
 
-builder.Services.AddDbContextFactory(builder.Configuration);
+builder.Services.AddDbContext(builder.Configuration, ServiceLifetime.Singleton);
 
 IHost host = builder.Build();
 

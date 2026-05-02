@@ -28,5 +28,9 @@ public sealed class IntegrationTestFixture : DatabaseIntegrationTestFixture, IAs
 
         services.AddSingleton<ShowService>();
         services.AddSingleton<PatreonService>();
+        services.AddSingleton<EpisodeService>();
+        services.AddSingleton<PersonService>();
+        services.AddSingleton<TopicService>();
+        services.AddSingleton<RelationshipService>();
     }
 }

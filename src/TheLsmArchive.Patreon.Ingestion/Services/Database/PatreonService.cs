@@ -81,11 +81,28 @@ public sealed class PatreonService
         List<PendingPost> pendingPosts = await _dbContext.PatreonPosts
             .AsNoTracking()
             .Where(p => p.ShowId == showId && (p.ProcessingError != null || p.EpisodeId == null))
-            .Select(p => new PendingPost(p.PatreonId, p.Title, p.ProcessingError))
+            .Select(p => new PendingPost(p.Id, p.Title, p.ProcessingError))
             .ToListAsync(cancellationToken);
 
         _logger.LogInformation("Retrieved {Count} pending posts for show ID {ShowId}.", pendingPosts.Count, showId);
         return [.. pendingPosts];
+    }
+
+    /// <summary>
+    /// Persists a processing error message on the given post for retry on the next ingestion cycle.
+    /// </summary>
+    /// <param name="postId">The database ID of the Patreon post.</param>
+    /// <param name="errorMessage">The error message to store.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    public async Task SaveProcessingErrorAsync(int postId, string errorMessage, CancellationToken cancellationToken)
+    {
+        PatreonPostEntity postEntity = await _dbContext.PatreonPosts
+            .FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
+            ?? throw new InvalidOperationException($"Patreon post with ID {postId} was not found.");
+
+        postEntity.ProcessingError = errorMessage;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private async Task ThrowIfShowDoesNotExist(int showId, CancellationToken cancellationToken)
