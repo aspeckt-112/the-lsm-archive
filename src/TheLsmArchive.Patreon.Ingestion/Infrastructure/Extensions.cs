@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Xml.Linq;
 
-namespace TheLsmArchive.Patreon.Ingestion;
+namespace TheLsmArchive.Patreon.Ingestion.Infrastructure;
 
 /// <summary>
 /// Extension methods for the Patreon Ingestion service.

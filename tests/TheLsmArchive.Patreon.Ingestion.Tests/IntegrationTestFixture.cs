@@ -2,10 +2,10 @@ using Microsoft.Extensions.DependencyInjection;
 
 using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Domain.Services;
-using TheLsmArchive.Patreon.Ingestion.Services.Database;
+using TheLsmArchive.Patreon.Ingestion.Services;
 using TheLsmArchive.Testing.Database;
 
-namespace TheLsmArchive.Patreon.Ingestion.Tests.Fixtures;
+namespace TheLsmArchive.Patreon.Ingestion.Tests;
 
 /// <summary>
 /// Patreon ingestion test fixture that adds ingestion-specific database services to the shared infrastructure.

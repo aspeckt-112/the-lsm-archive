@@ -5,7 +5,7 @@ using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
 using TheLsmArchive.Patreon.Ingestion.Helpers;
 
-namespace TheLsmArchive.Patreon.Ingestion.Services.Database;
+namespace TheLsmArchive.Patreon.Ingestion.Services;
 
 /// <summary>
 /// The service responsible for resolving and creating person records with deduplication.

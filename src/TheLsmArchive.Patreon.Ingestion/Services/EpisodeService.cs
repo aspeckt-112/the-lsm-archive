@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
 
-namespace TheLsmArchive.Patreon.Ingestion.Services.Database;
+namespace TheLsmArchive.Patreon.Ingestion.Services;
 
 /// <summary>
 /// The service responsible for creating and retrieving episode records linked to Patreon posts.

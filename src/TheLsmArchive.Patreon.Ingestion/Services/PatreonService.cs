@@ -7,7 +7,7 @@ using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
 using TheLsmArchive.Patreon.Ingestion.Models;
 
-namespace TheLsmArchive.Patreon.Ingestion.Services.Database;
+namespace TheLsmArchive.Patreon.Ingestion.Services;
 
 /// <summary>
 /// The Patreon service for interacting with Patreon data in the database.
@@ -89,9 +89,7 @@ public sealed class PatreonService
     }
 
     /// <summary>
-    /// Marks the given post as successfully processed by setting its episode ID and clearing any processing error.
-    /// Also flushes any pending relationship rows added to the shared <see cref="LsmArchiveDbContext"/> by
-    /// <see cref="TheLsmArchive.Patreon.Ingestion.Services.Database.RelationshipService"/>.
+    /// Marks the given post as processed by setting the EpisodeId and clearing any existing processing error message, indicating that the post has been successfully processed and associated with an episode in the database.
     /// </summary>
     /// <param name="postId">The database ID of the Patreon post.</param>
     /// <param name="episodeId">The ID of the episode that was created for the post.</param>

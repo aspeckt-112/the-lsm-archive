@@ -2,10 +2,9 @@ using Microsoft.EntityFrameworkCore;
 
 using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
-using TheLsmArchive.Patreon.Ingestion.Services.Database;
-using TheLsmArchive.Patreon.Ingestion.Tests.Fixtures;
+using TheLsmArchive.Patreon.Ingestion.Services;
 
-namespace TheLsmArchive.Patreon.Ingestion.Tests.Services.Database;
+namespace TheLsmArchive.Patreon.Ingestion.Tests.Services;
 
 public sealed class RelationshipServiceTests(IntegrationTestFixture fixture) : IntegrationTestBase(fixture)
 {

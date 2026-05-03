@@ -19,11 +19,9 @@ using TheLsmArchive.Database;
 using TheLsmArchive.Domain.Services;
 using TheLsmArchive.Patreon.Ingestion.Constants;
 using TheLsmArchive.Patreon.Ingestion.Options;
+using TheLsmArchive.Patreon.Ingestion.Parsers;
 using TheLsmArchive.Patreon.Ingestion.Services;
 using TheLsmArchive.Patreon.Ingestion.Services.Abstractions;
-using TheLsmArchive.Patreon.Ingestion.Services.AI;
-using TheLsmArchive.Patreon.Ingestion.Services.Database;
-using TheLsmArchive.Patreon.Ingestion.Services.RSS;
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
@@ -115,11 +113,9 @@ builder.Services.AddSingleton(sp =>
     IOptions<GeminiOptions> options = sp.GetRequiredService<IOptions<GeminiOptions>>();
     GeminiOptions optionsValue = options.Value;
 
-    const int oneHourInMilliseconds = 3_600_000;
-
     HttpOptions httpOptions = new()
     {
-        Timeout = oneHourInMilliseconds
+        Timeout = optionsValue.TimeoutInMilliseconds
     };
 
     return new Google.GenAI.Client(apiKey: optionsValue.ApiKey, httpOptions: httpOptions);
@@ -130,6 +126,7 @@ builder.Services.AddDbContext(builder.Configuration, ServiceLifetime.Singleton);
 IHost host = builder.Build();
 
 await host.RunAsync();
+
 
 static void EnsureConfiguredLogDirectoryExists(HostApplicationBuilder builder)
 {

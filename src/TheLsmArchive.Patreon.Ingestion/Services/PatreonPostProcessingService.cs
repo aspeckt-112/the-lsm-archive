@@ -11,7 +11,7 @@ using TheLsmArchive.Patreon.Ingestion.Helpers;
 using TheLsmArchive.Patreon.Ingestion.Models;
 using TheLsmArchive.Patreon.Ingestion.Services.Abstractions;
 
-namespace TheLsmArchive.Patreon.Ingestion.Services.Database;
+namespace TheLsmArchive.Patreon.Ingestion.Services;
 
 /// <summary>
 /// The service responsible for processing a single pending Patreon post through the AI summary

@@ -1,10 +1,10 @@
 using System.Xml.Linq;
 
-using TheLsmArchive.Domain.Models;
+using TheLsmArchive.Patreon.Ingestion.Infrastructure;
 using TheLsmArchive.Patreon.Ingestion.Models;
 using TheLsmArchive.Patreon.Ingestion.Options;
 
-namespace TheLsmArchive.Patreon.Ingestion.Services.RSS;
+namespace TheLsmArchive.Patreon.Ingestion.Parsers;
 
 /// <summary>
 /// Service responsible for fetching and parsing Patreon RSS feeds.

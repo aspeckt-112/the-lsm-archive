@@ -2,9 +2,9 @@ using System.Text.Json;
 
 using Google.GenAI.Types;
 
-using TheLsmArchive.Patreon.Ingestion.Services.AI;
+using TheLsmArchive.Patreon.Ingestion.Services;
 
-namespace TheLsmArchive.Patreon.Ingestion.Tests.Services.AI;
+namespace TheLsmArchive.Patreon.Ingestion.Tests.Services;
 
 public class GeminiSummaryServiceTests
 {

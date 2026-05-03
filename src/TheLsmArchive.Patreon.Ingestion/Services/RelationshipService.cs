@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
 
-namespace TheLsmArchive.Patreon.Ingestion.Services.Database;
+namespace TheLsmArchive.Patreon.Ingestion.Services;
 
 /// <summary>
 /// The service responsible for managing episode relationship records (person↔episode, topic↔episode, person↔topic).

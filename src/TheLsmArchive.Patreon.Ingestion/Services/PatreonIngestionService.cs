@@ -8,8 +8,7 @@ using TheLsmArchive.Domain.Models;
 using TheLsmArchive.Domain.Services;
 using TheLsmArchive.Patreon.Ingestion.Models;
 using TheLsmArchive.Patreon.Ingestion.Options;
-using TheLsmArchive.Patreon.Ingestion.Services.Database;
-using TheLsmArchive.Patreon.Ingestion.Services.RSS;
+using TheLsmArchive.Patreon.Ingestion.Parsers;
 
 namespace TheLsmArchive.Patreon.Ingestion.Services;
 
