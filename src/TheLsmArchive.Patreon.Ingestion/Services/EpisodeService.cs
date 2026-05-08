@@ -3,26 +3,28 @@ using Microsoft.Extensions.Logging;
 
 using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
+using TheLsmArchive.Domain.Services.Abstractions;
 
 namespace TheLsmArchive.Patreon.Ingestion.Services;
 
 /// <summary>
 /// The service responsible for creating and retrieving episode records linked to Patreon posts.
 /// </summary>
-public sealed class EpisodeService
+public sealed class EpisodeService : DatabaseService
 {
     private readonly ILogger<EpisodeService> _logger;
-    private readonly LsmArchiveDbContext _dbContext;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="EpisodeService"/> class.
     /// </summary>
     /// <param name="logger">The logger.</param>
-    /// <param name="dbContext">The database context.</param>
-    public EpisodeService(ILogger<EpisodeService> logger, LsmArchiveDbContext dbContext)
+    /// <param name="dbContextFactory">The database context factory.</param>
+    public EpisodeService(
+        ILogger<EpisodeService> logger,
+        IDbContextFactory<LsmArchiveDbContext> dbContextFactory) :
+        base(logger, dbContextFactory)
     {
         _logger = logger;
-        _dbContext = dbContext;
     }
 
     /// <summary>
@@ -31,35 +33,38 @@ public sealed class EpisodeService
     /// <param name="post">The Patreon post entity the episode is linked to.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The ID of the existing or newly created episode.</returns>
-    public async Task<int> GetOrCreateAsync(
+    public Task<int> GetOrCreateAsync(
         PatreonPostEntity post,
         CancellationToken cancellationToken)
     {
-        EpisodeEntity? existingEpisode = await _dbContext.Episodes
-            .AsNoTracking()
-            .FirstOrDefaultAsync(e => e.PatreonPostId == post.Id, cancellationToken);
-
-        if (existingEpisode is not null)
+        return ExecuteDatabaseOperation(async dbContext =>
         {
-            _logger.LogInformation(
-                "Episode for post '{PostTitle}' already exists with ID {EpisodeId}",
-                post.Title,
-                existingEpisode.Id);
+            EpisodeEntity? existingEpisode = await dbContext.Episodes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.PatreonPostId == post.Id, cancellationToken);
 
-            return existingEpisode.Id;
-        }
+            if (existingEpisode is not null)
+            {
+                _logger.LogInformation(
+                    "Episode for post '{PostTitle}' already exists with ID {EpisodeId}",
+                    post.Title,
+                    existingEpisode.Id);
 
-        var episode = new EpisodeEntity
-        {
-            ShowId = post.ShowId,
-            Title = post.Title,
-            ReleaseDateUtc = post.Published.UtcDateTime,
-            PatreonPostId = post.Id
-        };
+                return existingEpisode.Id;
+            }
 
-        _dbContext.Episodes.Add(episode);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            var episode = new EpisodeEntity
+            {
+                ShowId = post.ShowId,
+                Title = post.Title,
+                ReleaseDateUtc = post.Published.UtcDateTime,
+                PatreonPostId = post.Id
+            };
 
-        return episode.Id;
+            dbContext.Episodes.Add(episode);
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            return episode.Id;
+        }, cancellationToken);
     }
 }

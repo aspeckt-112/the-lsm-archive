@@ -64,19 +64,10 @@ builder.Services
     .AddSingleton<PatreonPostProcessingService>();
 
 builder.Services.AddResiliencePipeline(
-   nameof(GeminiSummaryService),
+    nameof(GeminiSummaryService),
     resiliencePipelineBuilder =>
     {
         resiliencePipelineBuilder
-            .AddRateLimiter(new SlidingWindowRateLimiter(
-                new SlidingWindowRateLimiterOptions
-                {
-                    Window = TimeSpan.FromMinutes(1),
-                    SegmentsPerWindow = 60, // 60 segments of 1 second each
-                    PermitLimit = 1000, // Max 1000 requests per minute (Gemini Flash limit)
-                    QueueLimit = 100
-                }))
-            .AddTimeout(TimeSpan.FromSeconds(3600)) // 1 hour timeout
             .AddRetry(new RetryStrategyOptions
             {
                 MaxRetryAttempts = 3,
@@ -86,8 +77,17 @@ builder.Services.AddResiliencePipeline(
                 ShouldHandle = new PredicateBuilder()
                     .Handle<HttpRequestException>()
                     .Handle<TimeoutRejectedException>()
-                    .Handle<RateLimiterRejectedException>() // Retry on rate limit rejections
-            });
+                    .Handle<RateLimiterRejectedException>()
+            })
+            .AddTimeout(TimeSpan.FromSeconds(3600)) // 1 hour timeout
+            .AddRateLimiter(new SlidingWindowRateLimiter(
+                new SlidingWindowRateLimiterOptions
+                {
+                    Window = TimeSpan.FromMinutes(1),
+                    SegmentsPerWindow = 60, // 60 segments of 1 second each
+                    PermitLimit = 1000, // Max 1000 requests per minute (Gemini Flash limit)
+                    QueueLimit = 100
+                }));
     });
 
 builder.Services
@@ -120,7 +120,7 @@ builder.Services.AddSingleton(sp =>
     return new Google.GenAI.Client(apiKey: optionsValue.ApiKey, httpOptions: httpOptions);
 });
 
-builder.Services.AddDbContext(builder.Configuration, ServiceLifetime.Singleton);
+builder.Services.AddDbContextFactory(builder.Configuration);
 
 IHost host = builder.Build();
 

@@ -47,17 +47,23 @@ public sealed class GeminiSummaryService : IAiSummaryService
         Type = GenAI.Type.Object,
         Properties = new Dictionary<string, Schema>
         {
-            { HostsPropertyName, new Schema { Type = GenAI.Type.Array, Items = new Schema { Type = GenAI.Type.String } } },
-            { GuestsPropertyName, new Schema { Type = GenAI.Type.Array, Items = new Schema { Type = GenAI.Type.String } } },
-            { TopicsPropertyName, new Schema { Type = GenAI.Type.Array, Items = new Schema { Type = GenAI.Type.String } } }
+            {
+                HostsPropertyName,
+                new Schema { Type = GenAI.Type.Array, Items = new Schema { Type = GenAI.Type.String } }
+            },
+            {
+                GuestsPropertyName,
+                new Schema { Type = GenAI.Type.Array, Items = new Schema { Type = GenAI.Type.String } }
+            },
+            {
+                TopicsPropertyName,
+                new Schema { Type = GenAI.Type.Array, Items = new Schema { Type = GenAI.Type.String } }
+            }
         },
         Required = [HostsPropertyName, GuestsPropertyName, TopicsPropertyName]
     };
 
-    private static readonly JsonSerializerOptions _jsonSerializerOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
+    private static readonly JsonSerializerOptions _jsonSerializerOptions = new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GeminiSummaryService"/> class.
@@ -104,7 +110,11 @@ public sealed class GeminiSummaryService : IAiSummaryService
             Role = "user",
             Parts =
             [
-                new Part { Text = $"Title: {patreonPost.Title}\nDescription: {Helpers.HtmlSanitizer.StripHtml(patreonPost.Summary)}" }
+                new Part
+                {
+                    Text =
+                        $"Title: {patreonPost.Title}\nDescription: {Helpers.HtmlSanitizer.StripHtml(patreonPost.Summary)}"
+                }
             ]
         };
 
@@ -167,9 +177,9 @@ public sealed class GeminiSummaryService : IAiSummaryService
         try
         {
             resultDto = JsonSerializer.Deserialize<GeminiResponseDto>(
-                jsonText,
-                _jsonSerializerOptions)
-                ?? throw new InvalidDataException("Failed to deserialize Gemini response.");
+                            jsonText,
+                            _jsonSerializerOptions)
+                        ?? throw new InvalidDataException("Failed to deserialize Gemini response.");
         }
         catch (JsonException ex)
         {

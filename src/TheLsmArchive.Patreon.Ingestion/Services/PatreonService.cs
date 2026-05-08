@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 
 using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
+using TheLsmArchive.Domain.Services.Abstractions;
 using TheLsmArchive.Patreon.Ingestion.Models;
 
 namespace TheLsmArchive.Patreon.Ingestion.Services;
@@ -12,22 +13,20 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 /// <summary>
 /// The Patreon service for interacting with Patreon data in the database.
 /// </summary>
-public sealed class PatreonService
+public sealed class PatreonService : DatabaseService
 {
     private readonly ILogger<PatreonService> _logger;
-    private readonly LsmArchiveDbContext _dbContext;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PatreonService"/> class.
     /// </summary>
     /// <param name="logger">The logger.</param>
-    /// <param name="dbContext">The database context.</param>
+    /// <param name="dbContextFactory">The database context factory.</param>
     public PatreonService(
         ILogger<PatreonService> logger,
-        LsmArchiveDbContext dbContext)
+        IDbContextFactory<LsmArchiveDbContext> dbContextFactory) : base(logger, dbContextFactory)
     {
         _logger = logger;
-        _dbContext = dbContext;
     }
 
     /// <summary>
@@ -46,27 +45,35 @@ public sealed class PatreonService
 
         await ThrowIfShowDoesNotExist(showId, cancellationToken);
 
-        HashSet<int> existingPostIds = await _dbContext.PatreonPosts
-            .AsNoTracking()
-            .Where(p => p.ShowId == showId)
-            .Select(p => p.PatreonId)
-            .ToHashSetAsync(cancellationToken);
-
-        foreach (PatreonPost post in feed.Posts)
+        await ExecuteDatabaseOperation(async dbContext =>
         {
-            if (existingPostIds.Contains(post.Id))
+            HashSet<int> existingPostIds = await dbContext.PatreonPosts
+                .AsNoTracking()
+                .Where(p => p.ShowId == showId)
+                .Select(p => p.PatreonId)
+                .ToHashSetAsync(cancellationToken);
+
+            foreach (PatreonPost post in feed.Posts)
             {
-                _logger.LogInformation("Post with Patreon ID {PatreonId} already exists for show ID {ShowId}, skipping.", post.Id, showId);
-                continue;
+                if (existingPostIds.Contains(post.Id))
+                {
+                    _logger.LogInformation(
+                        "Post with Patreon ID {PatreonId} already exists for show ID {ShowId}, skipping.", post.Id,
+                        showId);
+                    continue;
+                }
+
+                PatreonPostEntity postEntity = post.ToEntity(showId);
+                await dbContext.PatreonPosts.AddAsync(postEntity, cancellationToken);
+                _logger.LogInformation("Added new post with Patreon ID {PatreonId} for show ID {ShowId}.", post.Id,
+                    showId);
             }
 
-            PatreonPostEntity postEntity = post.ToEntity(showId);
-            await _dbContext.PatreonPosts.AddAsync(postEntity, cancellationToken);
-            _logger.LogInformation("Added new post with Patreon ID {PatreonId} for show ID {ShowId}.", post.Id, showId);
-        }
+            _logger.LogInformation("Saving changes to the database for feed '{FeedTitle}' and show ID {ShowId}.",
+                feed.Title, showId);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }, cancellationToken);
 
-        _logger.LogInformation("Saving changes to the database for feed '{FeedTitle}' and show ID {ShowId}.", feed.Title, showId);
-        await _dbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Finished ingesting feed '{FeedTitle}' for show ID {ShowId}.", feed.Title, showId);
     }
 
@@ -78,13 +85,17 @@ public sealed class PatreonService
 
         await ThrowIfShowDoesNotExist(showId, cancellationToken);
 
-        List<PendingPost> pendingPosts = await _dbContext.PatreonPosts
-            .AsNoTracking()
-            .Where(p => p.ShowId == showId && (p.ProcessingError != null || p.EpisodeId == null))
-            .Select(p => new PendingPost(p.Id, p.Title, p.ProcessingError))
-            .ToListAsync(cancellationToken);
+        List<PendingPost> pendingPosts = await ExecuteDatabaseOperation(async dbContext =>
+        {
+            return await dbContext.PatreonPosts
+                .AsNoTracking()
+                .Where(p => p.ShowId == showId && (p.ProcessingError != null || p.EpisodeId == null))
+                .Select(p => new PendingPost(p.Id, p.Title, p.ProcessingError))
+                .ToListAsync(cancellationToken);
+        }, cancellationToken);
 
         _logger.LogInformation("Retrieved {Count} pending posts for show ID {ShowId}.", pendingPosts.Count, showId);
+
         return [.. pendingPosts];
     }
 
@@ -94,16 +105,20 @@ public sealed class PatreonService
     /// <param name="postId">The database ID of the Patreon post.</param>
     /// <param name="episodeId">The ID of the episode that was created for the post.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    public async Task MarkPostAsProcessedAsync(int postId, int episodeId, CancellationToken cancellationToken)
+    public Task MarkPostAsProcessedAsync(int postId, int episodeId, CancellationToken cancellationToken)
     {
-        PatreonPostEntity postEntity = await _dbContext.PatreonPosts
-            .FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
-            ?? throw new InvalidOperationException($"Patreon post with ID {postId} was not found.");
+        return ExecuteDatabaseOperation(async dbContext =>
+        {
+            PatreonPostEntity postEntity = await dbContext.PatreonPosts
+                                               .FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
+                                           ?? throw new InvalidOperationException(
+                                               $"Patreon post with ID {postId} was not found.");
 
-        postEntity.EpisodeId = episodeId;
-        postEntity.ProcessingError = null;
+            postEntity.EpisodeId = episodeId;
+            postEntity.ProcessingError = null;
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }, cancellationToken);
     }
 
     /// <summary>
@@ -112,22 +127,29 @@ public sealed class PatreonService
     /// <param name="postId">The database ID of the Patreon post.</param>
     /// <param name="errorMessage">The error message to store.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    public async Task SaveProcessingErrorAsync(int postId, string errorMessage, CancellationToken cancellationToken)
+    public Task SaveProcessingErrorAsync(int postId, string errorMessage, CancellationToken cancellationToken)
     {
-        PatreonPostEntity postEntity = await _dbContext.PatreonPosts
-            .FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
-            ?? throw new InvalidOperationException($"Patreon post with ID {postId} was not found.");
+        return ExecuteDatabaseOperation(async dbContext =>
+        {
+            PatreonPostEntity postEntity = await dbContext.PatreonPosts
+                                               .FirstOrDefaultAsync(p => p.Id == postId, cancellationToken)
+                                           ?? throw new InvalidOperationException(
+                                               $"Patreon post with ID {postId} was not found.");
 
-        postEntity.ProcessingError = errorMessage;
+            postEntity.ProcessingError = errorMessage;
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }, cancellationToken);
     }
 
     private async Task ThrowIfShowDoesNotExist(int showId, CancellationToken cancellationToken)
     {
-        bool showExists = await _dbContext.Shows
-            .AsNoTracking()
-            .AnyAsync(s => s.Id == showId, cancellationToken);
+        bool showExists = await ExecuteDatabaseOperation(async dbContext =>
+        {
+            return await dbContext.Shows
+                .AsNoTracking()
+                .AnyAsync(s => s.Id == showId, cancellationToken);
+        }, cancellationToken);
 
         if (!showExists)
         {

@@ -69,7 +69,8 @@ public sealed class PatreonIngestionService : BackgroundService
 
                 await _patreonService.IngestFeed(show.Id, feed, stoppingToken);
 
-                ImmutableList<PendingPost> postsToProcess = await _patreonService.GetPendingPosts(show.Id, stoppingToken);
+                ImmutableList<PendingPost> postsToProcess =
+                    await _patreonService.GetPendingPosts(show.Id, stoppingToken);
 
                 int retryCount = postsToProcess.Count(p => p.ProcessingError != null);
 
