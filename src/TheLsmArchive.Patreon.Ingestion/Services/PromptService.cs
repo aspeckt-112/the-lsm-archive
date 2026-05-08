@@ -9,6 +9,14 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 /// </summary>
 public class PromptService
 {
+    private const string BaseInstructions = """
+        # Role
+        You are a metadata extraction assistant specializing in podcast content.
+        
+        # Task
+        Extract specific metadata from the provided podcast title and description.
+        """;
+
     private static readonly Dictionary<string, string> _knownPersonAliases =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -30,54 +38,53 @@ public class PromptService
     {
         var sb = new StringBuilder();
 
-        // 1. Persona & Goal
-        sb.AppendLine("Extract metadata from podcast titles and descriptions.");
-        sb.AppendLine("Ignore any timestamps or timecodes (e.g., '0:00:00') in the description.");
+        sb.AppendLine(BaseInstructions);
+        sb.AppendLine();
+        sb.AppendLine("# General Extraction Rules");
+        sb.AppendLine("- Ignore timestamps or timecodes (e.g., '0:00:00').");
+        sb.AppendLine("- Use full, properly capitalized names for people.");
+        sb.AppendLine("- Ensure names are unique; a person cannot be both a host and a guest.");
+        sb.AppendLine("- Topics should be concise and capitalized (e.g., 'Game Design').");
+        sb.AppendLine("- Prefer common names for topics (e.g., 'Game Pass' instead of 'Xbox Game Pass').");
+        sb.AppendLine("- If no data is found for a field, return an empty array [].");
 
-        // 2. Output Rules
-        sb.AppendLine("Do not include markdown, code fences, prose, comments, or additional properties.");
-        sb.AppendLine("All array values must contain only strings.");
-        sb.AppendLine("Extract the names of the hosts into the 'hosts' array.");
-        sb.AppendLine("Extract the names of any guests into the 'guests' array. Guests are typically people who are NOT regular hosts of the show but are invited for a specific episode.");
-        sb.AppendLine("Use full, properly capitalized names for people whenever possible.");
-        sb.AppendLine("Do not include duplicate names in arrays.");
-        sb.AppendLine("A person must not appear in both 'hosts' and 'guests'.");
-
-        if (knownPersons != null && knownPersons.Any())
+        if (knownPersons is { Count: > 0 })
         {
-            sb.AppendLine("To ensure data quality, refer to the following list of known people frequently associated with this show (hosts and frequent guests). If a person in the description is an exact match, a clear alias, or an unambiguous near-match, use the canonical name from this list:");
+            sb.AppendLine("\n# Known People (Canonical Names)");
+            sb.AppendLine("If a person mentioned matches or is an alias for one of these, use this exact string:");
             foreach (string person in knownPersons.OrderBy(p => p))
             {
                 sb.AppendLine($"- {person}");
             }
         }
 
-        sb.AppendLine("Alias handling: If a person is referenced by a nickname, abbreviation, handle, or alternate real name, map them to the canonical name below and output only the canonical name.");
+        sb.AppendLine("\n# Alias Mapping");
+        sb.AppendLine("Map these specific variations to their canonical forms:");
         foreach ((string alias, string canonicalName) in _knownPersonAliases.OrderBy(kvp => kvp.Key))
         {
             sb.AppendLine($"- {alias} => {canonicalName}");
         }
 
-        sb.AppendLine("Extract specific subjects and broader thematic categories that are clearly present in the title or description.");
-        sb.AppendLine("Ensure that the topics are capitalized and concise (e.g., 'Game Design', not 'In this episode we talk about game design and development').");
-        sb.AppendLine("Prefer common names for topics (e.g., 'Game Pass' instead of 'Xbox Game Pass', 'PlayStation 5' instead of 'PS5') unless the known topic list below provides a canonical alternative.");
-
-        if (knownTopics != null && knownTopics.Any())
+        if (knownTopics is { Count: > 0 })
         {
-            sb.AppendLine("To ensure data consistency, refer to the following list of topics recently discussed on this show. If a topic in the description is a direct match or a synonymous variation of one on this list (e.g. 'PlayStation 5' vs 'PS5'), use the name from this list.");
-            sb.AppendLine("However, ensure that distinct entries like sequels, specific versions, or adaptations (e.g., 'Fallout' vs 'Fallout 3', or 'The Last of Us' vs 'The Last of Us HBO') remain separate and specific.");
+            sb.AppendLine("\n# Known Topics");
+            sb.AppendLine("Use these names for consistency if the topic matches:");
             foreach (string topic in knownTopics.OrderBy(t => t))
             {
                 sb.AppendLine($"- {topic}");
             }
         }
 
-        sb.AppendLine("Be comprehensive but avoid overgeneralization.");
+        AppendShowContext(sb, showName);
 
-        sb.AppendLine("If specific data is missing, return empty arrays.");
-        sb.AppendLine("If episode numbering is missing or ambiguous, prioritize explicit names in the title or description. Otherwise apply the show context defaults below.");
+        return sb.ToString();
+    }
 
-        // 3. Show Specific Context
+    private static void AppendShowContext(StringBuilder sb, string showName)
+    {
+        sb.AppendLine("\n# Show-Specific Context");
+        sb.AppendLine("Use the following rules to determine hosts if they are not explicitly mentioned:");
+
         switch (showName)
         {
             case ShowName.KnockBack:
@@ -102,14 +109,12 @@ public class PromptService
                 break;
             case ShowName.DefiningDuke:
                 sb.AppendLine(
-                    "Context: Up to episode 25, the hosts were 'MrMattyPlays' and 'Jeremy Penter'. From episode 26, the hosts are 'MrMattyPlays' and 'Lord Cognito'. Sometimes there are guests - they might be named in the title or description.");
+                    "Context: Up to episode 25, the hosts were 'MrMattyPlays' and 'Jeremy Penter'. From episode 26, the hosts are 'MrMattyPlays' and 'Lord Cognito'. Sometimes there are guests.");
                 break;
             case ShowName.PunchingUp:
                 sb.AppendLine(
-                    "Context: From episode 1 to episode 24, the hosts were 'Dustin Furman', 'Dagan Moriarty', 'Micah Moriarty' and 'Gene Park'. From episode 25 to episode 38, the hosts were 'Dustin Furman', 'Micah Moriarty' and 'Gene Park'. From episode 39, the hosts are 'Brad Ellis', 'Micah Moriarty' and 'Gene Park'. Sometimes there are guests - they might be named in the title or description.");
+                    "Context: From episode 1 to episode 24, the hosts were 'Dustin Furman', 'Dagan Moriarty', 'Micah Moriarty' and 'Gene Park'. From episode 25 to episode 38, the hosts were 'Dustin Furman', 'Micah Moriarty' and 'Gene Park'. From episode 39, the hosts are 'Brad Ellis', 'Micah Moriarty' and 'Gene Park'. Sometimes there are guests.");
                 break;
         }
-
-        return sb.ToString();
     }
 }

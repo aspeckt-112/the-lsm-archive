@@ -7,6 +7,9 @@ using Google.GenAI.Types;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using Polly;
+using Polly.Registry;
+
 using TheLsmArchive.Database.Entities;
 using TheLsmArchive.Patreon.Ingestion.Models;
 using TheLsmArchive.Patreon.Ingestion.Options;
@@ -37,6 +40,8 @@ public sealed class GeminiSummaryService : IAiSummaryService
 
     private readonly string _model;
 
+    private readonly ResiliencePipeline _aiSummaryPipeline;
+
     private static readonly Schema _responseSchema = new()
     {
         Type = GenAI.Type.Object,
@@ -61,16 +66,19 @@ public sealed class GeminiSummaryService : IAiSummaryService
     /// <param name="client">The Gemini client.</param>
     /// <param name="options">The Gemini options.</param>
     /// <param name="promptService">The prompt service.</param>
+    /// <param name="pipelineProvider">The resilience pipeline provider.</param>
     public GeminiSummaryService(
         ILogger<GeminiSummaryService> logger,
         Client client,
         IOptions<GeminiOptions> options,
-        PromptService promptService)
+        PromptService promptService,
+        ResiliencePipelineProvider<string> pipelineProvider)
     {
         _logger = logger;
         _client = client;
         _promptService = promptService;
         _model = options.Value.Model;
+        _aiSummaryPipeline = pipelineProvider.GetPipeline(nameof(GeminiSummaryService));
     }
 
     /// <inheritdoc/>
@@ -100,39 +108,53 @@ public sealed class GeminiSummaryService : IAiSummaryService
             ]
         };
 
+        ResilienceContext resilienceContext = ResilienceContextPool.Shared.Get(cancellationToken);
+
         try
         {
-            GenerateContentResponse response = await _client.Models.GenerateContentAsync(
-                _model,
-                userContent,
-                new GenerateContentConfig
+            return await _aiSummaryPipeline.ExecuteAsync(
+                async context =>
                 {
-                    ResponseMimeType = MediaTypeNames.Application.Json,
-                    ResponseSchema = _responseSchema,
-                    SystemInstruction = systemInstruction,
-                    Temperature = 0.5f
+                    try
+                    {
+                        GenerateContentResponse response = await _client.Models.GenerateContentAsync(
+                            _model,
+                            userContent,
+                            new GenerateContentConfig
+                            {
+                                ResponseMimeType = MediaTypeNames.Application.Json,
+                                ResponseSchema = _responseSchema,
+                                SystemInstruction = systemInstruction,
+                                Temperature = 0.5f
+                            },
+                            context.CancellationToken);
+
+                        return ParseAiSummary(response);
+                    }
+                    catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (InvalidDataException ex)
+                    {
+                        _logger.LogWarning(
+                            "Gemini returned an invalid response for post {PostId}: {ErrorMessage}",
+                            patreonPost.Id,
+                            ex.Message);
+
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to generate summary for post {Title}", patreonPost.Title);
+                        throw;
+                    }
                 },
-                cancellationToken);
-
-            return ParseAiSummary(response);
+                resilienceContext);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        finally
         {
-            throw;
-        }
-        catch (InvalidDataException ex)
-        {
-            _logger.LogWarning(
-                "Gemini returned an invalid response for post {PostId}: {ErrorMessage}",
-                patreonPost.Id,
-                ex.Message);
-
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to generate summary for post {Title}", patreonPost.Title);
-            throw;
+            ResilienceContextPool.Shared.Return(resilienceContext);
         }
     }
 

@@ -2,9 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 
-using Polly;
-using Polly.Registry;
-
 using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
 using TheLsmArchive.Patreon.Ingestion.Helpers;
@@ -22,7 +19,6 @@ public sealed class PatreonPostProcessingService
     private readonly ILogger<PatreonPostProcessingService> _logger;
     private readonly LsmArchiveDbContext _dbContext;
     private readonly IAiSummaryService _aiSummaryService;
-    private readonly ResiliencePipeline _aiSummaryPipeline;
     private readonly EpisodeService _episodeService;
     private readonly PersonService _personService;
     private readonly TopicService _topicService;
@@ -35,7 +31,6 @@ public sealed class PatreonPostProcessingService
     /// <param name="logger">The logger.</param>
     /// <param name="dbContext">The database context.</param>
     /// <param name="aiSummaryService">The AI summary service.</param>
-    /// <param name="pipelineProvider">The resilience pipeline provider.</param>
     /// <param name="episodeService">The episode service.</param>
     /// <param name="personService">The person service.</param>
     /// <param name="topicService">The topic service.</param>
@@ -45,7 +40,6 @@ public sealed class PatreonPostProcessingService
         ILogger<PatreonPostProcessingService> logger,
         LsmArchiveDbContext dbContext,
         IAiSummaryService aiSummaryService,
-        ResiliencePipelineProvider<string> pipelineProvider,
         EpisodeService episodeService,
         PersonService personService,
         TopicService topicService,
@@ -55,7 +49,6 @@ public sealed class PatreonPostProcessingService
         _logger = logger;
         _dbContext = dbContext;
         _aiSummaryService = aiSummaryService;
-        _aiSummaryPipeline = pipelineProvider.GetPipeline(Constants.Constants.AiSummaryPipelineName);
         _episodeService = episodeService;
         _personService = personService;
         _topicService = topicService;
@@ -94,26 +87,12 @@ public sealed class PatreonPostProcessingService
         (List<string> knownPersons, List<string> knownTopics) =
             await GetKnownContextAsync(showId, cancellationToken);
 
-        ResilienceContext resilienceContext = ResilienceContextPool.Shared.Get(cancellationToken);
-
-        AiSummary aiSummary;
-
-        try
-        {
-            aiSummary = await _aiSummaryPipeline.ExecuteAsync(
-                context => new ValueTask<AiSummary>(
-                    _aiSummaryService.GenerateAiSummaryFromPatreonPost(
-                        showEntity,
-                        postEntity,
-                        context.CancellationToken,
-                        knownPersons,
-                        knownTopics)),
-                resilienceContext);
-        }
-        finally
-        {
-            ResilienceContextPool.Shared.Return(resilienceContext);
-        }
+        AiSummary aiSummary = await _aiSummaryService.GenerateAiSummaryFromPatreonPost(
+            showEntity,
+            postEntity,
+            cancellationToken,
+            knownPersons,
+            knownTopics);
 
         IExecutionStrategy strategy = _dbContext.Database.CreateExecutionStrategy();
 

@@ -17,7 +17,6 @@ using Serilog;
 
 using TheLsmArchive.Database;
 using TheLsmArchive.Domain.Services;
-using TheLsmArchive.Patreon.Ingestion.Constants;
 using TheLsmArchive.Patreon.Ingestion.Options;
 using TheLsmArchive.Patreon.Ingestion.Parsers;
 using TheLsmArchive.Patreon.Ingestion.Services;
@@ -65,7 +64,7 @@ builder.Services
     .AddSingleton<PatreonPostProcessingService>();
 
 builder.Services.AddResiliencePipeline(
-   Constants.AiSummaryPipelineName,
+   nameof(GeminiSummaryService),
     resiliencePipelineBuilder =>
     {
         resiliencePipelineBuilder
