@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
+using TheLsmArchive.Domain.Services.Abstractions;
 
 namespace TheLsmArchive.Patreon.Ingestion.Services;
 
@@ -13,17 +15,17 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 /// The caller is responsible for flushing changes, typically as part of a wider transaction.
 /// All methods are idempotent: existing links are silently skipped, making them safe to call on retry.
 /// </remarks>
-public sealed class RelationshipService
+public sealed class RelationshipService : DatabaseService
 {
-    private readonly LsmArchiveDbContext _dbContext;
-
     /// <summary>
     /// Initializes a new instance of the <see cref="RelationshipService"/> class.
     /// </summary>
-    /// <param name="dbContext">The database context.</param>
-    public RelationshipService(LsmArchiveDbContext dbContext)
+    /// <param name="logger">The logger.</param>
+    /// <param name="dbContextFactory">The database context factory.</param>
+    public RelationshipService(
+        ILogger<RelationshipService> logger,
+        IDbContextFactory<LsmArchiveDbContext> dbContextFactory) : base(logger, dbContextFactory)
     {
-        _dbContext = dbContext;
     }
 
     /// <summary>
@@ -33,34 +35,33 @@ public sealed class RelationshipService
     /// <param name="personIds">The IDs of the persons to link.</param>
     /// <param name="episodeId">The ID of the episode to link them to.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    public async Task LinkPersonsToEpisodeAsync(
+    public Task LinkPersonsToEpisodeAsync(
         IReadOnlyCollection<int> personIds,
         int episodeId,
         CancellationToken cancellationToken)
     {
         if (personIds.Count == 0)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        HashSet<int> existingPersonIds = await _dbContext.PersonEpisodes
-            .Where(pe => pe.EpisodeId == episodeId)
-            .Select(pe => pe.PersonId)
-            .ToHashSetAsync(cancellationToken);
-
-        foreach (int personId in personIds)
+        return ExecuteDatabaseOperation(async dbContext =>
         {
-            if (existingPersonIds.Contains(personId))
-            {
-                continue;
-            }
+            HashSet<int> existingPersonIds = await dbContext.PersonEpisodes
+                .Where(pe => pe.EpisodeId == episodeId)
+                .Select(pe => pe.PersonId)
+                .ToHashSetAsync(cancellationToken);
 
-            _dbContext.PersonEpisodes.Add(new PersonEpisodeEntity
+            foreach (int personId in personIds)
             {
-                PersonId = personId,
-                EpisodeId = episodeId
-            });
-        }
+                if (existingPersonIds.Contains(personId))
+                {
+                    continue;
+                }
+
+                dbContext.PersonEpisodes.Add(new PersonEpisodeEntity { PersonId = personId, EpisodeId = episodeId });
+            }
+        }, cancellationToken);
     }
 
     /// <summary>
@@ -70,34 +71,33 @@ public sealed class RelationshipService
     /// <param name="topicIds">The IDs of the topics to link.</param>
     /// <param name="episodeId">The ID of the episode to link them to.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    public async Task LinkTopicsToEpisodeAsync(
+    public Task LinkTopicsToEpisodeAsync(
         IReadOnlyCollection<int> topicIds,
         int episodeId,
         CancellationToken cancellationToken)
     {
         if (topicIds.Count == 0)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        HashSet<int> existingTopicIds = await _dbContext.TopicEpisodes
-            .Where(te => te.EpisodeId == episodeId)
-            .Select(te => te.TopicId)
-            .ToHashSetAsync(cancellationToken);
-
-        foreach (int topicId in topicIds)
+        return ExecuteDatabaseOperation(async dbContext =>
         {
-            if (existingTopicIds.Contains(topicId))
-            {
-                continue;
-            }
+            HashSet<int> existingTopicIds = await dbContext.TopicEpisodes
+                .Where(te => te.EpisodeId == episodeId)
+                .Select(te => te.TopicId)
+                .ToHashSetAsync(cancellationToken);
 
-            _dbContext.TopicEpisodes.Add(new TopicEpisodeEntity
+            foreach (int topicId in topicIds)
             {
-                TopicId = topicId,
-                EpisodeId = episodeId
-            });
-        }
+                if (existingTopicIds.Contains(topicId))
+                {
+                    continue;
+                }
+
+                dbContext.TopicEpisodes.Add(new TopicEpisodeEntity { TopicId = topicId, EpisodeId = episodeId });
+            }
+        }, cancellationToken);
     }
 
     /// <summary>
@@ -107,38 +107,37 @@ public sealed class RelationshipService
     /// <param name="personIds">The IDs of the persons.</param>
     /// <param name="topicIds">The IDs of the topics.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    public async Task LinkPersonsToTopicsAsync(
+    public Task LinkPersonsToTopicsAsync(
         IReadOnlyCollection<int> personIds,
         IReadOnlyCollection<int> topicIds,
         CancellationToken cancellationToken)
     {
         if (personIds.Count == 0 || topicIds.Count == 0)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        var existingLinkRows = await _dbContext.PersonTopics
-            .Where(pt => personIds.Contains(pt.PersonId) && topicIds.Contains(pt.TopicId))
-            .Select(pt => new { pt.PersonId, pt.TopicId })
-            .ToListAsync(cancellationToken);
-
-        var existingLinks = existingLinkRows.Select(x => (x.PersonId, x.TopicId)).ToHashSet();
-
-        foreach (int personId in personIds)
+        return ExecuteDatabaseOperation(async dbContext =>
         {
-            foreach (int topicId in topicIds)
-            {
-                if (existingLinks.Contains((personId, topicId)))
-                {
-                    continue;
-                }
+            var existingLinkRows = await dbContext.PersonTopics
+                .Where(pt => personIds.Contains(pt.PersonId) && topicIds.Contains(pt.TopicId))
+                .Select(pt => new { pt.PersonId, pt.TopicId })
+                .ToListAsync(cancellationToken);
 
-                _dbContext.PersonTopics.Add(new PersonTopicEntity
+            var existingLinks = existingLinkRows.Select(x => (x.PersonId, x.TopicId)).ToHashSet();
+
+            foreach (int personId in personIds)
+            {
+                foreach (int topicId in topicIds)
                 {
-                    PersonId = personId,
-                    TopicId = topicId
-                });
+                    if (existingLinks.Contains((personId, topicId)))
+                    {
+                        continue;
+                    }
+
+                    dbContext.PersonTopics.Add(new PersonTopicEntity { PersonId = personId, TopicId = topicId });
+                }
             }
-        }
+        }, cancellationToken);
     }
 }

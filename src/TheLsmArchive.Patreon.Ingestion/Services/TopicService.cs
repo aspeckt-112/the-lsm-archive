@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 
 using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
+using TheLsmArchive.Domain.Services.Abstractions;
 using TheLsmArchive.Patreon.Ingestion.Helpers;
 
 namespace TheLsmArchive.Patreon.Ingestion.Services;
@@ -10,20 +11,19 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 /// <summary>
 /// The service responsible for resolving and creating topic records with deduplication.
 /// </summary>
-public sealed class TopicService
+public sealed class TopicService : DatabaseService
 {
     private readonly ILogger<TopicService> _logger;
-    private readonly LsmArchiveDbContext _dbContext;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TopicService"/> class.
     /// </summary>
     /// <param name="logger">The logger.</param>
-    /// <param name="dbContext">The database context.</param>
-    public TopicService(ILogger<TopicService> logger, LsmArchiveDbContext dbContext)
+    /// <param name="dbContextFactory">The database context factory.</param>
+    public TopicService(ILogger<TopicService> logger, IDbContextFactory<LsmArchiveDbContext> dbContextFactory) : base(
+        logger, dbContextFactory)
     {
         _logger = logger;
-        _dbContext = dbContext;
     }
 
     /// <summary>
@@ -33,47 +33,50 @@ public sealed class TopicService
     /// <param name="name">The topic's display name.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The ID of the existing or newly created topic.</returns>
-    public async Task<int> GetOrCreateAsync(string name, CancellationToken cancellationToken)
+    public Task<int> GetOrCreateAsync(string name, CancellationToken cancellationToken)
     {
         name = name.Trim();
         string normalizedName = LookupKeyNormalizer.Normalize(name);
 
-        // 1. Exact match via canonical normalized key.
-        TopicEntity? topic = await _dbContext.Topics
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.NormalizedName == normalizedName, cancellationToken);
-
-        if (topic is not null)
+        return ExecuteDatabaseOperation(async dbContext =>
         {
-            _logger.LogInformation(
-                "Topic '{TopicName}' already exists with ID {TopicId} (normalized key: {NormalizedName})",
-                name, topic.Id, normalizedName);
+            // 1. Exact match via canonical normalized key.
+            TopicEntity? topic = await dbContext.Topics
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.NormalizedName == normalizedName, cancellationToken);
+
+            if (topic is not null)
+            {
+                _logger.LogInformation(
+                    "Topic '{TopicName}' already exists with ID {TopicId} (normalized key: {NormalizedName})",
+                    name, topic.Id, normalizedName);
+
+                return topic.Id;
+            }
+
+            // 2. Fuzzy match via Postgres trigram similarity.
+            // A threshold of 0.8 ensures high similarity while preventing distinct topics like
+            // "Game Name" and "Game Name Remaster" from being merged.
+            topic = await dbContext.Topics
+                .AsNoTracking()
+                .Where(t => EF.Functions.TrigramsSimilarity(t.Name, name) > 0.8)
+                .OrderByDescending(t => EF.Functions.TrigramsSimilarity(t.Name, name))
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (topic is not null)
+            {
+                _logger.LogInformation(
+                    "Fuzzy matched topic '{InputName}' to existing topic '{MatchedName}' (ID {TopicId})",
+                    name, topic.Name, topic.Id);
+
+                return topic.Id;
+            }
+
+            topic = new TopicEntity { Name = name, NormalizedName = normalizedName };
+            dbContext.Topics.Add(topic);
+            await dbContext.SaveChangesAsync(cancellationToken);
 
             return topic.Id;
-        }
-
-        // 2. Fuzzy match via Postgres trigram similarity.
-        // A threshold of 0.8 ensures high similarity while preventing distinct topics like
-        // "Game Name" and "Game Name Remaster" from being merged.
-        topic = await _dbContext.Topics
-            .AsNoTracking()
-            .Where(t => EF.Functions.TrigramsSimilarity(t.Name, name) > 0.8)
-            .OrderByDescending(t => EF.Functions.TrigramsSimilarity(t.Name, name))
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (topic is not null)
-        {
-            _logger.LogInformation(
-                "Fuzzy matched topic '{InputName}' to existing topic '{MatchedName}' (ID {TopicId})",
-                name, topic.Name, topic.Id);
-
-            return topic.Id;
-        }
-
-        topic = new TopicEntity { Name = name, NormalizedName = normalizedName };
-        _dbContext.Topics.Add(topic);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return topic.Id;
+        }, cancellationToken);
     }
 }

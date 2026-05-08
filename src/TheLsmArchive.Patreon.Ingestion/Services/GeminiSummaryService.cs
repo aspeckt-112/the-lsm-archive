@@ -27,20 +27,16 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 public sealed class GeminiSummaryService : IAiSummaryService
 {
     private const string HostsPropertyName = "hosts";
-
     private const string GuestsPropertyName = "guests";
-
     private const string TopicsPropertyName = "topics";
 
     private readonly ILogger<GeminiSummaryService> _logger;
-
     private readonly Client _client;
-
     private readonly PromptService _promptService;
-
     private readonly string _model;
-
     private readonly ResiliencePipeline _aiSummaryPipeline;
+
+    private static readonly JsonSerializerOptions _jsonSerializerOptions = new() { PropertyNameCaseInsensitive = true };
 
     private static readonly Schema _responseSchema = new()
     {
@@ -62,8 +58,6 @@ public sealed class GeminiSummaryService : IAiSummaryService
         },
         Required = [HostsPropertyName, GuestsPropertyName, TopicsPropertyName]
     };
-
-    private static readonly JsonSerializerOptions _jsonSerializerOptions = new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GeminiSummaryService"/> class.
@@ -214,11 +208,13 @@ public sealed class GeminiSummaryService : IAiSummaryService
     private static AiSummary CreateAiSummary(GeminiResponseDto resultDto)
     {
         string[] hosts = SanitizeValues(resultDto.Hosts);
+
         string[] guests =
         [
             .. SanitizeValues(resultDto.Guests)
                 .Except(hosts, StringComparer.OrdinalIgnoreCase)
         ];
+
         string[] topics = SanitizeValues(resultDto.Topics);
 
         return new AiSummary(hosts, guests, topics);
@@ -226,14 +222,16 @@ public sealed class GeminiSummaryService : IAiSummaryService
 
     private static string[] SanitizeValues(IEnumerable<string?>? values)
     {
-        return values is null
-            ? []
-            :
-            [
-                .. values
-                    .Where(static value => !string.IsNullOrWhiteSpace(value))
-                    .Select(static value => value!.Trim())
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-            ];
+        if (values is null)
+        {
+            return [];
+        }
+
+        return
+        [
+            .. values.Where(static value => !string.IsNullOrWhiteSpace(value))
+                .Select(static value => value!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+        ];
     }
 }
