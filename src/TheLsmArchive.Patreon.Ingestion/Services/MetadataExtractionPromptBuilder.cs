@@ -5,9 +5,9 @@ using TheLsmArchive.Common.Constants;
 namespace TheLsmArchive.Patreon.Ingestion.Services;
 
 /// <summary>
-/// The system instruction service.
+/// Builds system prompts for metadata extraction.
 /// </summary>
-public class PromptService
+public sealed class MetadataExtractionPromptBuilder
 {
     private const string BaseInstructions = """
                                             # Role
@@ -28,12 +28,12 @@ public class PromptService
         };
 
     /// <summary>
-    /// Gets the summary system prompt for the given show name.
+    /// Builds the system prompt for the given show name.
     /// </summary>
     /// <param name="showName">The show name.</param>
     /// <param name="knownPersons">Optional list of known persons (hosts and frequent guests) for context.</param>
     /// <param name="knownTopics">Optional list of known topics for context.</param>
-    public string GetSummarySystemPrompt(
+    public string BuildSystemPrompt(
         string showName,
         IList<string>? knownPersons = null,
         IList<string>? knownTopics = null)
@@ -61,9 +61,7 @@ public class PromptService
         sb.AppendLine("Map these specific variations to their canonical forms:");
 
         foreach ((string alias, string canonicalName) in _knownPersonAliases.OrderBy(kvp => kvp.Key))
-        {
             sb.AppendLine($"- {alias} => {canonicalName}");
-        }
 
         if (knownTopics is { Count: > 0 })
         {
@@ -115,3 +113,5 @@ public class PromptService
         }
     }
 }
+
+

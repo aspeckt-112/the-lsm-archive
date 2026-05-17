@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 
 using TheLsmArchive.Database.DbContext;
-using TheLsmArchive.Domain.Services;
 using TheLsmArchive.Patreon.Ingestion.Services;
 using TheLsmArchive.Testing.Database;
 
@@ -25,12 +24,5 @@ public sealed class IntegrationTestFixture : DatabaseIntegrationTestFixture, IAs
     protected override void ConfigureServices(IServiceCollection services)
     {
         services.AddLogging();
-
-        services.AddSingleton<ShowService>();
-        services.AddSingleton<PatreonService>();
-        services.AddSingleton<EpisodeService>();
-        services.AddSingleton<PersonService>();
-        services.AddSingleton<TopicService>();
-        services.AddSingleton<RelationshipService>();
     }
 }

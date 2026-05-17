@@ -31,7 +31,7 @@ Seven projects:
 | `TheLsmArchive.ApiClient` | Typed HTTP client wrapping the Web API (used by the Frontend). |
 | `TheLsmArchive.Web.Api` | ASP.NET Core minimal API — the backend. |
 | `TheLsmArchive.Web.Frontend` | Blazor WebAssembly SPA using MudBlazor. |
-| `TheLsmArchive.Patreon.Ingestion` | Console app: parses Patreon RSS, calls Google Gemini for summaries, writes to DB. |
+| `TheLsmArchive.Patreon.Ingestion` | Worker app: parses Patreon RSS, calls Google Gemini to extract structured metadata, writes to DB. |
 
 The **database** runs EF Core 10 on Postgres 13 with `UseSnakeCaseNamingConvention()`. All entity type configurations live in `TheLsmArchive.Database/Configurations/` and are auto-discovered via `ApplyConfigurationsFromAssembly`. EF migrations are in `TheLsmArchive.Database/Migrations/`.
 

@@ -5,7 +5,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\TheLsmArchive.Domain\TheLsmArchive.Domain.csproj" />
+        <ProjectReference Include="..\TheLsmArchive.Database\TheLsmArchive.Database.csproj" />
+        <ProjectReference Include="..\TheLsmArchive.Models\TheLsmArchive.Models.csproj" />
     </ItemGroup>
 
     <ItemGroup>

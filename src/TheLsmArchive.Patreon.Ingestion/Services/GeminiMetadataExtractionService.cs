@@ -22,19 +22,19 @@ using Part = Google.GenAI.Types.Part;
 namespace TheLsmArchive.Patreon.Ingestion.Services;
 
 /// <summary>
-/// The Gemini AI summary service implementation.
+/// The Gemini metadata extraction service implementation.
 /// </summary>
-public sealed class GeminiSummaryService : IAiSummaryService
+public sealed class GeminiMetadataExtractionService : IMetadataExtractionService
 {
     private const string HostsPropertyName = "hosts";
     private const string GuestsPropertyName = "guests";
     private const string TopicsPropertyName = "topics";
 
-    private readonly ILogger<GeminiSummaryService> _logger;
+    private readonly ILogger<GeminiMetadataExtractionService> _logger;
     private readonly Client _client;
-    private readonly PromptService _promptService;
+    private readonly MetadataExtractionPromptBuilder _promptBuilder;
     private readonly string _model;
-    private readonly ResiliencePipeline _aiSummaryPipeline;
+    private readonly ResiliencePipeline _metadataExtractionPipeline;
 
     private static readonly JsonSerializerOptions _jsonSerializerOptions = new() { PropertyNameCaseInsensitive = true };
 
@@ -60,30 +60,30 @@ public sealed class GeminiSummaryService : IAiSummaryService
     };
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="GeminiSummaryService"/> class.
+    /// Initializes a new instance of the <see cref="GeminiMetadataExtractionService"/> class.
     /// </summary>
     /// <param name="logger">The logger.</param>
     /// <param name="client">The Gemini client.</param>
     /// <param name="options">The Gemini options.</param>
-    /// <param name="promptService">The prompt service.</param>
+    /// <param name="promptBuilder">The metadata extraction prompt builder.</param>
     /// <param name="pipelineProvider">The resilience pipeline provider.</param>
-    public GeminiSummaryService(
-        ILogger<GeminiSummaryService> logger,
+    public GeminiMetadataExtractionService(
+        ILogger<GeminiMetadataExtractionService> logger,
         Client client,
         IOptions<GeminiOptions> options,
-        PromptService promptService,
+        MetadataExtractionPromptBuilder promptBuilder,
         ResiliencePipelineProvider<string> pipelineProvider)
     {
         _logger = logger;
         _client = client;
-        _promptService = promptService;
+        _promptBuilder = promptBuilder;
         _model = options.Value.Model;
-        _aiSummaryPipeline = pipelineProvider.GetPipeline(nameof(GeminiSummaryService));
+        _metadataExtractionPipeline = pipelineProvider.GetPipeline(nameof(GeminiMetadataExtractionService));
     }
 
     /// <inheritdoc/>
     /// <exception cref="OperationCanceledException">The operation was canceled.</exception>
-    public async Task<AiSummary> GenerateAiSummaryFromPatreonPost(
+    public async Task<AiSummary> ExtractMetadataAsync(
         ShowEntity show,
         PatreonPostEntity patreonPost,
         CancellationToken cancellationToken,
@@ -92,7 +92,7 @@ public sealed class GeminiSummaryService : IAiSummaryService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string systemPromptText = _promptService.GetSummarySystemPrompt(
+        string systemPromptText = _promptBuilder.BuildSystemPrompt(
             show.Name,
             knownPersons,
             knownTopics);
@@ -116,7 +116,7 @@ public sealed class GeminiSummaryService : IAiSummaryService
 
         try
         {
-            return await _aiSummaryPipeline.ExecuteAsync(
+            return await _metadataExtractionPipeline.ExecuteAsync(
                 async context =>
                 {
                     try
@@ -133,7 +133,7 @@ public sealed class GeminiSummaryService : IAiSummaryService
                             },
                             context.CancellationToken);
 
-                        return ParseAiSummary(response);
+                        return ParseExtractedMetadata(response);
                     }
                     catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
                     {
@@ -142,7 +142,7 @@ public sealed class GeminiSummaryService : IAiSummaryService
                     catch (InvalidDataException ex)
                     {
                         _logger.LogWarning(
-                            "Gemini returned an invalid response for post {PostId}: {ErrorMessage}",
+                            "Gemini returned invalid metadata for post {PostId}: {ErrorMessage}",
                             patreonPost.Id,
                             ex.Message);
 
@@ -150,7 +150,7 @@ public sealed class GeminiSummaryService : IAiSummaryService
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to generate summary for post {Title}", patreonPost.Title);
+                        _logger.LogError(ex, "Failed to extract metadata for post {Title}", patreonPost.Title);
                         throw;
                     }
                 },
@@ -162,7 +162,7 @@ public sealed class GeminiSummaryService : IAiSummaryService
         }
     }
 
-    internal static AiSummary ParseAiSummary(GenerateContentResponse response)
+    internal static AiSummary ParseExtractedMetadata(GenerateContentResponse response)
     {
         string jsonText = ExtractJsonText(response);
 
@@ -235,3 +235,4 @@ public sealed class GeminiSummaryService : IAiSummaryService
         ];
     }
 }
+

@@ -703,16 +703,6 @@
           "TheLsmArchive.Common": "[1.0.0, )"
         }
       },
-      "thelsmarchive.domain": {
-        "type": "Project",
-        "dependencies": {
-          "TheLsmArchive.Database": "[1.0.0, )",
-          "TheLsmArchive.Models": "[1.0.0, )"
-        }
-      },
-      "thelsmarchive.models": {
-        "type": "Project"
-      },
       "thelsmarchive.patreon.ingestion": {
         "type": "Project",
         "dependencies": {
@@ -725,8 +715,7 @@
           "Serilog.Settings.Configuration": "[10.0.0, )",
           "Serilog.Sinks.Console": "[6.1.1, )",
           "Serilog.Sinks.File": "[7.0.0, )",
-          "TheLsmArchive.Database": "[1.0.0, )",
-          "TheLsmArchive.Domain": "[1.0.0, )"
+          "TheLsmArchive.Database": "[1.0.0, )"
         }
       },
       "thelsmarchive.testing.database": {

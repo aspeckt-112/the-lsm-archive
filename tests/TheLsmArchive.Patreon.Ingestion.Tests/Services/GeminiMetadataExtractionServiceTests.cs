@@ -6,10 +6,10 @@ using TheLsmArchive.Patreon.Ingestion.Services;
 
 namespace TheLsmArchive.Patreon.Ingestion.Tests.Services;
 
-public class GeminiSummaryServiceTests
+public class GeminiMetadataExtractionServiceTests
 {
     [Fact]
-    public void ParseAiSummary_ShouldThrowWhenCandidatesAreMissing()
+    public void ParseExtractedMetadata_ShouldThrowWhenCandidatesAreMissing()
     {
         // Arrange
         var response = new GenerateContentResponse { Candidates = null };
@@ -17,7 +17,7 @@ public class GeminiSummaryServiceTests
         // Act
         void Act()
         {
-            _ = GeminiSummaryService.ParseAiSummary(response);
+            _ = GeminiMetadataExtractionService.ParseExtractedMetadata(response);
         }
 
         // Assert
@@ -26,7 +26,7 @@ public class GeminiSummaryServiceTests
     }
 
     [Fact]
-    public void ParseAiSummary_ShouldThrowWhenContentPartsAreMissing()
+    public void ParseExtractedMetadata_ShouldThrowWhenContentPartsAreMissing()
     {
         // Arrange
         var response = new GenerateContentResponse
@@ -43,7 +43,7 @@ public class GeminiSummaryServiceTests
         // Act
         void Act()
         {
-            _ = GeminiSummaryService.ParseAiSummary(response);
+            _ = GeminiMetadataExtractionService.ParseExtractedMetadata(response);
         }
 
         // Assert
@@ -52,7 +52,7 @@ public class GeminiSummaryServiceTests
     }
 
     [Fact]
-    public void ParseAiSummary_ShouldThrowWhenJsonIsInvalid()
+    public void ParseExtractedMetadata_ShouldThrowWhenJsonIsInvalid()
     {
         // Arrange
         GenerateContentResponse response = CreateResponse("{");
@@ -60,7 +60,7 @@ public class GeminiSummaryServiceTests
         // Act
         void Act()
         {
-            _ = GeminiSummaryService.ParseAiSummary(response);
+            _ = GeminiMetadataExtractionService.ParseExtractedMetadata(response);
         }
 
         // Assert
@@ -74,7 +74,7 @@ public class GeminiSummaryServiceTests
     private static readonly string[] expectedArray0 = new[] { "Game Pass", "PlayStation 5" };
 
     [Fact]
-    public void ParseAiSummary_ShouldTrimFilterAndDeduplicateValues()
+    public void ParseExtractedMetadata_ShouldTrimFilterAndDeduplicateValues()
     {
         // Arrange
         GenerateContentResponse response = CreateResponse(
@@ -87,7 +87,7 @@ public class GeminiSummaryServiceTests
             """);
 
         // Act
-        var result = GeminiSummaryService.ParseAiSummary(response);
+        var result = GeminiMetadataExtractionService.ParseExtractedMetadata(response);
 
         // Assert
         Equal(expected, result.Hosts.ToArray());
@@ -115,3 +115,4 @@ public class GeminiSummaryServiceTests
         };
     }
 }
+

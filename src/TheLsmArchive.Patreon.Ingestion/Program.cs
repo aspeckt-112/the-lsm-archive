@@ -16,7 +16,6 @@ using Polly.Timeout;
 using Serilog;
 
 using TheLsmArchive.Database;
-using TheLsmArchive.Domain.Services;
 using TheLsmArchive.Patreon.Ingestion.Options;
 using TheLsmArchive.Patreon.Ingestion.Parsers;
 using TheLsmArchive.Patreon.Ingestion.Services;
@@ -51,20 +50,14 @@ builder.Services.AddOptionsWithValidateOnStart<PatreonIngestionOptions>()
     .ValidateDataAnnotations();
 
 builder.Services
-    .AddHostedService<PatreonIngestionService>()
-    .AddSingleton<IAiSummaryService, GeminiSummaryService>()
+    .AddHostedService<PatreonIngestionWorker>()
+    .AddSingleton<IMetadataExtractionService, GeminiMetadataExtractionService>()
     .AddSingleton<PatreonRssParser>()
-    .AddSingleton<PromptService>()
-    .AddSingleton<ShowService>()
-    .AddSingleton<PatreonService>()
-    .AddSingleton<EpisodeService>()
-    .AddSingleton<PersonService>()
-    .AddSingleton<TopicService>()
-    .AddSingleton<RelationshipService>()
-    .AddSingleton<PatreonPostProcessingService>();
+    .AddSingleton<MetadataExtractionPromptBuilder>()
+    .AddSingleton<PatreonFeedProcessingService>();
 
 builder.Services.AddResiliencePipeline(
-    nameof(GeminiSummaryService),
+    nameof(GeminiMetadataExtractionService),
     resiliencePipelineBuilder =>
     {
         resiliencePipelineBuilder
