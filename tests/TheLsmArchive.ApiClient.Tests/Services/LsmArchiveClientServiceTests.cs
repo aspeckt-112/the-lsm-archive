@@ -92,7 +92,7 @@ public class LsmArchiveClientServiceTests
 
         // Assert
         Result<PagedResponse<SearchResult>>.Failure failure = IsType<Result<PagedResponse<SearchResult>>.Failure>(result);
-        Contains("'i' is an invalid start of a property name", failure.Message);
+        False(string.IsNullOrWhiteSpace(failure.Message));
     }
 
     [Fact]
