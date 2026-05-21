@@ -17,7 +17,7 @@ public abstract class DatabaseIntegrationTestBase<TFixture>(TFixture fixture)
     protected TService Get<TService>() where TService : class => Scope.ServiceProvider.GetRequiredService<TService>();
 
     /// <summary>
-    /// Resets the shared database state, creates the per-test scope, and then runs any derived-class setup.
+    /// Creates a service scope for the test and runs the <see cref="InitializeAsyncCore"/> method.
     /// </summary>
     public virtual async ValueTask InitializeAsync()
     {

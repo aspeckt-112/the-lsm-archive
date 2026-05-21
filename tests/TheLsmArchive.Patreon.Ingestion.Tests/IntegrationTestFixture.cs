@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 
 using TheLsmArchive.Database.DbContext;
-using TheLsmArchive.Patreon.Ingestion.Services;
 using TheLsmArchive.Testing.Database;
 
 namespace TheLsmArchive.Patreon.Ingestion.Tests;
@@ -17,12 +16,10 @@ public sealed class IntegrationTestFixture : DatabaseIntegrationTestFixture, IAs
         base.ConfigureDatabaseServices(services, connectionString);
 
         services.AddDbContextFactory<LsmArchiveDbContext>(
-            options => Database.Extensions.ConfigureDbContextOptions(options, connectionString));
+            options => Database.Extensions.ConfigureDbContextOptions(options, connectionString),
+            ServiceLifetime.Scoped);
     }
 
     /// <inheritdoc />
-    protected override void ConfigureServices(IServiceCollection services)
-    {
-        services.AddLogging();
-    }
+    protected override void ConfigureServices(IServiceCollection services) => services.AddLogging();
 }

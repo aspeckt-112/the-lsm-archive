@@ -131,8 +131,7 @@ public abstract class DatabaseIntegrationTestFixture
     protected virtual void ConfigureDatabaseServices(IServiceCollection services, string connectionString)
     {
         services.AddDbContext<LsmArchiveDbContext>(
-            options => TheLsmArchive.Database.Extensions.ConfigureDbContextOptions(options, connectionString),
-            ServiceLifetime.Singleton);
+            options => TheLsmArchive.Database.Extensions.ConfigureDbContextOptions(options, connectionString));
     }
 
     /// <summary>
