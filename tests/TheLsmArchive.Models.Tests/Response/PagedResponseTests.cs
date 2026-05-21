@@ -19,4 +19,17 @@ public class PagedResponseTests
         // Assert
         Equal(expected, totalPages);
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Constructor_WithNonPositivePageSize_ThrowsArgumentOutOfRangeException(int pageSize)
+    {
+        // Act
+        Action act = () => _ = new PagedResponse<int>([], 10, 1, pageSize);
+
+        // Assert
+        ArgumentOutOfRangeException exception = Throws<ArgumentOutOfRangeException>(act);
+        Equal("pageSize", exception.ParamName);
+    }
 }
