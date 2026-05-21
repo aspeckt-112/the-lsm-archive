@@ -104,3 +104,9 @@ static void EnsureConfiguredLogDirectoryExists(WebApplicationBuilder builder)
         Directory.CreateDirectory(logDirectory);
     }
 }
+
+/// <summary>
+/// Exposes the web application's entry point to integration tests.
+/// </summary>
+public partial class Program;
+
