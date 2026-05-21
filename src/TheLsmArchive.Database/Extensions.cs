@@ -11,6 +11,8 @@ namespace TheLsmArchive.Database;
 /// </summary>
 public static class Extensions
 {
+    private const string ConnectionStringName = "thelsmarchive";
+
     /// <summary>
     /// Extends IServiceCollection.
     /// </summary>
@@ -28,57 +30,51 @@ public static class Extensions
             IConfiguration configuration,
             ServiceLifetime serviceLifetime)
         {
-            string connectionString = configuration.GetConnectionString("thelsmarchive")
-                                      ?? throw new InvalidOperationException(
-                                          "The connection string 'thelsmarchive' is not configured. " +
-                                          "Please add it to your appsettings.json or environment variables."
-                                      );
+            string connectionString = GetConnectionStringOrThrow(configuration, ConnectionStringName);
 
-            void ConfigureOptions(DbContextOptionsBuilder options)
-            {
-                options.UseNpgsql(
-                    connectionString,
-                    npgsqlOptions => npgsqlOptions.EnableRetryOnFailure(
-                        maxRetryCount: 3,
-                        maxRetryDelay: TimeSpan.FromSeconds(5),
-                        errorCodesToAdd: null));
-                options.UseSnakeCaseNamingConvention();
-            }
-
-            services.AddDbContext<LsmArchiveDbContext>(ConfigureOptions, serviceLifetime);
-
+            services.AddDbContext<LsmArchiveDbContext>(options => ConfigureDbContextOptions(options, connectionString), serviceLifetime);
 
             return services;
         }
 
         /// <summary>
-        /// Adds the DbContext factory to the service collection.
+        /// Adds a factory for creating DbContext instances to the service collection, allowing for more flexible lifetime management and on-demand creation of DbContext instances.
         /// </summary>
         /// <param name="configuration">The application configuration.</param>
         /// <returns>The updated service collection.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if the connection string is not found.</exception>
         public IServiceCollection AddDbContextFactory(IConfiguration configuration)
         {
-            string connectionString = configuration.GetConnectionString("thelsmarchive")
-                                      ?? throw new InvalidOperationException(
-                                          "The connection string 'thelsmarchive' is not configured. " +
-                                          "Please add it to your appsettings.json or environment variables."
-                                      );
+            string connectionString = GetConnectionStringOrThrow(configuration, ConnectionStringName);
 
-            void ConfigureOptions(DbContextOptionsBuilder options)
-            {
-                options.UseNpgsql(
-                    connectionString,
-                    npgsqlOptions => npgsqlOptions.EnableRetryOnFailure(
-                        maxRetryCount: 3,
-                        maxRetryDelay: TimeSpan.FromSeconds(5),
-                        errorCodesToAdd: null));
-                options.UseSnakeCaseNamingConvention();
-            }
-
-            services.AddDbContextFactory<LsmArchiveDbContext>(ConfigureOptions);
+            services.AddDbContextFactory<LsmArchiveDbContext>(options => ConfigureDbContextOptions(options, connectionString));
 
             return services;
         }
+
+        public static void ConfigureDbContextOptions(DbContextOptionsBuilder options, string connectionString)
+        {
+            options.UseNpgsql(
+                connectionString,
+                npgsqlOptions => npgsqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 3,
+                    maxRetryDelay: TimeSpan.FromSeconds(5),
+                    errorCodesToAdd: null));
+
+            options.UseSnakeCaseNamingConvention();
+        }
+    }
+
+    private static string GetConnectionStringOrThrow(IConfiguration configuration, string name)
+    {
+        string? connectionString = configuration.GetConnectionString(name);
+
+        if (string.IsNullOrEmpty(connectionString))
+        {
+            throw new InvalidOperationException(
+                $"The connection string '{name}' is not configured. " +
+                "Please add it to your appsettings.json or environment variables.");
+        }
+
+        return connectionString;
     }
 }

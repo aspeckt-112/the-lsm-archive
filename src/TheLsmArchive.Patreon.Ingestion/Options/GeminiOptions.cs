@@ -18,4 +18,10 @@ public record GeminiOptions
     /// </summary>
     [Required]
     public required string Model { get; init; }
+
+    /// <summary>
+    /// Timeout for Gemini API calls in milliseconds. Default is 1 hour (3600000 ms).
+    /// </summary>
+    [Range(1, int.MaxValue)]
+    public required int TimeoutInMilliseconds { get; init; }
 }

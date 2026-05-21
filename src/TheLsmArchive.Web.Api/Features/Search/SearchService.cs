@@ -1,3 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+
+using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Models.Request.Abstractions;
 using TheLsmArchive.Web.Api.Infrastructure;
 
