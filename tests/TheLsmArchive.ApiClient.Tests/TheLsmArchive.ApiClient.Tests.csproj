@@ -1,7 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
-    <ItemGroup>
-        <ProjectReference Include="..\..\src\TheLsmArchive.ApiClient\TheLsmArchive.ApiClient.csproj" />
-    </ItemGroup>
-
-</Project>

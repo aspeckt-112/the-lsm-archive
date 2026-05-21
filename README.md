@@ -1,6 +1,6 @@
 # The LSM Archive
 
-The LSM Archive is a comprehensive system designed to archive, summarize, and search through episodes, topics, and people from **Last Stand Media** (LSM) podcasts. It ingests content directly from Patreon RSS feeds, uses Google Gemini AI to generate structured summaries, and provides a modern web interface for exploration.
+The LSM Archive is a comprehensive system designed to archive, index, and search through episodes, topics, and people from **Last Stand Media** (LSM) podcasts. It ingests content directly from Patreon RSS feeds, uses Google Gemini AI to extract structured metadata, and provides a modern web interface for exploration.
 
 ## Project Structure
 
@@ -14,7 +14,7 @@ The solution follows a modular architecture split into seven distinct projects:
 | `TheLsmArchive.ApiClient` | A typed HTTP client for the Web API, used by the frontend. |
 | `TheLsmArchive.Web.Api` | ASP.NET Core Minimal API providing the backend services. |
 | `TheLsmArchive.Web.Frontend` | Blazor WebAssembly SPA using MudBlazor for the UI. |
-| `TheLsmArchive.Patreon.Ingestion` | A worker application that parses Patreon RSS feeds and summarizes them via Gemini. |
+| `TheLsmArchive.Patreon.Ingestion` | A worker application that parses Patreon RSS feeds, extracts structured metadata via Gemini, and writes the results to the database. |
 
 ## Prerequisites
 
