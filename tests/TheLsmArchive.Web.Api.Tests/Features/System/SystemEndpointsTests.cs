@@ -17,7 +17,7 @@ public sealed class SystemEndpointsTests(IntegrationTestFixture fixture) : Endpo
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
-        ShowEntity show = await SystemTestDataHelper.CreateShowAsync(dbContext, cancellationToken);
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "System Test Show");
         DateTimeOffset expected = new(2026, 5, 21, 14, 30, 0, TimeSpan.Zero);
 
         await SystemTestDataHelper.CreateProcessedPatreonPostAsync(dbContext, show,
@@ -43,7 +43,7 @@ public sealed class SystemEndpointsTests(IntegrationTestFixture fixture) : Endpo
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
-        ShowEntity show = await SystemTestDataHelper.CreateShowAsync(dbContext, cancellationToken);
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "System Test Show");
 
         await SystemTestDataHelper.CreateUnprocessedPatreonPostAsync(
             dbContext,

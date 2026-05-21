@@ -5,16 +5,6 @@ namespace TheLsmArchive.Web.Api.Tests.TestSupport.Helpers;
 
 internal static class SystemTestDataHelper
 {
-	internal static async Task<ShowEntity> CreateShowAsync(
-		LsmArchiveDbContext dbContext,
-		CancellationToken cancellationToken,
-		string showName = "System Test Show")
-	{
-		ShowEntity show = new() { Name = showName };
-		await dbContext.Shows.AddAsync(show, cancellationToken);
-		await dbContext.SaveChangesAsync(cancellationToken);
-		return show;
-	}
 
 	internal static async Task CreateProcessedPatreonPostAsync(
 		LsmArchiveDbContext dbContext,

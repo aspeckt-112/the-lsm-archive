@@ -13,7 +13,7 @@ public sealed class SystemServiceTests(IntegrationTestFixture fixture) : Integra
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
-        ShowEntity show = await SystemTestDataHelper.CreateShowAsync(dbContext, cancellationToken);
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "System Test Show");
         DateTimeOffset oldestProcessedPublished = new(2026, 5, 18, 12, 0, 0, TimeSpan.Zero);
         DateTimeOffset latestProcessedPublished = new(2026, 5, 21, 9, 30, 0, TimeSpan.Zero);
 
@@ -38,7 +38,7 @@ public sealed class SystemServiceTests(IntegrationTestFixture fixture) : Integra
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
-        ShowEntity show = await SystemTestDataHelper.CreateShowAsync(dbContext, cancellationToken);
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "System Test Show");
         DateTimeOffset processedPublished = new(2026, 5, 20, 8, 0, 0, TimeSpan.Zero);
         DateTimeOffset unprocessedPublished = new(2026, 5, 21, 8, 0, 0, TimeSpan.Zero);
 
@@ -63,7 +63,7 @@ public sealed class SystemServiceTests(IntegrationTestFixture fixture) : Integra
         // Arrange
         CancellationToken cancellationToken = TestContext.Current.CancellationToken;
         LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
-        ShowEntity show = await SystemTestDataHelper.CreateShowAsync(dbContext, cancellationToken);
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "System Test Show");
 
         await SystemTestDataHelper.CreateUnprocessedPatreonPostAsync(
             dbContext,
