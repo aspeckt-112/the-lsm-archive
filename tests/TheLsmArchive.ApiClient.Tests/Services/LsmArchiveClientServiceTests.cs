@@ -41,7 +41,7 @@ public class LsmArchiveClientServiceTests
             25);
         HttpRequestMessage? capturedRequest = null;
         CancellationToken capturedCancellationToken = default;
-        CancellationToken cancellationToken = new CancellationTokenSource().Token;
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
         LsmArchiveClientService service = CreateService((requestMessage, ct) =>
         {
