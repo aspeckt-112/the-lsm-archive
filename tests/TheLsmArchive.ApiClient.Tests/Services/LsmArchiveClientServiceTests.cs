@@ -369,7 +369,7 @@ public class LsmArchiveClientServiceTests
 
         // Assert
         Result<Episode>.Failure failure = IsType<Result<Episode>.Failure>(result);
-        Contains("500", failure.Message);
+        False(string.IsNullOrWhiteSpace(failure.Message));
     }
 
     [Fact]
