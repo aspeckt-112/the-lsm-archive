@@ -16,7 +16,7 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 /// The service responsible for Patreon feed ingestion, pending-post discovery,
 /// and per-post processing.
 /// </summary>
-public sealed class PatreonFeedProcessingService
+public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
 {
     private readonly ILogger<PatreonFeedProcessingService> _logger;
     private readonly IDbContextFactory<LsmArchiveDbContext> _dbContextFactory;

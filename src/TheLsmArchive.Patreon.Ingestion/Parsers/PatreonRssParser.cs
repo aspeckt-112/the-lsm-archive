@@ -3,13 +3,14 @@ using System.Xml.Linq;
 using TheLsmArchive.Patreon.Ingestion.Infrastructure;
 using TheLsmArchive.Patreon.Ingestion.Models;
 using TheLsmArchive.Patreon.Ingestion.Options;
+using TheLsmArchive.Patreon.Ingestion.Parsers.Abstractions;
 
 namespace TheLsmArchive.Patreon.Ingestion.Parsers;
 
 /// <summary>
 /// Service responsible for fetching and parsing Patreon RSS feeds.
 /// </summary>
-public sealed class PatreonRssParser
+public sealed class PatreonRssParser : IPatreonRssParser
 {
     /// <summary>
     /// The XML namespace for content modules in RSS feeds.
@@ -68,6 +69,10 @@ public sealed class PatreonRssParser
 
     private readonly HttpClient _httpClient;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PatreonRssParser"/> class.
+    /// </summary>
+    /// <param name="httpClient">The HTTP client used to fetch RSS content.</param>
     public PatreonRssParser(HttpClient httpClient)
     {
         _httpClient = httpClient;

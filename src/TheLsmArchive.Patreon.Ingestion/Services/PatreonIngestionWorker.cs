@@ -4,7 +4,8 @@ using Microsoft.Extensions.Options;
 
 using TheLsmArchive.Patreon.Ingestion.Models;
 using TheLsmArchive.Patreon.Ingestion.Options;
-using TheLsmArchive.Patreon.Ingestion.Parsers;
+using TheLsmArchive.Patreon.Ingestion.Parsers.Abstractions;
+using TheLsmArchive.Patreon.Ingestion.Services.Abstractions;
 
 namespace TheLsmArchive.Patreon.Ingestion.Services;
 
@@ -14,8 +15,8 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 public sealed class PatreonIngestionWorker : BackgroundService
 {
     private readonly ILogger<PatreonIngestionWorker> _logger;
-    private readonly PatreonRssParser _rssParser;
-    private readonly PatreonFeedProcessingService _feedProcessingService;
+    private readonly IPatreonRssParser _rssParser;
+    private readonly IPatreonFeedProcessingService _feedProcessingService;
     private readonly List<RssFeedSource> _sources;
     private readonly TimeSpan _ingestionInterval;
 
@@ -29,10 +30,10 @@ public sealed class PatreonIngestionWorker : BackgroundService
     /// <param name="feedProcessingService">The service that handles feed ingestion and post processing for a parsed Patreon feed.</param>
     public PatreonIngestionWorker(
         ILogger<PatreonIngestionWorker> logger,
-        PatreonRssParser rssParser,
+        IPatreonRssParser rssParser,
         IOptions<RssFeedSources> feedOptions,
         IOptions<PatreonIngestionOptions> ingestionOptions,
-        PatreonFeedProcessingService feedProcessingService)
+        IPatreonFeedProcessingService feedProcessingService)
     {
         _logger = logger;
         _rssParser = rssParser;
@@ -45,25 +46,97 @@ public sealed class PatreonIngestionWorker : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            _logger.LogInformation(
-                "Starting Patreon ingestion cycle. Next run in {IntervalMinutes} minutes.",
-                _ingestionInterval.TotalMinutes);
-
-            await foreach (PatreonFeed feed in _rssParser.ParseFeedsAsync(_sources, stoppingToken))
-            {
-                await _feedProcessingService.ProcessFeedAsync(feed, stoppingToken);
-            }
-
             try
             {
-                await Task.Delay(_ingestionInterval, stoppingToken);
+                await RunIngestionCycleAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Patreon ingestion cycle failed. The worker will retry after the configured delay.");
+            }
+
+            if (!await WaitForNextCycleAsync(stoppingToken))
+            {
+                break;
+            }
+        }
+    }
+
+    private async Task RunIngestionCycleAsync(CancellationToken stoppingToken)
+    {
+        _logger.LogInformation(
+            "Starting Patreon ingestion cycle. Next run in {IntervalMinutes} minutes.",
+            _ingestionInterval.TotalMinutes);
+
+        foreach (RssFeedSource source in _sources)
+        {
+            stoppingToken.ThrowIfCancellationRequested();
+            await ProcessSourceAsync(source, stoppingToken);
+        }
+    }
+
+    private async Task ProcessSourceAsync(RssFeedSource source, CancellationToken stoppingToken)
+    {
+        try
+        {
+            await foreach (PatreonFeed feed in _rssParser.ParseFeedsAsync([source], stoppingToken))
+            {
+                await ProcessFeedAsync(feed, stoppingToken);
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to parse Patreon source '{SourceName}'. Continuing with the next source.",
+                source.Name);
+        }
+    }
+
+    private async Task ProcessFeedAsync(PatreonFeed feed, CancellationToken stoppingToken)
+    {
+        try
+        {
+            await _feedProcessingService.ProcessFeedAsync(feed, stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Failed to process Patreon feed '{FeedTitle}'. Continuing with the next feed.",
+                feed.Title);
+        }
+    }
+
+    private async Task<bool> WaitForNextCycleAsync(CancellationToken stoppingToken)
+    {
+        if (stoppingToken.IsCancellationRequested)
+        {
+            return false;
+        }
+
+        try
+        {
+            await Task.Delay(_ingestionInterval, stoppingToken);
+            return true;
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            return false;
         }
     }
 }
-
-

@@ -18,6 +18,7 @@ using Serilog;
 using TheLsmArchive.Database;
 using TheLsmArchive.Patreon.Ingestion.Options;
 using TheLsmArchive.Patreon.Ingestion.Parsers;
+using TheLsmArchive.Patreon.Ingestion.Parsers.Abstractions;
 using TheLsmArchive.Patreon.Ingestion.Services;
 using TheLsmArchive.Patreon.Ingestion.Services.Abstractions;
 
@@ -52,9 +53,8 @@ builder.Services.AddOptionsWithValidateOnStart<PatreonIngestionOptions>()
 builder.Services
     .AddHostedService<PatreonIngestionWorker>()
     .AddSingleton<IMetadataExtractionService, GeminiMetadataExtractionService>()
-    .AddSingleton<PatreonRssParser>()
     .AddSingleton<MetadataExtractionPromptBuilder>()
-    .AddSingleton<PatreonFeedProcessingService>();
+    .AddSingleton<IPatreonFeedProcessingService, PatreonFeedProcessingService>();
 
 builder.Services.AddResiliencePipeline(
     nameof(GeminiMetadataExtractionService),
@@ -84,7 +84,7 @@ builder.Services.AddResiliencePipeline(
     });
 
 builder.Services
-    .AddHttpClient<PatreonRssParser>(client =>
+    .AddHttpClient<IPatreonRssParser, PatreonRssParser>(client =>
     {
         client.DefaultRequestHeaders.UserAgent.Clear();
 
