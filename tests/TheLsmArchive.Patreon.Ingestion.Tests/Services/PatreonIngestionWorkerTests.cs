@@ -108,8 +108,8 @@ public class PatreonIngestionWorkerTests
         await secondSourceProcessed.Task.WaitAsync(cancellationToken);
         await worker.StopAsync(cancellationToken);
 
-        Equal([firstSource.Name, secondSource.Name], parsedSourceNames.ToArray());
-        Equal([secondFeed.Title], processedFeedTitles.ToArray());
+        Equal([firstSource.Name, secondSource.Name], [.. parsedSourceNames]);
+        Equal([secondFeed.Title], [.. processedFeedTitles]);
         feedProcessingService.Verify(
             service => service.ProcessFeedAsync(It.IsAny<PatreonFeed>(), It.IsAny<CancellationToken>()),
             Times.Once);
@@ -278,7 +278,3 @@ public class PatreonIngestionWorkerTests
         }
     }
 }
-
-
-
-

@@ -11,7 +11,7 @@ namespace TheLsmArchive.Database;
 /// </summary>
 public static class Extensions
 {
-    const string ConnectionStringName = "thelsmarchive";
+    private const string ConnectionStringName = "thelsmarchive";
 
     /// <summary>
     /// Extends IServiceCollection.

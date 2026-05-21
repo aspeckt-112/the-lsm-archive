@@ -110,6 +110,8 @@ public sealed class MetadataExtractionPromptBuilder
                 sb.AppendLine(
                     "Context: From episode 1 to episode 24, the hosts were 'Dustin Furman', 'Dagan Moriarty', 'Micah Moriarty' and 'Gene Park'. From episode 25 to episode 38, the hosts were 'Dustin Furman', 'Micah Moriarty' and 'Gene Park'. From episode 39, the hosts are 'Brad Ellis', 'Micah Moriarty' and 'Gene Park'. Sometimes there are guests.");
                 break;
+            default:
+                break;
         }
     }
 }

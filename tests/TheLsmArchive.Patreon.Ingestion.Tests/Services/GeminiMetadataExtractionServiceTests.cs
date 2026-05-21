@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Google.GenAI.Types;
 
+using TheLsmArchive.Patreon.Ingestion.Models;
 using TheLsmArchive.Patreon.Ingestion.Services;
 
 namespace TheLsmArchive.Patreon.Ingestion.Tests.Services;
@@ -69,16 +70,17 @@ public class GeminiMetadataExtractionServiceTests
         IsType<JsonException>(exception.InnerException);
     }
 
-    private static readonly string[] expected = new[] { "Colin Moriarty", "Chris Ray Gun" };
-    private static readonly string[] expectedArray = new[] { "Dustin Furman" };
-    private static readonly string[] expectedArray0 = new[] { "Game Pass", "PlayStation 5" };
+    private static readonly string[] expected = ["Colin Moriarty", "Chris Ray Gun"];
+    private static readonly string[] expectedArray = ["Dustin Furman"];
+    private static readonly string[] expectedArray0 = ["Game Pass", "PlayStation 5"];
 
     [Fact]
     public void ParseExtractedMetadata_ShouldTrimFilterAndDeduplicateValues()
     {
         // Arrange
         GenerateContentResponse response = CreateResponse(
-            """
+            /*lang=json,strict*/
+                                 """
             {
               "hosts": [" Colin Moriarty ", null, "colin moriarty", "Chris Ray Gun"],
               "guests": [" Dustin Furman ", "COLIN MORIARTY", ""],
@@ -87,7 +89,7 @@ public class GeminiMetadataExtractionServiceTests
             """);
 
         // Act
-        var result = GeminiMetadataExtractionService.ParseExtractedMetadata(response);
+        AiSummary result = GeminiMetadataExtractionService.ParseExtractedMetadata(response);
 
         // Assert
         Equal(expected, result.Hosts.ToArray());
