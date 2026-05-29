@@ -36,9 +36,6 @@ public abstract class EndpointIntegrationTestBase : DatabaseIntegrationTestBase<
     /// <inheritdoc />
     protected override ValueTask InitializeAsyncCore()
     {
-        _originalConnectionString = Environment.GetEnvironmentVariable(ConnectionStringEnvironmentVariableName);
-        Environment.SetEnvironmentVariable(ConnectionStringEnvironmentVariableName, _connectionString);
-
         _webApiFactory = new WebApiFactory(_connectionString);
         HttpClient = _webApiFactory.CreateClient(new WebApplicationFactoryClientOptions
         {
