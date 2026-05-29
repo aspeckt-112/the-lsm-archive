@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\TheLsmArchive.Web.Frontend\TheLsmArchive.Web.Frontend.csproj" />
+    <ProjectReference Include="..\..\src\TheLsmArchive.ApiClient\TheLsmArchive.ApiClient.csproj" />
+    <ProjectReference Include="..\..\src\TheLsmArchive.Models\TheLsmArchive.Models.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="bunit" />
+    <PackageReference Include="MudBlazor" />
+  </ItemGroup>
+
+</Project>
+
+
