@@ -12,11 +12,8 @@ namespace TheLsmArchive.Web.Api.Tests.TestSupport;
 [Collection<IntegrationTestCollectionDefinition>]
 public abstract class EndpointIntegrationTestBase : DatabaseIntegrationTestBase<IntegrationTestFixture>, IAsyncLifetime
 {
-    private const string ConnectionStringEnvironmentVariableName = "ConnectionStrings__thelsmarchive";
-
     private readonly string _connectionString;
     private WebApiFactory? _webApiFactory;
-    private string? _originalConnectionString;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="EndpointIntegrationTestBase"/> class.
@@ -55,9 +52,6 @@ public abstract class EndpointIntegrationTestBase : DatabaseIntegrationTestBase<
             await _webApiFactory.DisposeAsync();
             _webApiFactory = null;
         }
-
-        Environment.SetEnvironmentVariable(ConnectionStringEnvironmentVariableName, _originalConnectionString);
-        _originalConnectionString = null;
     }
 }
 

@@ -380,6 +380,18 @@ public sealed class EpisodeServiceTests(IntegrationTestFixture fixture) : Integr
     }
 
     [Fact]
+    public async Task GetRandomEpisodeId_WhenNoEpisodesExist_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        EpisodeService episodeService = CreateSut();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        // Act & Assert
+        await ThrowsAsync<InvalidOperationException>(
+            () => episodeService.GetRandomEpisodeId(cancellationToken));
+    }
+
+    [Fact]
     public async Task GetRandomEpisodeId_WhenOnlyOneEpisodeExists_ReturnsThatEpisodeId()
     {
         // Arrange
