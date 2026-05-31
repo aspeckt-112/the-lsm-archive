@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
 
 using Serilog;
 
 using TheLsmArchive.Database;
+using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Web.Api.Features.Episodes;
 using TheLsmArchive.Web.Api.Features.Persons;
 using TheLsmArchive.Web.Api.Features.Search;
@@ -102,3 +104,9 @@ static void EnsureConfiguredLogDirectoryExists(WebApplicationBuilder builder)
         Directory.CreateDirectory(logDirectory);
     }
 }
+
+/// <summary>
+/// Exposes the web application's entry point to integration tests.
+/// </summary>
+public partial class Program;
+

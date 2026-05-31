@@ -32,21 +32,6 @@
           "Castle.Core": "5.1.1"
         }
       },
-      "Respawn": {
-        "type": "Direct",
-        "requested": "[7.0.0, )",
-        "resolved": "7.0.0",
-        "contentHash": "AyWlducZGOnmlEVz4PaL3Qv8wcY3ClPZS9CrlDnSVahGd/E9tTEgSFiC8yoV/F6o6P6IYm8xnHFa/vmWT8tfcw=="
-      },
-      "Testcontainers.PostgreSql": {
-        "type": "Direct",
-        "requested": "[4.11.0, )",
-        "resolved": "4.11.0",
-        "contentHash": "OWGi0Og+qFpr2OPDignA74aJSfUd0nvZOaXNGWXwMJR1BvpdzhCNHQB2h7yLSTb0a8JVmmQQ4mUpHAC9q27NLw==",
-        "dependencies": {
-          "Testcontainers": "4.11.0"
-        }
-      },
       "xunit.runner.visualstudio": {
         "type": "Direct",
         "requested": "[3.1.5, )",
@@ -469,14 +454,6 @@
           "Serilog": "4.0.0"
         }
       },
-      "Serilog.Sinks.Console": {
-        "type": "Transitive",
-        "resolved": "6.1.1",
-        "contentHash": "8jbqgjUyZlfCuSTaJk6lOca465OndqOz3KZP6Cryt/IqZYybyBu7GP0fE/AXBzrrQB3EBmQntBFAvMVz1COvAA==",
-        "dependencies": {
-          "Serilog": "4.0.0"
-        }
-      },
       "Serilog.Sinks.Debug": {
         "type": "Transitive",
         "resolved": "3.0.0",
@@ -598,6 +575,14 @@
       "thelsmarchive.models": {
         "type": "Project"
       },
+      "thelsmarchive.testing.database": {
+        "type": "Project",
+        "dependencies": {
+          "Respawn": "[7.0.0, )",
+          "Testcontainers.PostgreSql": "[4.11.0, )",
+          "TheLsmArchive.Database": "[1.0.0, )"
+        }
+      },
       "thelsmarchive.web.api": {
         "type": "Project",
         "dependencies": {
@@ -682,6 +667,12 @@
           "Npgsql": "10.0.2"
         }
       },
+      "Respawn": {
+        "type": "CentralTransitive",
+        "requested": "[7.0.0, )",
+        "resolved": "7.0.0",
+        "contentHash": "AyWlducZGOnmlEVz4PaL3Qv8wcY3ClPZS9CrlDnSVahGd/E9tTEgSFiC8yoV/F6o6P6IYm8xnHFa/vmWT8tfcw=="
+      },
       "Serilog": {
         "type": "CentralTransitive",
         "requested": "[4.3.1, )",
@@ -737,6 +728,15 @@
           "Serilog": "4.3.0"
         }
       },
+      "Serilog.Sinks.Console": {
+        "type": "CentralTransitive",
+        "requested": "[6.1.1, )",
+        "resolved": "6.1.1",
+        "contentHash": "8jbqgjUyZlfCuSTaJk6lOca465OndqOz3KZP6Cryt/IqZYybyBu7GP0fE/AXBzrrQB3EBmQntBFAvMVz1COvAA==",
+        "dependencies": {
+          "Serilog": "4.0.0"
+        }
+      },
       "Serilog.Sinks.File": {
         "type": "CentralTransitive",
         "requested": "[7.0.0, )",
@@ -744,6 +744,15 @@
         "contentHash": "fKL7mXv7qaiNBUC71ssvn/dU0k9t0o45+qm2XgKAlSt19xF+ijjxyA3R6HmCgfKEKwfcfkwWjayuQtRueZFkYw==",
         "dependencies": {
           "Serilog": "4.2.0"
+        }
+      },
+      "Testcontainers.PostgreSql": {
+        "type": "CentralTransitive",
+        "requested": "[4.11.0, )",
+        "resolved": "4.11.0",
+        "contentHash": "OWGi0Og+qFpr2OPDignA74aJSfUd0nvZOaXNGWXwMJR1BvpdzhCNHQB2h7yLSTb0a8JVmmQQ4mUpHAC9q27NLw==",
+        "dependencies": {
+          "Testcontainers": "4.11.0"
         }
       }
     }

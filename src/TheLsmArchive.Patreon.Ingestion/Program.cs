@@ -16,8 +16,9 @@ using Polly.Timeout;
 using Serilog;
 
 using TheLsmArchive.Database;
-using TheLsmArchive.Patreon.Ingestion;
 using TheLsmArchive.Patreon.Ingestion.Options;
+using TheLsmArchive.Patreon.Ingestion.Parsers;
+using TheLsmArchive.Patreon.Ingestion.Parsers.Abstractions;
 using TheLsmArchive.Patreon.Ingestion.Services;
 using TheLsmArchive.Patreon.Ingestion.Services.Abstractions;
 
@@ -50,25 +51,16 @@ builder.Services.AddOptionsWithValidateOnStart<PatreonIngestionOptions>()
     .ValidateDataAnnotations();
 
 builder.Services
-    .AddSingleton<IAiSummaryService, GeminiSummaryService>()
-    .AddHostedService<PatreonIngestionService>()
-    .AddSingleton<PatreonRssParser>()
-    .AddSingleton<PromptService>();
+    .AddHostedService<PatreonIngestionWorker>()
+    .AddSingleton<IMetadataExtractionService, GeminiMetadataExtractionService>()
+    .AddSingleton<MetadataExtractionPromptBuilder>()
+    .AddSingleton<IPatreonFeedProcessingService, PatreonFeedProcessingService>();
 
 builder.Services.AddResiliencePipeline(
-   Constants.AiSummaryPipelineName,
+    nameof(GeminiMetadataExtractionService),
     resiliencePipelineBuilder =>
     {
         resiliencePipelineBuilder
-            .AddRateLimiter(new SlidingWindowRateLimiter(
-                new SlidingWindowRateLimiterOptions
-                {
-                    Window = TimeSpan.FromMinutes(1),
-                    SegmentsPerWindow = 60, // 60 segments of 1 second each
-                    PermitLimit = 1000, // Max 1000 requests per minute (Gemini Flash limit)
-                    QueueLimit = 100
-                }))
-            .AddTimeout(TimeSpan.FromSeconds(3600)) // 1 hour timeout
             .AddRetry(new RetryStrategyOptions
             {
                 MaxRetryAttempts = 3,
@@ -77,14 +69,22 @@ builder.Services.AddResiliencePipeline(
                 UseJitter = true,
                 ShouldHandle = new PredicateBuilder()
                     .Handle<HttpRequestException>()
-                    .Handle<InvalidOperationException>()
                     .Handle<TimeoutRejectedException>()
-                    .Handle<RateLimiterRejectedException>() // Retry on rate limit rejections
-            });
+                    .Handle<RateLimiterRejectedException>()
+            })
+            .AddTimeout(TimeSpan.FromSeconds(3600)) // 1 hour timeout
+            .AddRateLimiter(new SlidingWindowRateLimiter(
+                new SlidingWindowRateLimiterOptions
+                {
+                    Window = TimeSpan.FromMinutes(1),
+                    SegmentsPerWindow = 60, // 60 segments of 1 second each
+                    PermitLimit = 1000, // Max 1000 requests per minute (Gemini Flash limit)
+                    QueueLimit = 100
+                }));
     });
 
 builder.Services
-    .AddHttpClient<PatreonRssParser>(client =>
+    .AddHttpClient<IPatreonRssParser, PatreonRssParser>(client =>
     {
         client.DefaultRequestHeaders.UserAgent.Clear();
 
@@ -105,11 +105,9 @@ builder.Services.AddSingleton(sp =>
     IOptions<GeminiOptions> options = sp.GetRequiredService<IOptions<GeminiOptions>>();
     GeminiOptions optionsValue = options.Value;
 
-    const int oneHourInMilliseconds = 3_600_000;
-
     HttpOptions httpOptions = new()
     {
-        Timeout = oneHourInMilliseconds
+        Timeout = optionsValue.TimeoutInMilliseconds
     };
 
     return new Google.GenAI.Client(apiKey: optionsValue.ApiKey, httpOptions: httpOptions);
@@ -120,6 +118,7 @@ builder.Services.AddDbContextFactory(builder.Configuration);
 IHost host = builder.Build();
 
 await host.RunAsync();
+
 
 static void EnsureConfiguredLogDirectoryExists(HostApplicationBuilder builder)
 {

@@ -1,5 +1,8 @@
 using System.Linq.Expressions;
 
+using Microsoft.EntityFrameworkCore;
+
+using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
 using TheLsmArchive.Web.Api.Infrastructure;
 
