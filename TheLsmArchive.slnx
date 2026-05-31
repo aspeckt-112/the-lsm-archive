@@ -20,6 +20,7 @@
     <File Path="global.json" />
     <File Path="LICENSE" />
     <File Path="README.md" />
+    <File Path="version.json" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/TheLsmArchive.ApiClient/TheLsmArchive.ApiClient.csproj" />
