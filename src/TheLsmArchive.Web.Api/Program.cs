@@ -14,12 +14,12 @@ using TheLsmArchive.Web.Api.Infrastructure;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-EnsureConfiguredLogDirectoryExists(builder);
-
 builder.Services.AddSerilog((services, loggerConfiguration) => loggerConfiguration
     .ReadFrom.Configuration(builder.Configuration)
     .ReadFrom.Services(services)
     .Enrich.FromLogContext());
+
+builder.WebHost.UseSentry();
 
 builder.Services
     .AddDbContext(builder.Configuration, ServiceLifetime.Scoped)
@@ -83,27 +83,6 @@ app
     .AddSystemEndpoints();
 
 await app.RunAsync();
-
-static void EnsureConfiguredLogDirectoryExists(WebApplicationBuilder builder)
-{
-    string? configuredPath = builder.Configuration["Serilog:WriteTo:FileSink:Args:path"];
-
-    if (string.IsNullOrWhiteSpace(configuredPath))
-    {
-        return;
-    }
-
-    string fullPath = Path.IsPathRooted(configuredPath)
-        ? configuredPath
-        : Path.Combine(builder.Environment.ContentRootPath, configuredPath);
-
-    string? logDirectory = Path.GetDirectoryName(fullPath);
-
-    if (!string.IsNullOrWhiteSpace(logDirectory))
-    {
-        Directory.CreateDirectory(logDirectory);
-    }
-}
 
 /// <summary>
 /// Exposes the web application's entry point to integration tests.

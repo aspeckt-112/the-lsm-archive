@@ -7,7 +7,7 @@ namespace TheLsmArchive.Web.Api.Features.System;
 /// <summary>
 /// The implementation of the <see cref="ISystemService"/> interface to provide system-related functionalities.
 /// </summary>
-public sealed class SystemService : ISystemService
+public sealed partial class SystemService : ISystemService
 {
     private readonly ILogger<SystemService> _logger;
     private readonly LsmArchiveDbContext _dbContext;
@@ -28,7 +28,7 @@ public sealed class SystemService : ISystemService
     /// <inheritdoc />
     public Task<DateTimeOffset> GetLastDataSyncDateTimeAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Getting the date and time of the last data synchronization.");
+        LogGettingLastDataSyncDateTime();
 
         return _dbContext.PatreonPosts
             .AsNoTracking()
@@ -37,4 +37,7 @@ public sealed class SystemService : ISystemService
             .Select(p => p.Published)
             .FirstAsync(cancellationToken);
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting the date and time of the last data synchronization.")]
+    private partial void LogGettingLastDataSyncDateTime();
 }

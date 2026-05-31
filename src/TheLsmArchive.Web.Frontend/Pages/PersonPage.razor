@@ -438,7 +438,7 @@
             },
             () =>
             {
-                Logger.LogWarning("No person found with ID {Id}.", Id);
+                LogPersonNotFound(Logger, Id);
                 return Task.CompletedTask;
             });
     }
@@ -456,7 +456,7 @@
             },
             () =>
             {
-                Logger.LogWarning("No person details found for person ID {Id}.", Id);
+                LogPersonDetailsNotFound(Logger, Id);
                 return Task.CompletedTask;
             });
     }
@@ -474,7 +474,7 @@
             },
             () =>
             {
-                Logger.LogInformation("No latest episode found for person ID {Id}.", Id);
+                LogNoLatestEpisode(Logger, Id);
                 return Task.CompletedTask;
             });
     }

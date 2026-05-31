@@ -148,7 +148,7 @@
             () =>
             {
                 // TODO Figure out how to handle no content (e.g., show a "not found" message)
-                Logger.LogWarning("No episode found with ID {Id}.", Id);
+                LogEpisodeNotFound(Logger, Id);
                 return Task.CompletedTask;
             });
     }
@@ -166,7 +166,7 @@
             },
             () =>
             {
-                Logger.LogWarning("No topics found for episode ID {Id}.", Id);
+                LogNoTopicsForEpisode(Logger, Id);
                 return Task.CompletedTask;
             });
     }
@@ -184,7 +184,7 @@
             },
             () =>
             {
-                Logger.LogWarning("No persons found for episode ID {Id}.", Id);
+                LogNoPersonsForEpisode(Logger, Id);
                 return Task.CompletedTask;
             });
     }

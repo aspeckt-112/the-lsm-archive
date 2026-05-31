@@ -10,7 +10,7 @@ namespace TheLsmArchive.Web.Api.Features.Persons;
 /// <summary>
 /// The person service.
 /// </summary>
-public sealed class PersonService : IPersonService
+public sealed partial class PersonService : IPersonService
 {
     private readonly ILogger<PersonService> _logger;
 
@@ -37,7 +37,7 @@ public sealed class PersonService : IPersonService
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
 
-        _logger.LogInformation("Getting person with ID: {Id}", id);
+        LogGettingPersonById(id);
 
         Expression<Func<PersonEntity, Person>> mapToPerson =
             mapToPerson => new Person(
@@ -57,7 +57,7 @@ public sealed class PersonService : IPersonService
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
 
-        _logger.LogInformation("Getting details for person with ID: {Id}", id);
+        LogGettingPersonDetailsById(id);
 
         var result = await _dbContext.Persons
         .AsNoTracking()
@@ -87,7 +87,7 @@ public sealed class PersonService : IPersonService
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
 
-        _logger.LogInformation("Getting people for episode with ID: {Id}", id);
+        LogGettingPersonsForEpisodeId(id);
 
         Expression<Func<PersonEpisodeEntity, Person>> mapToPerson =
             mapToPerson => new Person(
@@ -102,4 +102,13 @@ public sealed class PersonService : IPersonService
             .Select(mapToPerson)
             .ToListAsync(cancellationToken);
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting person with ID: {Id}")]
+    private partial void LogGettingPersonById(int id);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting details for person with ID: {Id}")]
+    private partial void LogGettingPersonDetailsById(int id);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting people for episode with ID: {Id}")]
+    private partial void LogGettingPersonsForEpisodeId(int id);
 }

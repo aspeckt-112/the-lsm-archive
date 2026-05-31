@@ -11,7 +11,7 @@ namespace TheLsmArchive.Web.Api.Features.Topics;
 /// <summary>
 /// The topic service.
 /// </summary>
-public sealed class TopicService : ITopicService
+public sealed partial class TopicService : ITopicService
 {
     private readonly ILogger<TopicService> _logger;
     private readonly LsmArchiveDbContext _dbContext;
@@ -37,7 +37,7 @@ public sealed class TopicService : ITopicService
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
 
-        _logger.LogInformation("Getting topic with ID: {Id}", id);
+        LogGettingTopicById(id);
 
         Expression<Func<TopicEntity, Topic>> mapToTopic =
             topic => new Topic(
@@ -63,7 +63,7 @@ public sealed class TopicService : ITopicService
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
         ArgumentNullException.ThrowIfNull(pagedRequest);
 
-        _logger.LogInformation("Getting timeline for topic with ID: {Id}", id);
+        LogGettingTopicTimeline(id);
 
         bool topicExists = await _dbContext.Topics
             .AsNoTracking()
@@ -145,7 +145,7 @@ public sealed class TopicService : ITopicService
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
 
-        _logger.LogInformation("Getting topics for episode with ID: {Id}", id);
+        LogGettingTopicsForEpisodeId(id);
 
         Expression<Func<TopicEpisodeEntity, Topic>> mapToTopic =
             topicEpisode => new Topic(
@@ -169,7 +169,7 @@ public sealed class TopicService : ITopicService
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
 
-        _logger.LogInformation("Getting most discussed topics for person with ID: {Id}", id);
+        LogGettingMostDiscussedTopicsForPerson(id);
 
         const int mostDiscussedTopicCount = 25;
 
@@ -204,7 +204,7 @@ public sealed class TopicService : ITopicService
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
 
-        _logger.LogInformation("Getting most discussed alongside topics for topic with ID: {Id}", id);
+        LogGettingMostDiscussedAlongsideTopicsForTopic(id);
 
         const int mostDiscussedAlongsideCount = 25;
 
@@ -244,7 +244,7 @@ public sealed class TopicService : ITopicService
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
         ArgumentNullException.ThrowIfNull(pagedRequest);
 
-        _logger.LogInformation("Getting topics for person with ID: {Id}", id);
+        LogGettingTopicsForPersonId(id);
 
         Expression<Func<PersonTopicEntity, Topic>> mapToTopic =
             personTopic => new Topic(
@@ -274,4 +274,22 @@ public sealed class TopicService : ITopicService
 
         return new PagedResponse<Topic>(items, totalCount, pagedRequest.PageNumber, pagedRequest.PageSize);
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting topic with ID: {Id}")]
+    private partial void LogGettingTopicById(int id);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting timeline for topic with ID: {Id}")]
+    private partial void LogGettingTopicTimeline(int id);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting topics for episode with ID: {Id}")]
+    private partial void LogGettingTopicsForEpisodeId(int id);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting most discussed topics for person with ID: {Id}")]
+    private partial void LogGettingMostDiscussedTopicsForPerson(int id);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting most discussed alongside topics for topic with ID: {Id}")]
+    private partial void LogGettingMostDiscussedAlongsideTopicsForTopic(int id);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting topics for person with ID: {Id}")]
+    private partial void LogGettingTopicsForPersonId(int id);
 }

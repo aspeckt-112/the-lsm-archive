@@ -11,7 +11,7 @@ namespace TheLsmArchive.Web.Api.Features.Episodes;
 /// <summary>
 /// The episode service.
 /// </summary>
-public sealed class EpisodeService : IEpisodeService
+public sealed partial class EpisodeService : IEpisodeService
 {
     private readonly ILogger<EpisodeService> _logger;
 
@@ -36,7 +36,7 @@ public sealed class EpisodeService : IEpisodeService
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
 
-        _logger.LogInformation("Getting episode with ID: {Id}", id);
+        LogGettingEpisodeById(id);
 
         Expression<Func<EpisodeEntity, Episode>> mapToEpisode =
             episode => new Episode(
@@ -66,7 +66,7 @@ public sealed class EpisodeService : IEpisodeService
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
         ArgumentNullException.ThrowIfNull(pagedRequest);
 
-        _logger.LogInformation("Getting episodes for person with ID: {Id}", id);
+        LogGettingEpisodesForPersonId(id);
 
         IQueryable<PersonEpisodeEntity> baseQuery = _dbContext.PersonEpisodes
             .AsNoTracking()
@@ -113,7 +113,7 @@ public sealed class EpisodeService : IEpisodeService
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(id);
 
-        _logger.LogInformation("Getting most recent episode for person with ID: {Id}", id);
+        LogGettingMostRecentEpisodeForPersonId(id);
 
         Expression<Func<PersonEpisodeEntity, Episode>> mapToEpisode =
             personEpisode => new Episode(
@@ -137,7 +137,7 @@ public sealed class EpisodeService : IEpisodeService
     public Task<List<Episode>> GetRecent(
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Getting recent episodes from the last 7 days.");
+        LogGettingRecentEpisodes();
 
         DateTimeOffset lastWeek = DateTimeOffset.UtcNow.AddDays(-7);
 
@@ -164,7 +164,7 @@ public sealed class EpisodeService : IEpisodeService
     {
         // Make the assumption that at least one episode will exist in the database.
 
-        _logger.LogInformation("Getting a random existing episode ID.");
+        LogGettingRandomEpisodeId();
 
         var bounds = await _dbContext.Episodes
             .AsNoTracking()
@@ -184,4 +184,19 @@ public sealed class EpisodeService : IEpisodeService
         .Select(x => x.Id)
         .FirstAsync(cancellationToken);
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting episode with ID: {Id}")]
+    private partial void LogGettingEpisodeById(int id);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting episodes for person with ID: {Id}")]
+    private partial void LogGettingEpisodesForPersonId(int id);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting most recent episode for person with ID: {Id}")]
+    private partial void LogGettingMostRecentEpisodeForPersonId(int id);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting recent episodes from the last 7 days.")]
+    private partial void LogGettingRecentEpisodes();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting a random existing episode ID.")]
+    private partial void LogGettingRandomEpisodeId();
 }

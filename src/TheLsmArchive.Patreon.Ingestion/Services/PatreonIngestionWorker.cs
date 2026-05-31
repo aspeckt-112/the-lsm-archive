@@ -12,7 +12,7 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 /// <summary>
 /// The background worker responsible for orchestrating Patreon RSS feed ingestion and processing.
 /// </summary>
-public sealed class PatreonIngestionWorker : BackgroundService
+public sealed partial class PatreonIngestionWorker : BackgroundService
 {
     private readonly ILogger<PatreonIngestionWorker> _logger;
     private readonly IPatreonRssParser _rssParser;
@@ -56,9 +56,7 @@ public sealed class PatreonIngestionWorker : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(
-                    ex,
-                    "Patreon ingestion cycle failed. The worker will retry after the configured delay.");
+                LogIngestionCycleFailed(ex);
             }
 
             if (!await WaitForNextCycleAsync(stoppingToken))
@@ -70,9 +68,7 @@ public sealed class PatreonIngestionWorker : BackgroundService
 
     private async Task RunIngestionCycleAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation(
-            "Starting Patreon ingestion cycle. Next run in {IntervalMinutes} minutes.",
-            _ingestionInterval.TotalMinutes);
+        LogStartingIngestionCycle(_ingestionInterval.TotalMinutes);
 
         foreach (RssFeedSource source in _sources)
         {
@@ -96,10 +92,7 @@ public sealed class PatreonIngestionWorker : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(
-                ex,
-                "Failed to parse Patreon source '{SourceName}'. Continuing with the next source.",
-                source.Name);
+            LogSourceParseFailed(ex, source.Name);
         }
     }
 
@@ -115,10 +108,7 @@ public sealed class PatreonIngestionWorker : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(
-                ex,
-                "Failed to process Patreon feed '{FeedTitle}'. Continuing with the next feed.",
-                feed.Title);
+            LogFeedProcessingFailed(ex, feed.Title);
         }
     }
 
@@ -139,4 +129,16 @@ public sealed class PatreonIngestionWorker : BackgroundService
             return false;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Patreon ingestion cycle failed. The worker will retry after the configured delay.")]
+    private partial void LogIngestionCycleFailed(Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Starting Patreon ingestion cycle. Next run in {IntervalMinutes} minutes.")]
+    private partial void LogStartingIngestionCycle(double intervalMinutes);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to parse Patreon source '{SourceName}'. Continuing with the next source.")]
+    private partial void LogSourceParseFailed(Exception exception, string sourceName);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to process Patreon feed '{FeedTitle}'. Continuing with the next feed.")]
+    private partial void LogFeedProcessingFailed(Exception exception, string feedTitle);
 }

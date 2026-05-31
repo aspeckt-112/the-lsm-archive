@@ -24,7 +24,7 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 /// <summary>
 /// The Gemini metadata extraction service implementation.
 /// </summary>
-public sealed class GeminiMetadataExtractionService : IMetadataExtractionService
+public sealed partial class GeminiMetadataExtractionService : IMetadataExtractionService
 {
     private const string HostsPropertyName = "hosts";
     private const string GuestsPropertyName = "guests";
@@ -141,16 +141,12 @@ public sealed class GeminiMetadataExtractionService : IMetadataExtractionService
                     }
                     catch (InvalidDataException ex)
                     {
-                        _logger.LogWarning(
-                            "Gemini returned invalid metadata for post {PostId}: {ErrorMessage}",
-                            patreonPost.Id,
-                            ex.Message);
-
+                        LogGeminiInvalidMetadata(patreonPost.Id, ex.Message);
                         throw;
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to extract metadata for post {Title}", patreonPost.Title);
+                        LogMetadataExtractionFailed(ex, patreonPost.Title);
                         throw;
                     }
                 },
@@ -234,5 +230,11 @@ public sealed class GeminiMetadataExtractionService : IMetadataExtractionService
                 .Distinct(StringComparer.OrdinalIgnoreCase)
         ];
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Gemini returned invalid metadata for post {PostId}: {ErrorMessage}")]
+    private partial void LogGeminiInvalidMetadata(int postId, string errorMessage);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to extract metadata for post {Title}")]
+    private partial void LogMetadataExtractionFailed(Exception exception, string title);
 }
 
