@@ -384,7 +384,7 @@
                 },
                 onNoContent: () =>
                 {
-                    Logger.LogWarning("No episodes available for random navigation.");
+                    LogNoEpisodesAvailable(Logger);
                     return Task.CompletedTask;
                 });
         }
@@ -463,7 +463,7 @@
 
     private void OnViewClicked(int id, EntityType entityType)
     {
-        Logger.LogInformation("Navigating to {EntityType} with ID {Id}", entityType, id);
+        LogNavigatingToEntity(Logger, entityType, id);
 
         var url = entityType switch
         {

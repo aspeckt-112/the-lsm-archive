@@ -11,7 +11,7 @@ namespace TheLsmArchive.ApiClient.Services;
 /// <summary>
 /// The LSM Archive API client service.
 /// </summary>
-public class LsmArchiveClientService : ILsmArchiveClientService
+public partial class LsmArchiveClientService : ILsmArchiveClientService
 {
     private const string SearchRoute = "search";
 
@@ -55,7 +55,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
         SearchRequest request,
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Searching the LSM Archive with request: {Request}", request);
+        LogSearchingArchive(request);
 
         using HttpRequestMessage requestMessage = BuildGetRequestMessageFor(
             SearchRoute,
@@ -76,7 +76,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     {
         ArgumentOutOfRangeException.ThrowIfNegative(personId);
 
-        _logger.LogInformation("Getting person with ID: {PersonId}", personId);
+        LogGettingPersonById(personId);
 
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{PersonRoute}/{personId}");
 
@@ -95,7 +95,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     {
         ArgumentOutOfRangeException.ThrowIfNegative(personId);
 
-        _logger.LogInformation("Getting most discussed topics for person with ID: {PersonId}", personId);
+        LogGettingMostDiscussedTopicsByPerson(personId);
 
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{PersonRoute}/{personId}/topics/most-discussed");
 
@@ -112,7 +112,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     {
         ArgumentOutOfRangeException.ThrowIfNegative(personId);
 
-        _logger.LogInformation("Getting person details with ID: {PersonId}", personId);
+        LogGettingPersonDetailsById(personId);
 
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{PersonRoute}/{personId}/details");
 
@@ -130,7 +130,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
         CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(personId);
-        _logger.LogInformation("Getting latest episode for person with ID: {PersonId}", personId);
+        LogGettingLatestEpisodeByPerson(personId);
 
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{PersonRoute}/{personId}/episodes/latest");
 
@@ -152,7 +152,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
         ArgumentOutOfRangeException.ThrowIfNegative(personId);
         ArgumentNullException.ThrowIfNull(pagedRequest);
 
-        _logger.LogInformation("Getting topics for person with ID: {PersonId}", personId);
+        LogGettingTopicsByPerson(personId);
 
         string queryString = $"{pagedRequest.ToQueryString()}&sortDescending={sortDescending}";
 
@@ -179,7 +179,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
         ArgumentOutOfRangeException.ThrowIfNegative(personId);
         ArgumentNullException.ThrowIfNull(pagedRequest);
 
-        _logger.LogInformation("Getting episodes for person with ID: {PersonId}", personId);
+        LogGettingEpisodesByPerson(personId);
 
         string queryString = $"{pagedRequest.ToQueryString()}&sortDescending={sortDescending}";
 
@@ -202,7 +202,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     {
         ArgumentOutOfRangeException.ThrowIfNegative(topicId);
 
-        _logger.LogInformation("Getting topic with ID: {TopicId}", topicId);
+        LogGettingTopicById(topicId);
 
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{TopicRoute}/{topicId}");
 
@@ -225,7 +225,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
         ArgumentOutOfRangeException.ThrowIfNegative(topicId);
         ArgumentNullException.ThrowIfNull(pagedRequest);
 
-        _logger.LogInformation("Getting timeline for topic with ID: {TopicId}", topicId);
+        LogGettingTopicTimelineById(topicId);
 
         string queryString = $"{pagedRequest.ToQueryString()}&sortDescending={sortDescending}";
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor(
@@ -247,7 +247,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     {
         ArgumentOutOfRangeException.ThrowIfNegative(topicId);
 
-        _logger.LogInformation("Getting most discussed alongside topics for topic with ID: {TopicId}", topicId);
+        LogGettingMostDiscussedAlongsideTopicsByTopic(topicId);
 
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{TopicRoute}/{topicId}/most-discussed-alongside");
 
@@ -266,7 +266,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     {
         ArgumentOutOfRangeException.ThrowIfNegative(episodeId);
 
-        _logger.LogInformation("Getting episode with ID: {EpisodeId}", episodeId);
+        LogGettingEpisodeById(episodeId);
 
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{EpisodesRoute}/{episodeId}");
 
@@ -283,7 +283,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     {
         ArgumentOutOfRangeException.ThrowIfNegative(episodeId);
 
-        _logger.LogInformation("Getting people for episode with ID: {EpisodeId}", episodeId);
+        LogGettingPersonsByEpisode(episodeId);
 
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor(
             $"{EpisodesRoute}/{episodeId}/people");
@@ -301,7 +301,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     {
         ArgumentOutOfRangeException.ThrowIfNegative(episodeId);
 
-        _logger.LogInformation("Getting topics for episode with ID: {EpisodeId}", episodeId);
+        LogGettingTopicsByEpisode(episodeId);
 
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor(
             $"{EpisodesRoute}/{episodeId}/topics");
@@ -316,7 +316,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     /// <inheritdoc />
     public Task<Result<List<Episode>>> GetRecentEpisodes(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Getting the most recent episodes from the last 7 days.");
+        LogGettingRecentEpisodes();
 
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{EpisodesRoute}/recent");
 
@@ -330,7 +330,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     /// <inheritdoc />
     public Task<Result<int>> GetRandomEpisodeId(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Getting a random episode ID.");
+        LogGettingRandomEpisodeId();
 
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{EpisodesRoute}/random");
 
@@ -344,7 +344,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
     /// <inheritdoc />
     public Task<Result<DateTimeOffset>> GetLastDataSyncDateTimeAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Getting the date and time of the last data synchronization.");
+        LogGettingLastDataSync();
 
         HttpRequestMessage requestMessage = BuildGetRequestMessageFor($"{SystemRoute}/last-data-sync");
 
@@ -386,7 +386,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
 
             if (string.IsNullOrWhiteSpace(content))
             {
-                _logger.LogInformation("No content returned for request: {Request}", requestMessage.RequestUri);
+                LogNoContentReturned(requestMessage.RequestUri);
                 return Result<T>.None();
             }
 
@@ -394,7 +394,7 @@ public class LsmArchiveClientService : ILsmArchiveClientService
 
             if (!hasContent(result))
             {
-                _logger.LogInformation("No valid result found for request: {Request}", requestMessage.RequestUri);
+                LogNoValidResultFound(requestMessage.RequestUri);
                 return Result<T>.None();
             }
 
@@ -402,8 +402,65 @@ public class LsmArchiveClientService : ILsmArchiveClientService
         }
         catch (Exception e)
         {
-            _logger.LogError(e, "Error occurred while executing request: {Request}", requestMessage.RequestUri);
+            LogRequestFailed(e, requestMessage.RequestUri);
             return Result<T>.Fail(e.Message);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Searching the LSM Archive with request: {Request}")]
+    private partial void LogSearchingArchive(SearchRequest request);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting person with ID: {PersonId}")]
+    private partial void LogGettingPersonById(int personId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting most discussed topics for person with ID: {PersonId}")]
+    private partial void LogGettingMostDiscussedTopicsByPerson(int personId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting person details with ID: {PersonId}")]
+    private partial void LogGettingPersonDetailsById(int personId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting latest episode for person with ID: {PersonId}")]
+    private partial void LogGettingLatestEpisodeByPerson(int personId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting topics for person with ID: {PersonId}")]
+    private partial void LogGettingTopicsByPerson(int personId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting episodes for person with ID: {PersonId}")]
+    private partial void LogGettingEpisodesByPerson(int personId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting topic with ID: {TopicId}")]
+    private partial void LogGettingTopicById(int topicId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting timeline for topic with ID: {TopicId}")]
+    private partial void LogGettingTopicTimelineById(int topicId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting most discussed alongside topics for topic with ID: {TopicId}")]
+    private partial void LogGettingMostDiscussedAlongsideTopicsByTopic(int topicId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting episode with ID: {EpisodeId}")]
+    private partial void LogGettingEpisodeById(int episodeId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting people for episode with ID: {EpisodeId}")]
+    private partial void LogGettingPersonsByEpisode(int episodeId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting topics for episode with ID: {EpisodeId}")]
+    private partial void LogGettingTopicsByEpisode(int episodeId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting the most recent episodes from the last 7 days.")]
+    private partial void LogGettingRecentEpisodes();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting a random episode ID.")]
+    private partial void LogGettingRandomEpisodeId();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Getting the date and time of the last data synchronization.")]
+    private partial void LogGettingLastDataSync();
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "No content returned for request: {Request}")]
+    private partial void LogNoContentReturned(Uri? request);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "No valid result found for request: {Request}")]
+    private partial void LogNoValidResultFound(Uri? request);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Error occurred while executing request: {Request}")]
+    private partial void LogRequestFailed(Exception exception, Uri? request);
 }

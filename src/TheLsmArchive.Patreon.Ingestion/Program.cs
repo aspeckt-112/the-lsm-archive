@@ -26,8 +26,6 @@ HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
 builder.Configuration.AddUserSecrets<Program>();
 
-EnsureConfiguredLogDirectoryExists(builder);
-
 builder.Services.AddSerilog((services, loggerConfiguration) => loggerConfiguration
     .ReadFrom.Configuration(builder.Configuration)
     .ReadFrom.Services(services)
@@ -118,25 +116,3 @@ builder.Services.AddDbContextFactory(builder.Configuration);
 IHost host = builder.Build();
 
 await host.RunAsync();
-
-
-static void EnsureConfiguredLogDirectoryExists(HostApplicationBuilder builder)
-{
-    string? configuredPath = builder.Configuration["Serilog:WriteTo:FileSink:Args:path"];
-
-    if (string.IsNullOrWhiteSpace(configuredPath))
-    {
-        return;
-    }
-
-    string fullPath = Path.IsPathRooted(configuredPath)
-        ? configuredPath
-        : Path.Combine(builder.Environment.ContentRootPath, configuredPath);
-
-    string? logDirectory = Path.GetDirectoryName(fullPath);
-
-    if (!string.IsNullOrWhiteSpace(logDirectory))
-    {
-        Directory.CreateDirectory(logDirectory);
-    }
-}

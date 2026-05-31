@@ -286,7 +286,7 @@
             },
             () =>
             {
-                Logger.LogWarning("No topic found with ID {Id}.", Id);
+                LogTopicNotFound(Logger, Id);
                 return Task.CompletedTask;
             });
     }
@@ -306,7 +306,7 @@
             },
             () =>
             {
-                Logger.LogWarning("No timeline found for topic ID {Id}.", Id);
+                LogNoTimelineForTopic(Logger, Id);
                 return Task.CompletedTask;
             });
     }

@@ -16,7 +16,7 @@ namespace TheLsmArchive.Patreon.Ingestion.Services;
 /// The service responsible for Patreon feed ingestion, pending-post discovery,
 /// and per-post processing.
 /// </summary>
-public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
+public sealed partial class PatreonFeedProcessingService : IPatreonFeedProcessingService
 {
     private readonly ILogger<PatreonFeedProcessingService> _logger;
     private readonly IDbContextFactory<LsmArchiveDbContext> _dbContextFactory;
@@ -47,7 +47,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
     {
         int showId = await GetOrCreateShowAsync(feed.Title, cancellationToken);
 
-        _logger.LogInformation("Ingesting feed '{FeedTitle}' for show ID {ShowId}", feed.Title, showId);
+        LogIngestingFeed(feed.Title, showId);
 
         await IngestFeedAsync(showId, feed, cancellationToken);
 
@@ -57,9 +57,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
 
         if (retryCount > 0)
         {
-            _logger.LogInformation(
-                "Retrying {RetryCount} posts with previous processing errors",
-                retryCount);
+            LogRetryingPostsWithErrors(retryCount);
         }
 
         int successCount = 0;
@@ -78,16 +76,12 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
             }
             catch (Exception postEx)
             {
-                _logger.LogError(postEx, "Failed to process post '{PostTitle}'", post.Title);
+                LogProcessPostFailed(postEx, post.Title);
                 errorCount++;
             }
         }
 
-        _logger.LogInformation(
-            "Completed processing feed '{FeedTitle}': {SuccessCount} successful, {ErrorCount} failed",
-            feed.Title,
-            successCount,
-            errorCount);
+        LogCompletedFeedProcessing(feed.Title, successCount, errorCount);
     }
 
     /// <summary>
@@ -98,7 +92,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
     /// <returns>The ID of the existing or newly created show.</returns>
     public async Task<int> GetOrCreateShowAsync(string name, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Attempting to get or create show with name '{ShowName}'.", name);
+        LogAttemptingGetOrCreateShow(name);
 
         await using LsmArchiveDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
@@ -107,18 +101,18 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
 
         if (existingShowEntity is not null)
         {
-            _logger.LogInformation("Show '{ShowName}' found with ID {ShowId}.", name, existingShowEntity.Id);
+            LogShowFound(name, existingShowEntity.Id);
             return existingShowEntity.Id;
         }
 
-        _logger.LogInformation("Show '{ShowName}' not found. Creating new show record.", name);
+        LogShowNotFound(name);
 
         ShowEntity newShowEntity = new() { Name = name };
 
         await dbContext.Shows.AddAsync(newShowEntity, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Show '{ShowName}' created with ID {ShowId}.", name, newShowEntity.Id);
+        LogShowCreated(name, newShowEntity.Id);
 
         return newShowEntity.Id;
     }
@@ -131,7 +125,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
     /// <param name="cancellationToken">The cancellation token.</param>
     public async Task IngestFeedAsync(int showId, PatreonFeed feed, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Ingesting feed '{FeedTitle}' for show ID {ShowId}", feed.Title, showId);
+        LogIngestingFeed(feed.Title, showId);
 
         await using LsmArchiveDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
@@ -147,28 +141,19 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
         {
             if (existingPostIds.Contains(post.Id))
             {
-                _logger.LogInformation(
-                    "Post with Patreon ID {PatreonId} already exists for show ID {ShowId}, skipping.",
-                    post.Id,
-                    showId);
+                LogPostAlreadyExists(post.Id, showId);
                 continue;
             }
 
             PatreonPostEntity postEntity = post.ToEntity(showId);
             await dbContext.PatreonPosts.AddAsync(postEntity, cancellationToken);
-            _logger.LogInformation(
-                "Added new post with Patreon ID {PatreonId} for show ID {ShowId}.",
-                post.Id,
-                showId);
+            LogAddedNewPost(post.Id, showId);
         }
 
-        _logger.LogInformation(
-            "Saving changes to the database for feed '{FeedTitle}' and show ID {ShowId}.",
-            feed.Title,
-            showId);
+        LogSavingFeedChanges(feed.Title, showId);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Finished ingesting feed '{FeedTitle}' for show ID {ShowId}.", feed.Title, showId);
+        LogFinishedIngestingFeed(feed.Title, showId);
     }
 
     /// <summary>
@@ -179,7 +164,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
     /// <returns>The pending posts for the show.</returns>
     public async Task<ImmutableList<PendingPost>> GetPendingPostsAsync(int showId, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Retrieving pending posts for show ID {ShowId}.", showId);
+        LogRetrievingPendingPosts(showId);
 
         await using LsmArchiveDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
@@ -191,7 +176,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
             .Select(p => new PendingPost(p.Id, p.Title, p.ProcessingError))
             .ToListAsync(cancellationToken);
 
-        _logger.LogInformation("Retrieved {Count} pending posts for show ID {ShowId}.", pendingPosts.Count, showId);
+        LogRetrievedPendingPosts(pendingPosts.Count, showId);
 
         return [.. pendingPosts];
     }
@@ -215,10 +200,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
 
         if (isRetry)
         {
-            _logger.LogInformation(
-                "Retrying processing for post '{PostTitle}' (previous error: {Error})",
-                pendingPost.Title,
-                pendingPost.ProcessingError);
+            LogRetryingPost(pendingPost.Title, pendingPost.ProcessingError);
         }
 
         await using (LsmArchiveDbContext setupDbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken))
@@ -266,7 +248,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
                         continue;
                     }
 
-                    _logger.LogInformation("Processing person '{Person}'", name);
+                    LogProcessingPerson(name);
                     personIds.Add(await GetOrCreatePersonAsync(dbContext, name, cancellationToken));
                 }
 
@@ -282,7 +264,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
                         continue;
                     }
 
-                    _logger.LogInformation("Processing topic '{Topic}'", name);
+                    LogProcessingTopic(name);
                     topicIds.Add(await GetOrCreateTopicAsync(dbContext, name, cancellationToken));
                 }
 
@@ -295,7 +277,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
 
                 await transaction.CommitAsync(cancellationToken);
 
-                _logger.LogInformation("Successfully processed post '{PostTitle}'", pendingPost.Title);
+                LogPostProcessingSuccess(pendingPost.Title);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -304,10 +286,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
             }
             catch (Exception ex)
             {
-                _logger.LogError(
-                    ex,
-                    "Failed to process post '{PostTitle}'. Error will be saved for retry.",
-                    pendingPost.Title);
+                LogPostProcessingFailedSaving(ex, pendingPost.Title);
 
                 await transaction.RollbackAsync(cancellationToken);
 
@@ -329,11 +308,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
 
         if (existingEpisode is not null)
         {
-            _logger.LogInformation(
-                "Episode for post '{PostTitle}' already exists with ID {EpisodeId}",
-                post.Title,
-                existingEpisode.Id);
-
+            LogEpisodeAlreadyExists(post.Title, existingEpisode.Id);
             return existingEpisode.Id;
         }
 
@@ -365,12 +340,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
 
         if (person is not null)
         {
-            _logger.LogInformation(
-                "Person '{Person}' already exists with ID {PersonId} (normalized key: {NormalizedName})",
-                name,
-                person.Id,
-                normalizedName);
-
+            LogPersonAlreadyExists(name, person.Id, normalizedName);
             return person.Id;
         }
 
@@ -382,12 +352,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
 
         if (person is not null)
         {
-            _logger.LogInformation(
-                "Fuzzy matched person '{InputName}' to existing person '{MatchedName}' (ID {PersonId})",
-                name,
-                person.Name,
-                person.Id);
-
+            LogFuzzyMatchedPerson(name, person.Name, person.Id);
             return person.Id;
         }
 
@@ -412,12 +377,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
 
         if (topic is not null)
         {
-            _logger.LogInformation(
-                "Topic '{TopicName}' already exists with ID {TopicId} (normalized key: {NormalizedName})",
-                name,
-                topic.Id,
-                normalizedName);
-
+            LogTopicAlreadyExists(name, topic.Id, normalizedName);
             return topic.Id;
         }
 
@@ -429,12 +389,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
 
         if (topic is not null)
         {
-            _logger.LogInformation(
-                "Fuzzy matched topic '{InputName}' to existing topic '{MatchedName}' (ID {TopicId})",
-                name,
-                topic.Name,
-                topic.Id);
-
+            LogFuzzyMatchedTopic(name, topic.Name, topic.Id);
             return topic.Id;
         }
 
@@ -571,7 +526,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
 
         if (!showExists)
         {
-            _logger.LogError("Show with ID {ShowId} does not exist in the database.", showId);
+            LogShowDoesNotExist(showId);
             throw new InvalidOperationException($"Show with ID {showId} does not exist in the database.");
         }
     }
@@ -604,4 +559,79 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
 
         return (persons, topics);
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Ingesting feed '{FeedTitle}' for show ID {ShowId}")]
+    private partial void LogIngestingFeed(string feedTitle, int showId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Retrying {RetryCount} posts with previous processing errors")]
+    private partial void LogRetryingPostsWithErrors(int retryCount);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to process post '{PostTitle}'")]
+    private partial void LogProcessPostFailed(Exception exception, string postTitle);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Completed processing feed '{FeedTitle}': {SuccessCount} successful, {ErrorCount} failed")]
+    private partial void LogCompletedFeedProcessing(string feedTitle, int successCount, int errorCount);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Attempting to get or create show with name '{ShowName}'.")]
+    private partial void LogAttemptingGetOrCreateShow(string showName);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Show '{ShowName}' found with ID {ShowId}.")]
+    private partial void LogShowFound(string showName, int showId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Show '{ShowName}' not found. Creating new show record.")]
+    private partial void LogShowNotFound(string showName);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Show '{ShowName}' created with ID {ShowId}.")]
+    private partial void LogShowCreated(string showName, int showId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Post with Patreon ID {PatreonId} already exists for show ID {ShowId}, skipping.")]
+    private partial void LogPostAlreadyExists(int patreonId, int showId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Added new post with Patreon ID {PatreonId} for show ID {ShowId}.")]
+    private partial void LogAddedNewPost(int patreonId, int showId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Saving changes to the database for feed '{FeedTitle}' and show ID {ShowId}.")]
+    private partial void LogSavingFeedChanges(string feedTitle, int showId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Finished ingesting feed '{FeedTitle}' for show ID {ShowId}.")]
+    private partial void LogFinishedIngestingFeed(string feedTitle, int showId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Retrieving pending posts for show ID {ShowId}.")]
+    private partial void LogRetrievingPendingPosts(int showId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Retrieved {Count} pending posts for show ID {ShowId}.")]
+    private partial void LogRetrievedPendingPosts(int count, int showId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Retrying processing for post '{PostTitle}' (previous error: {Error})")]
+    private partial void LogRetryingPost(string postTitle, string? error);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Processing person '{Person}'")]
+    private partial void LogProcessingPerson(string person);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Processing topic '{Topic}'")]
+    private partial void LogProcessingTopic(string topic);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Successfully processed post '{PostTitle}'")]
+    private partial void LogPostProcessingSuccess(string postTitle);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to process post '{PostTitle}'. Error will be saved for retry.")]
+    private partial void LogPostProcessingFailedSaving(Exception exception, string postTitle);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Episode for post '{PostTitle}' already exists with ID {EpisodeId}")]
+    private partial void LogEpisodeAlreadyExists(string postTitle, int episodeId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Person '{Person}' already exists with ID {PersonId} (normalized key: {NormalizedName})")]
+    private partial void LogPersonAlreadyExists(string person, int personId, string normalizedName);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Fuzzy matched person '{InputName}' to existing person '{MatchedName}' (ID {PersonId})")]
+    private partial void LogFuzzyMatchedPerson(string inputName, string matchedName, int personId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Topic '{TopicName}' already exists with ID {TopicId} (normalized key: {NormalizedName})")]
+    private partial void LogTopicAlreadyExists(string topicName, int topicId, string normalizedName);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Fuzzy matched topic '{InputName}' to existing topic '{MatchedName}' (ID {TopicId})")]
+    private partial void LogFuzzyMatchedTopic(string inputName, string matchedName, int topicId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Show with ID {ShowId} does not exist in the database.")]
+    private partial void LogShowDoesNotExist(int showId);
 }

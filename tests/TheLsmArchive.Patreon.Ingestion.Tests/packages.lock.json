@@ -710,11 +710,11 @@
           "Microsoft.Extensions.Hosting": "[10.0.5, )",
           "Microsoft.Extensions.Http.Resilience": "[10.4.0, )",
           "Microsoft.Extensions.Options.DataAnnotations": "[10.0.5, )",
+          "Sentry.Serilog": "[6.6.0, )",
           "Serilog": "[4.3.1, )",
           "Serilog.Extensions.Hosting": "[10.0.0, )",
           "Serilog.Settings.Configuration": "[10.0.0, )",
           "Serilog.Sinks.Console": "[6.1.1, )",
-          "Serilog.Sinks.File": "[7.0.0, )",
           "TheLsmArchive.Database": "[1.0.0, )"
         }
       },
@@ -851,6 +851,22 @@
         "resolved": "7.0.0",
         "contentHash": "AyWlducZGOnmlEVz4PaL3Qv8wcY3ClPZS9CrlDnSVahGd/E9tTEgSFiC8yoV/F6o6P6IYm8xnHFa/vmWT8tfcw=="
       },
+      "Sentry": {
+        "type": "CentralTransitive",
+        "requested": "[6.6.0, )",
+        "resolved": "6.6.0",
+        "contentHash": "1D3xo3P9Y94VQN3RoV/86XqgtylHp1pdeEml3/UB649BrzJeZ/pqO/o8YgJ5g+GqpMQiGI09yjAI7s5ff2A1IA=="
+      },
+      "Sentry.Serilog": {
+        "type": "CentralTransitive",
+        "requested": "[6.6.0, )",
+        "resolved": "6.6.0",
+        "contentHash": "MTHLXQHYOg7NXJOzQHuMoNFSGU8pygckw4CDCu7eaVstJVj2PKFEcngG/thDgSBTnE9S5BUlYp1NEkTiVPylOA==",
+        "dependencies": {
+          "Sentry": "6.6.0",
+          "Serilog": "2.10.0"
+        }
+      },
       "Serilog": {
         "type": "CentralTransitive",
         "requested": "[4.3.1, )",
@@ -898,15 +914,6 @@
         "contentHash": "8jbqgjUyZlfCuSTaJk6lOca465OndqOz3KZP6Cryt/IqZYybyBu7GP0fE/AXBzrrQB3EBmQntBFAvMVz1COvAA==",
         "dependencies": {
           "Serilog": "4.0.0"
-        }
-      },
-      "Serilog.Sinks.File": {
-        "type": "CentralTransitive",
-        "requested": "[7.0.0, )",
-        "resolved": "7.0.0",
-        "contentHash": "fKL7mXv7qaiNBUC71ssvn/dU0k9t0o45+qm2XgKAlSt19xF+ijjxyA3R6HmCgfKEKwfcfkwWjayuQtRueZFkYw==",
-        "dependencies": {
-          "Serilog": "4.2.0"
         }
       },
       "Testcontainers.PostgreSql": {

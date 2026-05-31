@@ -28,4 +28,6 @@ builder.Services.PostConfigure<ApiOptions>(options =>
     }
 });
 
+builder.UseSentry(o => builder.Configuration.Bind("Sentry", o));
+
 await builder.Build().RunAsync();

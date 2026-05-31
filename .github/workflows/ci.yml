@@ -38,12 +38,24 @@ jobs:
         include:
           - name: web-api
             dockerfile: src/TheLsmArchive.Web.Api/Dockerfile
+            sentry_dsn_secret: SENTRY_DSN_API
+            appsettings_file: src/TheLsmArchive.Web.Api/appsettings.Production.json
           - name: web-frontend
             dockerfile: src/TheLsmArchive.Web.Frontend/Dockerfile
+            sentry_dsn_secret: SENTRY_DSN_FRONTEND
+            appsettings_file: src/TheLsmArchive.Web.Frontend/wwwroot/appsettings.Production.json
           - name: patreon-ingestion
             dockerfile: src/TheLsmArchive.Patreon.Ingestion/Dockerfile
+            sentry_dsn_secret: SENTRY_DSN_INGESTION
+            appsettings_file: src/TheLsmArchive.Patreon.Ingestion/appsettings.Production.json
     steps:
       - uses: actions/checkout@v4
+
+      # Each project has its own Sentry DSN secret: SENTRY_DSN_API, SENTRY_DSN_FRONTEND, SENTRY_DSN_INGESTION.
+      - name: Inject Sentry DSN
+        env:
+          SENTRY_DSN: ${{ secrets[matrix.sentry_dsn_secret] }}
+        run: sed -i "s|__SENTRY_DSN__|${SENTRY_DSN}|g" ${{ matrix.appsettings_file }}
 
       - name: Build Docker image
         run: docker build -f ${{ matrix.dockerfile }} -t thelsmarchive/${{ matrix.name }}:${{ github.sha }} .

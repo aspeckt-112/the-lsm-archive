@@ -9,7 +9,7 @@ namespace TheLsmArchive.Web.Api.Features.Search;
 /// <summary>
 /// The search service.
 /// </summary>
-public sealed class SearchService : ISearchService
+public sealed partial class SearchService : ISearchService
 {
     private record SearchProjection
     {
@@ -46,7 +46,7 @@ public sealed class SearchService : ISearchService
     {
         ArgumentNullException.ThrowIfNull(searchRequest);
 
-        _logger.LogInformation("Running search with query: {Query}", searchRequest);
+        LogRunningSearch(searchRequest);
 
         string pattern = $"%{searchRequest.SearchTerm}%";
 
@@ -88,7 +88,7 @@ public sealed class SearchService : ISearchService
         PagedRequest request,
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Searching people with pattern: {Pattern}", pattern);
+        LogSearchingPeople(pattern);
 
         return BuildPagedResponse(QueryPersons(pattern), request, cancellationToken);
     }
@@ -96,7 +96,7 @@ public sealed class SearchService : ISearchService
     private Task<PagedResponse<SearchResult>> SearchTopics(string pattern, PagedRequest request,
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Searching topics with pattern: {Pattern}", pattern);
+        LogSearchingTopics(pattern);
 
         return BuildPagedResponse(QueryTopics(pattern), request, cancellationToken);
     }
@@ -106,7 +106,7 @@ public sealed class SearchService : ISearchService
         PagedRequest request,
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Searching episodes with pattern: {Pattern}", pattern);
+        LogSearchingEpisodes(pattern);
 
         return BuildPagedResponse(QueryEpisodes(pattern), request, cancellationToken);
     }
@@ -157,4 +157,16 @@ public sealed class SearchService : ISearchService
                         EF.Functions.ILike(e.PatreonPost.Summary, pattern))
             .Select(e => new SearchProjection { Id = e.Id, Name = e.Title, Type = EntityType.Episode });
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Running search with query: {Query}")]
+    private partial void LogRunningSearch(SearchRequest query);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Searching people with pattern: {Pattern}")]
+    private partial void LogSearchingPeople(string pattern);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Searching topics with pattern: {Pattern}")]
+    private partial void LogSearchingTopics(string pattern);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Searching episodes with pattern: {Pattern}")]
+    private partial void LogSearchingEpisodes(string pattern);
 }

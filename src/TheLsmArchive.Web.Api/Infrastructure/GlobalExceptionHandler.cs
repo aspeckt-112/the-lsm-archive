@@ -5,7 +5,7 @@ namespace TheLsmArchive.Web.Api.Infrastructure;
 /// <summary>
 /// The global exception handler.
 /// </summary>
-public class GlobalExceptionHandler : IExceptionHandler
+public partial class GlobalExceptionHandler : IExceptionHandler
 {
     private readonly ILogger<GlobalExceptionHandler> _logger;
     private readonly IProblemDetailsService _problemDetailsService;
@@ -29,7 +29,7 @@ public class GlobalExceptionHandler : IExceptionHandler
         Exception exception,
         CancellationToken cancellationToken)
     {
-        _logger.LogError(exception, "An unhandled exception occurred.");
+        LogUnhandledException(exception);
 
         (int statusCode, string title, string detail) = MapException(exception);
 
@@ -57,4 +57,7 @@ public class GlobalExceptionHandler : IExceptionHandler
             _ => (StatusCodes.Status500InternalServerError, "Internal Server Error", "An error occurred while processing your request.")
         };
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "An unhandled exception occurred.")]
+    private partial void LogUnhandledException(Exception exception);
 }
