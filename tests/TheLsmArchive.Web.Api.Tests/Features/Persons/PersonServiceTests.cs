@@ -1,265 +1,205 @@
 using Microsoft.Extensions.Logging;
 
-using Moq;
-
+using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
 using TheLsmArchive.Models.Response;
 using TheLsmArchive.Web.Api.Features.Persons;
+using TheLsmArchive.Web.Api.Tests.TestSupport.Helpers;
 
 namespace TheLsmArchive.Web.Api.Tests.Features.Persons;
 
-[Collection(nameof(ServiceIntegrationTestFixture))]
-public class PersonServiceTests : BaseServiceIntegrationTest, IClassFixture<ServiceIntegrationTestFixture>
+public sealed class PersonServiceTests(IntegrationTestFixture fixture) : IntegrationTestBase(fixture)
 {
-    private readonly PersonService _personService;
-
-    public PersonServiceTests(ServiceIntegrationTestFixture fixture) : base(fixture)
+    [Fact]
+    public async Task GetById_WhenPersonExists_ReturnsProjectedPerson()
     {
-        Mock<ILogger<PersonService>> loggerMock = new();
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        PersonEntity person = await EpisodeTestDataHelper.CreatePersonAsync(dbContext, "Colin Moriarty", cancellationToken);
+        PersonService personService = CreateSut();
 
-        _personService = new PersonService(
-            loggerMock.Object,
-            ReadOnlyDbContext
-        );
+        // Act
+        Person? result = await personService.GetById(person.Id, cancellationToken);
+
+        // Assert
+        Equal(new Person(person.Id, "Colin Moriarty"), result);
     }
 
-    #region GetById
+    [Fact]
+    public async Task GetById_WhenPersonDoesNotExist_ReturnsNull()
+    {
+        // Arrange
+        PersonService personService = CreateSut();
+
+        // Act
+        Person? result = await personService.GetById(999_999, TestContext.Current.CancellationToken);
+
+        // Assert
+        Null(result);
+    }
 
     [Theory]
-    [InlineData(-1)]
     [InlineData(0)]
-    public async Task GetById_WithInvalidId_ThrowsArgumentOutOfRangeException(int id)
-    {
-#pragma warning disable IDE0022
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            _personService.GetById(id, TestContext.Current.CancellationToken));
-#pragma warning restore IDE0022
-    }
-
-    [Fact]
-    public async Task GetById_WithValidIdButNonExistentPerson_ReturnsNull()
-    {
-        // Arrange & Act
-        Person? person = await _personService.GetById(9999, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Null(person);
-    }
-
-    [Fact]
-    public async Task GetById_WithExistingPerson_ReturnsPerson()
+    [InlineData(-1)]
+    public async Task GetById_WhenIdIsInvalid_ThrowsArgumentOutOfRangeException(int id)
     {
         // Arrange
-        PersonEntity personEntity = new() { Name = "Test Person", NormalizedName = "testperson" };
-        await InsertSingleInstanceOfEntityAsync(personEntity);
+        PersonService personService = CreateSut();
 
-        // Act
-        Person? person = await _personService.GetById(personEntity.Id, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.NotNull(person);
-        Assert.Equal(personEntity.Id, person.Id);
-        Assert.Equal("Test Person", person.Name);
+        // Act & Assert
+        await ThrowsAsync<ArgumentOutOfRangeException>(() => personService.GetById(id, TestContext.Current.CancellationToken));
     }
 
-    #endregion
+    [Fact]
+    public async Task GetDetailsById_WhenPersonHasEpisodes_ReturnsFirstAndLastAppearanceDates()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "Person Test Show");
+        PersonEntity person = await EpisodeTestDataHelper.CreatePersonAsync(dbContext, "Matty", cancellationToken);
 
-    #region GetDetailsById
+        EpisodeEntity earliestEpisode = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Early Appearance",
+            new DateTimeOffset(2026, 1, 12, 12, 0, 0, TimeSpan.Zero),
+            7001,
+            cancellationToken);
+
+        EpisodeEntity middleEpisode = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Middle Appearance",
+            new DateTimeOffset(2026, 3, 12, 12, 0, 0, TimeSpan.Zero),
+            7002,
+            cancellationToken);
+
+        EpisodeEntity latestEpisode = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Latest Appearance",
+            new DateTimeOffset(2026, 5, 12, 12, 0, 0, TimeSpan.Zero),
+            7003,
+            cancellationToken);
+
+        await EpisodeTestDataHelper.LinkPersonToEpisodeAsync(dbContext, person, middleEpisode, cancellationToken);
+        await EpisodeTestDataHelper.LinkPersonToEpisodeAsync(dbContext, person, latestEpisode, cancellationToken);
+        await EpisodeTestDataHelper.LinkPersonToEpisodeAsync(dbContext, person, earliestEpisode, cancellationToken);
+
+        PersonService personService = CreateSut();
+
+        // Act
+        PersonDetails? result = await personService.GetDetailsById(person.Id, cancellationToken);
+
+        // Assert
+        Equal(
+            new PersonDetails(
+                FirstAppeared: new DateOnly(2026, 1, 12),
+                LastAppeared: new DateOnly(2026, 5, 12)),
+            result);
+    }
+
+    [Fact]
+    public async Task GetDetailsById_WhenPersonDoesNotExist_ReturnsNull()
+    {
+        // Arrange
+        PersonService personService = CreateSut();
+
+        // Act
+        PersonDetails? result = await personService.GetDetailsById(999_999, TestContext.Current.CancellationToken);
+
+        // Assert
+        Null(result);
+    }
 
     [Theory]
-    [InlineData(-1)]
     [InlineData(0)]
-    public async Task GetDetailsById_WithInvalidId_ThrowsArgumentOutOfRangeException(int id)
-    {
-#pragma warning disable IDE0022
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            _personService.GetDetailsById(id, TestContext.Current.CancellationToken));
-#pragma warning restore IDE0022
-    }
-
-    [Fact]
-    public async Task GetDetailsById_WithNonExistentPerson_ReturnsNull()
-    {
-        // Arrange & Act
-        PersonDetails? details = await _personService.GetDetailsById(9999, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Null(details);
-    }
-
-    [Fact]
-    public async Task GetDetailsById_WithExistingPerson_ReturnsFirstAndLastAppeared()
+    [InlineData(-1)]
+    public async Task GetDetailsById_WhenIdIsInvalid_ThrowsArgumentOutOfRangeException(int id)
     {
         // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
+        PersonService personService = CreateSut();
 
-        PersonEntity person = new() { Name = "Test Person", NormalizedName = "testperson" };
-        await InsertSingleInstanceOfEntityAsync(person);
-
-        PatreonPostEntity post1 = new()
-        {
-            PatreonId = 1, Title = "Post 1", Link = "https://patreon.com/1",
-            Summary = "Summary 1", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/1", ShowId = show.Id
-        };
-        PatreonPostEntity post2 = new()
-        {
-            PatreonId = 2, Title = "Post 2", Link = "https://patreon.com/2",
-            Summary = "Summary 2", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/2", ShowId = show.Id
-        };
-
-        EpisodeEntity ep1 = new()
-        {
-            Title = "First Episode",
-            ReleaseDateUtc = new DateTimeOffset(2024, 1, 15, 0, 0, 0, TimeSpan.Zero),
-            PatreonPost = post1,
-            ShowId = show.Id
-        };
-
-        EpisodeEntity ep2 = new()
-        {
-            Title = "Latest Episode",
-            ReleaseDateUtc = new DateTimeOffset(2024, 6, 20, 0, 0, 0, TimeSpan.Zero),
-            PatreonPost = post2,
-            ShowId = show.Id
-        };
-
-        await InsertSingleInstanceOfEntityAsync(ep1);
-        await InsertSingleInstanceOfEntityAsync(ep2);
-
-        PersonEpisodeEntity pe1 = new() { PersonId = person.Id, EpisodeId = ep1.Id };
-        PersonEpisodeEntity pe2 = new() { PersonId = person.Id, EpisodeId = ep2.Id };
-        await InsertSingleInstanceOfEntityAsync(pe1);
-        await InsertSingleInstanceOfEntityAsync(pe2);
-
-        // Act
-        PersonDetails? details = await _personService.GetDetailsById(person.Id, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.NotNull(details);
-        Assert.Equal(new DateOnly(2024, 1, 15), details.FirstAppeared);
-        Assert.Equal(new DateOnly(2024, 6, 20), details.LastAppeared);
+        // Act & Assert
+        await ThrowsAsync<ArgumentOutOfRangeException>(() => personService.GetDetailsById(id, TestContext.Current.CancellationToken));
     }
 
-    #endregion
+    [Fact]
+    public async Task GetByEpisodeId_WhenPeopleExist_ReturnsAlphabeticallySortedPeople()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "Person Test Show");
+        EpisodeEntity episode = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Sacred Symbols 350",
+            new DateTimeOffset(2026, 4, 1, 12, 0, 0, TimeSpan.Zero),
+            7101,
+            cancellationToken);
 
-    #region GetByEpisodeId
+        PersonEntity thirdAlphabetically = await EpisodeTestDataHelper.CreatePersonAsync(dbContext, "Matty", cancellationToken);
+        PersonEntity firstAlphabetically = await EpisodeTestDataHelper.CreatePersonAsync(dbContext, "Ben Smith", cancellationToken);
+        PersonEntity secondAlphabetically = await EpisodeTestDataHelper.CreatePersonAsync(dbContext, "Chris Ray Gun", cancellationToken);
+
+        await EpisodeTestDataHelper.LinkPersonToEpisodeAsync(dbContext, thirdAlphabetically, episode, cancellationToken);
+        await EpisodeTestDataHelper.LinkPersonToEpisodeAsync(dbContext, firstAlphabetically, episode, cancellationToken);
+        await EpisodeTestDataHelper.LinkPersonToEpisodeAsync(dbContext, secondAlphabetically, episode, cancellationToken);
+
+        PersonService personService = CreateSut();
+
+        // Act
+        List<Person> result = await personService.GetByEpisodeId(episode.Id, cancellationToken);
+
+        // Assert
+        Equal(
+            [
+                new Person(firstAlphabetically.Id, "Ben Smith"),
+                new Person(secondAlphabetically.Id, "Chris Ray Gun"),
+                new Person(thirdAlphabetically.Id, "Matty")
+            ],
+            result);
+    }
+
+    [Fact]
+    public async Task GetByEpisodeId_WhenEpisodeHasNoPeople_ReturnsEmptyList()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "Person Test Show");
+        EpisodeEntity episode = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "No Guests",
+            new DateTimeOffset(2026, 4, 2, 12, 0, 0, TimeSpan.Zero),
+            7102,
+            cancellationToken);
+
+        PersonService personService = CreateSut();
+
+        // Act
+        List<Person> result = await personService.GetByEpisodeId(episode.Id, cancellationToken);
+
+        // Assert
+        Empty(result);
+    }
 
     [Theory]
-    [InlineData(-1)]
     [InlineData(0)]
-    public async Task GetByEpisodeId_WithInvalidId_ThrowsArgumentOutOfRangeException(int id)
-    {
-#pragma warning disable IDE0022
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            _personService.GetByEpisodeId(id, TestContext.Current.CancellationToken));
-#pragma warning restore IDE0022
-    }
-
-    [Fact]
-    public async Task GetByEpisodeId_WithNoAssociatedPersons_ReturnsEmptyList()
+    [InlineData(-1)]
+    public async Task GetByEpisodeId_WhenIdIsInvalid_ThrowsArgumentOutOfRangeException(int id)
     {
         // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
+        PersonService personService = CreateSut();
 
-        PatreonPostEntity post = new()
-        {
-            PatreonId = 1, Title = "Post 1", Link = "https://patreon.com/1",
-            Summary = "Summary 1", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/1", ShowId = show.Id
-        };
-        EpisodeEntity episode = new()
-        {
-            Title = "Episode 1", ReleaseDateUtc = DateTimeOffset.UtcNow,
-            PatreonPost = post, ShowId = show.Id
-        };
-        await InsertSingleInstanceOfEntityAsync(episode);
-
-        // Act
-        List<Person> people = await _personService.GetByEpisodeId(episode.Id, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Empty(people);
+        // Act & Assert
+        await ThrowsAsync<ArgumentOutOfRangeException>(() => personService.GetByEpisodeId(id, TestContext.Current.CancellationToken));
     }
 
-    [Fact]
-    public async Task GetByEpisodeId_WithAssociatedPersons_ReturnsPersonList()
-    {
-        // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
-
-        PersonEntity person1 = new() { Name = "Person A", NormalizedName = "persona" };
-        PersonEntity person2 = new() { Name = "Person B", NormalizedName = "personb" };
-        await InsertSingleInstanceOfEntityAsync(person1);
-        await InsertSingleInstanceOfEntityAsync(person2);
-
-        PatreonPostEntity post = new()
-        {
-            PatreonId = 1, Title = "Post 1", Link = "https://patreon.com/1",
-            Summary = "Summary 1", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/1", ShowId = show.Id
-        };
-        EpisodeEntity episode = new()
-        {
-            Title = "Episode 1", ReleaseDateUtc = DateTimeOffset.UtcNow,
-            PatreonPost = post, ShowId = show.Id
-        };
-        await InsertSingleInstanceOfEntityAsync(episode);
-
-        PersonEpisodeEntity pe1 = new() { PersonId = person1.Id, EpisodeId = episode.Id };
-        PersonEpisodeEntity pe2 = new() { PersonId = person2.Id, EpisodeId = episode.Id };
-        await InsertSingleInstanceOfEntityAsync(pe1);
-        await InsertSingleInstanceOfEntityAsync(pe2);
-
-        // Act
-        List<Person> people = await _personService.GetByEpisodeId(episode.Id, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(2, people.Count);
-        Assert.Contains(people, p => p.Name == "Person A");
-        Assert.Contains(people, p => p.Name == "Person B");
-    }
-
-    [Fact]
-    public async Task GetByEpisodeId_WithAssociatedPersons_ReturnsSortedAlphabetically()
-    {
-        // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
-
-        PersonEntity personC = new() { Name = "Charlie", NormalizedName = "charlie" };
-        PersonEntity personA = new() { Name = "Alice", NormalizedName = "alice" };
-        PersonEntity personB = new() { Name = "Bob", NormalizedName = "bob" };
-        await InsertSingleInstanceOfEntityAsync(personC);
-        await InsertSingleInstanceOfEntityAsync(personA);
-        await InsertSingleInstanceOfEntityAsync(personB);
-
-        PatreonPostEntity post = new()
-        {
-            PatreonId = 1, Title = "Post 1", Link = "https://patreon.com/1",
-            Summary = "Summary 1", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/1", ShowId = show.Id
-        };
-        EpisodeEntity episode = new()
-        {
-            Title = "Episode 1", ReleaseDateUtc = DateTimeOffset.UtcNow,
-            PatreonPost = post, ShowId = show.Id
-        };
-        await InsertSingleInstanceOfEntityAsync(episode);
-
-        // Insert in non-alphabetical order to verify sorting
-        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = personC.Id, EpisodeId = episode.Id });
-        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = personA.Id, EpisodeId = episode.Id });
-        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = personB.Id, EpisodeId = episode.Id });
-
-        // Act
-        List<Person> people = await _personService.GetByEpisodeId(episode.Id, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(3, people.Count);
-        Assert.Equal("Alice", people[0].Name);
-        Assert.Equal("Bob", people[1].Name);
-        Assert.Equal("Charlie", people[2].Name);
-    }
-
-    #endregion
+    private PersonService CreateSut() => new(Get<ILogger<PersonService>>(), Get<LsmArchiveDbContext>());
 }
+

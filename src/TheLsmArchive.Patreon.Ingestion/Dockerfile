@@ -24,5 +24,6 @@ RUN dotnet publish "TheLsmArchive.Patreon.Ingestion.csproj" -c Release -o /app/p
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/runtime:10.0 AS final
 WORKDIR /app
+RUN mkdir -p /app/logs
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "TheLsmArchive.Patreon.Ingestion.dll"]

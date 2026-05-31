@@ -62,6 +62,7 @@ internal static class EpisodeEndpoints
         CancellationToken cancellationToken)
     {
         List<Episode> episodes = await episodeService.GetRecent(cancellationToken);
+
         return episodes.Count == 0
             ? TypedResults.NoContent()
             : TypedResults.Ok(episodes);

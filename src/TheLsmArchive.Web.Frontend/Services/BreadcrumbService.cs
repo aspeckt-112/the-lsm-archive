@@ -33,6 +33,14 @@ public interface IBreadcrumbService
     public void ReplaceLast(string text, string? icon = null);
 
     /// <summary>
+    /// Replaces the last breadcrumb.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="href">The href.</param>
+    /// <param name="icon">The optional icon.</param>
+    public void ReplaceLast(string text, string href, string? icon = null);
+
+    /// <summary>
     /// Resets the breadcrumbs to home.
     /// </summary>
     public void Reset();
@@ -89,6 +97,16 @@ public class BreadcrumbService : IBreadcrumbService
 
         BreadcrumbItem last = _items[^1];
         _items[^1] = new BreadcrumbItem(text, last.Href, last.Disabled, icon: icon ?? last.Icon);
+        NotifyChanged();
+    }
+
+    /// <inheritdoc />
+    public void ReplaceLast(string text, string href, string? icon = null)
+    {
+        if (_items.Count == 0) return;
+
+        BreadcrumbItem last = _items[^1];
+        _items[^1] = new BreadcrumbItem(text, href, last.Disabled, icon: icon ?? last.Icon);
         NotifyChanged();
     }
 

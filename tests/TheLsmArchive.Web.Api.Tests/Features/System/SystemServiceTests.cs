@@ -1,98 +1,81 @@
-using Microsoft.Extensions.Logging;
-
-using Moq;
-
+using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
+using TheLsmArchive.Web.Api.Tests.TestSupport.Helpers;
 using TheLsmArchive.Web.Api.Features.System;
 
 namespace TheLsmArchive.Web.Api.Tests.Features.System;
 
-[Collection(nameof(ServiceIntegrationTestFixture))]
-public class SystemServiceTests : BaseServiceIntegrationTest, IClassFixture<ServiceIntegrationTestFixture>
+public sealed class SystemServiceTests(IntegrationTestFixture fixture) : IntegrationTestBase(fixture)
 {
-    private readonly SystemService _systemService;
-
-    public SystemServiceTests(ServiceIntegrationTestFixture fixture) : base(fixture)
-    {
-        Mock<ILogger<SystemService>> loggerMock = new();
-
-        _systemService = new SystemService(
-            loggerMock.Object,
-            ReadOnlyDbContext
-        );
-    }
-
     [Fact]
-    public async Task GetLastDataSyncDateTimeAsync_WithLinkedPatreonPosts_ReturnsMostRecentPublished()
+    public async Task GetLastDataSyncDateTimeAsync_WhenProcessedPostsExist_ReturnsMostRecentPublishedDate()
     {
         // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "System Test Show");
+        DateTimeOffset oldestProcessedPublished = new(2026, 5, 18, 12, 0, 0, TimeSpan.Zero);
+        DateTimeOffset latestProcessedPublished = new(2026, 5, 21, 9, 30, 0, TimeSpan.Zero);
 
-        PatreonPostEntity post1 = new()
-        {
-            PatreonId = 1, Title = "Post 1", Link = "https://patreon.com/1",
-            Summary = "Summary 1", Published = new DateTimeOffset(2024, 3, 15, 12, 0, 0, TimeSpan.Zero),
-            AudioUrl = "https://audio.com/1", ShowId = show.Id
-        };
-        PatreonPostEntity post2 = new()
-        {
-            PatreonId = 2, Title = "Post 2", Link = "https://patreon.com/2",
-            Summary = "Summary 2", Published = new DateTimeOffset(2024, 6, 20, 12, 0, 0, TimeSpan.Zero),
-            AudioUrl = "https://audio.com/2", ShowId = show.Id
-        };
+        await SystemTestDataHelper.CreateProcessedPatreonPostAsync(dbContext, show, oldestProcessedPublished, 1001,
+            cancellationToken);
 
-        EpisodeEntity ep1 = new()
-        {
-            Title = "Episode 1",
-            ReleaseDateUtc = new DateTimeOffset(2024, 3, 15, 0, 0, 0, TimeSpan.Zero),
-            PatreonPost = post1,
-            ShowId = show.Id
-        };
-        EpisodeEntity ep2 = new()
-        {
-            Title = "Episode 2",
-            ReleaseDateUtc = new DateTimeOffset(2024, 6, 20, 0, 0, 0, TimeSpan.Zero),
-            PatreonPost = post2,
-            ShowId = show.Id
-        };
+        await SystemTestDataHelper.CreateProcessedPatreonPostAsync(dbContext, show, latestProcessedPublished, 1002,
+            cancellationToken);
 
-        await InsertSingleInstanceOfEntityAsync(ep1);
-        await InsertSingleInstanceOfEntityAsync(ep2);
-
-        // Link posts to episodes via the base class ReadWriteDbContext
-        PatreonPostEntity trackedPost1 = (await ReadWriteDbContext.PatreonPosts.FindAsync(post1.Id))!;
-        PatreonPostEntity trackedPost2 = (await ReadWriteDbContext.PatreonPosts.FindAsync(post2.Id))!;
-        trackedPost1.EpisodeId = ep1.Id;
-        trackedPost2.EpisodeId = ep2.Id;
-        await ReadWriteDbContext.SaveChangesAsync();
+        ISystemService systemService = Get<ISystemService>();
 
         // Act
-        DateTimeOffset lastSync = await _systemService.GetLastDataSyncDateTimeAsync(TestContext.Current.CancellationToken);
+        DateTimeOffset result = await systemService.GetLastDataSyncDateTimeAsync(cancellationToken);
 
         // Assert
-        Assert.Equal(new DateTimeOffset(2024, 6, 20, 12, 0, 0, TimeSpan.Zero), lastSync);
+        Equal(latestProcessedPublished, result);
     }
 
     [Fact]
-    public async Task GetLastDataSyncDateTimeAsync_WithNoLinkedPosts_ThrowsInvalidOperationException()
+    public async Task GetLastDataSyncDateTimeAsync_WhenLatestPostIsUnprocessed_IgnoresIt()
     {
-        // Arrange — insert a post without linking to an episode (EpisodeId = null)
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "System Test Show");
+        DateTimeOffset processedPublished = new(2026, 5, 20, 8, 0, 0, TimeSpan.Zero);
+        DateTimeOffset unprocessedPublished = new(2026, 5, 21, 8, 0, 0, TimeSpan.Zero);
 
-        PatreonPostEntity unlinkedPost = new()
-        {
-            PatreonId = 1, Title = "Unlinked Post", Link = "https://patreon.com/1",
-            Summary = "Summary 1", Published = DateTimeOffset.UtcNow,
-            AudioUrl = "https://audio.com/1", ShowId = show.Id
-        };
-        await InsertSingleInstanceOfEntityAsync(unlinkedPost);
+        await SystemTestDataHelper.CreateProcessedPatreonPostAsync(dbContext, show, processedPublished, 1001,
+            cancellationToken);
 
-        // Act & Assert — no posts with EpisodeId != null → FirstAsync throws
-#pragma warning disable IDE0022
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _systemService.GetLastDataSyncDateTimeAsync(TestContext.Current.CancellationToken));
-#pragma warning restore IDE0022
+        await SystemTestDataHelper.CreateUnprocessedPatreonPostAsync(dbContext, show, unprocessedPublished, 1002,
+            cancellationToken);
+
+        ISystemService systemService = Get<ISystemService>();
+
+        // Act
+        DateTimeOffset result = await systemService.GetLastDataSyncDateTimeAsync(cancellationToken);
+
+        // Assert
+        Equal(processedPublished, result);
+    }
+
+    [Fact]
+    public async Task GetLastDataSyncDateTimeAsync_WhenNoProcessedPostsExist_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "System Test Show");
+
+        await SystemTestDataHelper.CreateUnprocessedPatreonPostAsync(
+            dbContext,
+            show,
+            new DateTimeOffset(2026, 5, 21, 8, 0, 0, TimeSpan.Zero),
+            1001,
+            cancellationToken);
+
+        ISystemService systemService = Get<ISystemService>();
+
+        // Act & Assert
+        await ThrowsAsync<InvalidOperationException>(() =>
+            systemService.GetLastDataSyncDateTimeAsync(cancellationToken));
     }
 }

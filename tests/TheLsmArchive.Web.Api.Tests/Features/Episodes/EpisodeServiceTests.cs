@@ -1,535 +1,420 @@
 using Microsoft.Extensions.Logging;
 
-using Moq;
-
+using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
 using TheLsmArchive.Models.Request;
 using TheLsmArchive.Models.Response;
 using TheLsmArchive.Web.Api.Features.Episodes;
+using TheLsmArchive.Web.Api.Tests.TestSupport.Helpers;
 
 namespace TheLsmArchive.Web.Api.Tests.Features.Episodes;
 
-[Collection(nameof(ServiceIntegrationTestFixture))]
-public class EpisodeServiceTests : BaseServiceIntegrationTest, IClassFixture<ServiceIntegrationTestFixture>
+public sealed class EpisodeServiceTests(IntegrationTestFixture fixture) : IntegrationTestBase(fixture)
 {
-    private readonly EpisodeService _episodeService;
-
-    public EpisodeServiceTests(ServiceIntegrationTestFixture fixture) : base(fixture)
+    [Fact]
+    public async Task GetById_WhenEpisodeExists_ReturnsProjectedEpisode()
     {
-        Mock<ILogger<EpisodeService>> loggerMock = new();
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "Episode Test Show");
+        DateTimeOffset releaseDateUtc = new(2026, 5, 10, 16, 45, 0, TimeSpan.Zero);
+        EpisodeEntity episode = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Sacred Symbols 400",
+            releaseDateUtc,
+            4100,
+            cancellationToken,
+            summaryHtml: "<p>Big anniversary episode.</p>",
+            patreonPostLink: "https://www.patreon.com/posts/4100");
 
-        _episodeService = new EpisodeService(
-            loggerMock.Object,
-            ReadOnlyDbContext
-        );
+        EpisodeService episodeService = CreateSut();
+
+        // Act
+        Episode? result = await episodeService.GetById(episode.Id, cancellationToken);
+
+        // Assert
+        NotNull(result);
+        Equal(episode.Id, result.Id);
+        Equal("Sacred Symbols 400", result.Title);
+        Equal(DateOnly.FromDateTime(releaseDateUtc.DateTime), result.ReleaseDate);
+        Equal("https://www.patreon.com/posts/4100", result.PatreonPostLink);
+        Equal("<p>Big anniversary episode.</p>", result.SummaryHtml);
+    }
+
+    [Fact]
+    public async Task GetById_WhenEpisodeDoesNotExist_ReturnsNull()
+    {
+        // Arrange
+        EpisodeService episodeService = CreateSut();
+
+        // Act
+        Episode? result = await episodeService.GetById(999_999, TestContext.Current.CancellationToken);
+
+        // Assert
+        Null(result);
     }
 
     [Theory]
-    [InlineData(-1)]
     [InlineData(0)]
-    public async Task GetById_WithInvalidId_ThrowsArgumentOutOfRangeException(int id)
-    {
-        // Arrange & Act & Assert
-#pragma warning disable IDE0022 // Use expression body for method
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _episodeService.GetById(id, TestContext.Current.CancellationToken));
-#pragma warning restore IDE0022 // Use expression body for method
-    }
-
-    [Fact]
-    public async Task GetById_WithValidIdButNonExistentEpisode_ReturnsNull()
-    {
-        // Arrange & Act
-        Episode? episode = await _episodeService.GetById(9999, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Null(episode);
-    }
-
-    [Fact]
-    public async Task GetRecent_WithRecentEpisodes_ReturnsCorrectEpisodes()
+    [InlineData(-1)]
+    public async Task GetById_WhenIdIsInvalid_ThrowsArgumentOutOfRangeException(int id)
     {
         // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
+        EpisodeService episodeService = CreateSut();
 
-        PatreonPostEntity post1 = new() { PatreonId = 1, Title = "Post 1", Link = "https://patreon.com/1", Summary = "Summary 1", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/1", ShowId = show.Id };
-        PatreonPostEntity post2 = new() { PatreonId = 2, Title = "Post 2", Link = "https://patreon.com/2", Summary = "Summary 2", Published = DateTimeOffset.UtcNow.AddDays(-10), AudioUrl = "https://audio.com/2", ShowId = show.Id };
-
-        EpisodeEntity recentEpisode = new()
-        {
-            Title = "Recent Episode",
-            ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-1),
-            PatreonPost = post1,
-            ShowId = show.Id
-        };
-
-        EpisodeEntity oldEpisode = new()
-        {
-            Title = "Old Episode",
-            ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-10),
-            PatreonPost = post2,
-            ShowId = show.Id
-        };
-
-        await InsertSingleInstanceOfEntityAsync(recentEpisode);
-        await InsertSingleInstanceOfEntityAsync(oldEpisode);
-
-        // Act
-        List<Episode> recentEpisodes = await _episodeService.GetRecent(TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Single(recentEpisodes);
-        Assert.Equal("Recent Episode", recentEpisodes[0].Title);
+        // Act & Assert
+        await ThrowsAsync<ArgumentOutOfRangeException>(() => episodeService.GetById(id, TestContext.Current.CancellationToken));
     }
 
     [Fact]
-    public async Task GetRandomEpisodeId_WithEpisodes_ReturnsOneOfTheInsertedIds()
+    public async Task GetByPersonId_WhenEpisodesExist_ReturnsPagedTimelineWithTopics()
     {
         // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "Episode Test Show");
+        PersonEntity person = await EpisodeTestDataHelper.CreatePersonAsync(dbContext, "Chris Ray Gun", cancellationToken);
+        TopicEntity featuredTopic = await EpisodeTestDataHelper.CreateTopicAsync(dbContext, "Politics", cancellationToken);
 
-        PatreonPostEntity post1 = new() { PatreonId = 11, Title = "Post 11", Link = "https://patreon.com/11", Summary = "Summary 11", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/11", ShowId = show.Id };
-        PatreonPostEntity post2 = new() { PatreonId = 12, Title = "Post 12", Link = "https://patreon.com/12", Summary = "Summary 12", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/12", ShowId = show.Id };
-        PatreonPostEntity post3 = new() { PatreonId = 13, Title = "Post 13", Link = "https://patreon.com/13", Summary = "Summary 13", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/13", ShowId = show.Id };
+        EpisodeEntity firstEpisode = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Episode One",
+            new DateTimeOffset(2026, 1, 5, 12, 0, 0, TimeSpan.Zero),
+            5001,
+            cancellationToken);
 
-        EpisodeEntity episode1 = new() { Title = "Episode 1", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-1), PatreonPost = post1, ShowId = show.Id };
-        EpisodeEntity episode2 = new() { Title = "Episode 2", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-2), PatreonPost = post2, ShowId = show.Id };
-        EpisodeEntity episode3 = new() { Title = "Episode 3", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-3), PatreonPost = post3, ShowId = show.Id };
+        EpisodeEntity secondEpisode = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Episode Two",
+            new DateTimeOffset(2026, 2, 5, 12, 0, 0, TimeSpan.Zero),
+            5002,
+            cancellationToken);
 
-        await InsertSingleInstanceOfEntityAsync(episode1);
-        await InsertSingleInstanceOfEntityAsync(episode2);
-        await InsertSingleInstanceOfEntityAsync(episode3);
+        EpisodeEntity thirdEpisode = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Episode Three",
+            new DateTimeOffset(2026, 3, 5, 12, 0, 0, TimeSpan.Zero),
+            5003,
+            cancellationToken);
 
-        int[] insertedIds = [episode1.Id, episode2.Id, episode3.Id];
+        await EpisodeTestDataHelper.LinkPersonToEpisodeAsync(dbContext, person, firstEpisode, cancellationToken);
+        await EpisodeTestDataHelper.LinkPersonToEpisodeAsync(dbContext, person, secondEpisode, cancellationToken);
+        await EpisodeTestDataHelper.LinkPersonToEpisodeAsync(dbContext, person, thirdEpisode, cancellationToken);
+        await EpisodeTestDataHelper.LinkTopicToEpisodeAsync(dbContext, featuredTopic, secondEpisode, cancellationToken);
+
+        EpisodeService episodeService = CreateSut();
+        PagedItemRequest request = new(PageNumber: 2, PageSize: 1);
 
         // Act
-        int randomEpisodeId = await _episodeService.GetRandomEpisodeId(TestContext.Current.CancellationToken);
+        PagedResponse<PersonTimelineEntry> result = await episodeService.GetByPersonId(
+            person.Id,
+            request,
+            sortDescending: false,
+            cancellationToken);
 
         // Assert
-        Assert.Contains(randomEpisodeId, insertedIds);
+        Equal(3, result.TotalCount);
+        Equal(2, result.PageNumber);
+        Equal(1, result.PageSize);
+        Equal(3, result.TotalPages);
+        Single(result.Items);
+
+        PersonTimelineEntry entry = result.Items[0];
+        Equal(secondEpisode.Id, entry.EpisodeId);
+        Equal("Episode Two", entry.Title);
+        Equal(DateOnly.FromDateTime(secondEpisode.ReleaseDateUtc.DateTime), entry.ReleaseDate);
+        Equal("https://www.patreon.com/posts/5002", entry.PatreonPostLink);
+        Equal([new Topic(featuredTopic.Id, "Politics")], entry.Topics);
+    }
+
+    [Fact]
+    public async Task GetByPersonId_WhenSearchTermProvided_FiltersByTitleAndTopicAndSortsDescending()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "Episode Test Show");
+        PersonEntity person = await EpisodeTestDataHelper.CreatePersonAsync(dbContext, "Dustin Furman", cancellationToken);
+        TopicEntity nintendoTopic = await EpisodeTestDataHelper.CreateTopicAsync(dbContext, "Nintendo", cancellationToken);
+        TopicEntity generalTopic = await EpisodeTestDataHelper.CreateTopicAsync(dbContext, "Community", cancellationToken);
+
+        EpisodeEntity titleMatch = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Nintendo Direct Reactions",
+            new DateTimeOffset(2026, 2, 10, 14, 0, 0, TimeSpan.Zero),
+            5101,
+            cancellationToken);
+
+        EpisodeEntity topicMatch = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Mailbag Special",
+            new DateTimeOffset(2026, 4, 10, 14, 0, 0, TimeSpan.Zero),
+            5102,
+            cancellationToken);
+
+        EpisodeEntity nonMatch = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "PlayStation Showcase",
+            new DateTimeOffset(2026, 5, 10, 14, 0, 0, TimeSpan.Zero),
+            5103,
+            cancellationToken);
+
+        await EpisodeTestDataHelper.LinkPersonToEpisodeAsync(dbContext, person, titleMatch, cancellationToken);
+        await EpisodeTestDataHelper.LinkPersonToEpisodeAsync(dbContext, person, topicMatch, cancellationToken);
+        await EpisodeTestDataHelper.LinkPersonToEpisodeAsync(dbContext, person, nonMatch, cancellationToken);
+        await EpisodeTestDataHelper.LinkTopicToEpisodeAsync(dbContext, generalTopic, titleMatch, cancellationToken);
+        await EpisodeTestDataHelper.LinkTopicToEpisodeAsync(dbContext, nintendoTopic, topicMatch, cancellationToken);
+        await EpisodeTestDataHelper.LinkTopicToEpisodeAsync(dbContext, generalTopic, nonMatch, cancellationToken);
+
+        EpisodeService episodeService = CreateSut();
+        PagedItemRequest request = new(SearchTerm: "nintendo");
+
+        // Act
+        PagedResponse<PersonTimelineEntry> result = await episodeService.GetByPersonId(
+            person.Id,
+            request,
+            sortDescending: true,
+            cancellationToken);
+
+        // Assert
+        Equal(2, result.TotalCount);
+        Equal(2, result.Items.Count);
+        Equal([topicMatch.Id, titleMatch.Id], result.Items.Select(item => item.EpisodeId).ToList());
+        Equal(["Mailbag Special", "Nintendo Direct Reactions"], result.Items.Select(item => item.Title).ToList());
+    }
+
+    [Fact]
+    public async Task GetByPersonId_WhenPersonHasNoEpisodes_ReturnsEmptyPagedResponse()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        PersonEntity person = await EpisodeTestDataHelper.CreatePersonAsync(dbContext, "Ben Smith", cancellationToken);
+        EpisodeService episodeService = CreateSut();
+
+        // Act
+        PagedResponse<PersonTimelineEntry> result = await episodeService.GetByPersonId(
+            person.Id,
+            new PagedItemRequest(),
+            sortDescending: true,
+            cancellationToken);
+
+        // Assert
+        Empty(result.Items);
+        Equal(0, result.TotalCount);
+        Equal(0, result.TotalPages);
     }
 
     [Theory]
-    [InlineData(-1)]
     [InlineData(0)]
-    public async Task GetMostRecentByPersonId_WithInvalidId_ThrowsArgumentOutOfRangeException(int id)
-    {
-#pragma warning disable IDE0022 // Use expression body for method
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _episodeService.GetMostRecentByPersonId(id, TestContext.Current.CancellationToken));
-#pragma warning restore IDE0022 // Use expression body for method
-    }
-
-    [Fact]
-    public async Task GetMostRecentByPersonId_WithValidIdButNoPerson_ReturnsNull()
-    {
-        // Arrange & Act
-        Episode? episode = await _episodeService.GetMostRecentByPersonId(9999, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Null(episode);
-    }
-
-    [Fact]
-    public async Task GetMostRecentByPersonId_WithMultipleEpisodes_ReturnsMostRecent()
+    [InlineData(-1)]
+    public async Task GetByPersonId_WhenIdIsInvalid_ThrowsArgumentOutOfRangeException(int id)
     {
         // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
+        EpisodeService episodeService = CreateSut();
 
-        PersonEntity person = new() { Name = "Test Person", NormalizedName = "test person" };
-        await InsertSingleInstanceOfEntityAsync(person);
-
-        PatreonPostEntity post1 = new() { PatreonId = 101, Title = "Post 101", Link = "https://patreon.com/101", Summary = "Summary 101", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/101", ShowId = show.Id };
-        PatreonPostEntity post2 = new() { PatreonId = 102, Title = "Post 102", Link = "https://patreon.com/102", Summary = "Summary 102", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/102", ShowId = show.Id };
-
-        EpisodeEntity olderEpisode = new()
-        {
-            Title = "Older Episode",
-            ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-30),
-            PatreonPost = post1,
-            ShowId = show.Id
-        };
-
-        EpisodeEntity newerEpisode = new()
-        {
-            Title = "Newer Episode",
-            ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-1),
-            PatreonPost = post2,
-            ShowId = show.Id
-        };
-
-        await InsertSingleInstanceOfEntityAsync(olderEpisode);
-        await InsertSingleInstanceOfEntityAsync(newerEpisode);
-
-        PersonEpisodeEntity pe1 = new() { PersonId = person.Id, EpisodeId = olderEpisode.Id };
-        PersonEpisodeEntity pe2 = new() { PersonId = person.Id, EpisodeId = newerEpisode.Id };
-
-        await InsertSingleInstanceOfEntityAsync(pe1);
-        await InsertSingleInstanceOfEntityAsync(pe2);
-
-        // Act
-        Episode? result = await _episodeService.GetMostRecentByPersonId(person.Id, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal("Newer Episode", result.Title);
-        Assert.Equal(newerEpisode.Id, result.Id);
+        // Act & Assert
+        await ThrowsAsync<ArgumentOutOfRangeException>(() => episodeService.GetByPersonId(
+            id,
+            new PagedItemRequest(),
+            sortDescending: true,
+            TestContext.Current.CancellationToken));
     }
-
-    #region GetById — additional
 
     [Fact]
-    public async Task GetById_WithExistingEpisode_ReturnsEpisode()
+    public async Task GetByPersonId_WhenPagedRequestIsNull_ThrowsArgumentNullException()
     {
         // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
+        EpisodeService episodeService = CreateSut();
 
-        PatreonPostEntity post = new()
-        {
-            PatreonId = 200, Title = "Post 200", Link = "https://patreon.com/200",
-            Summary = "<p>A summary</p>", Published = DateTimeOffset.UtcNow,
-            AudioUrl = "https://audio.com/200", ShowId = show.Id
-        };
-        EpisodeEntity episodeEntity = new()
-        {
-            Title = "My Episode",
-            ReleaseDateUtc = new DateTimeOffset(2024, 5, 10, 0, 0, 0, TimeSpan.Zero),
-            PatreonPost = post,
-            ShowId = show.Id
-        };
-        await InsertSingleInstanceOfEntityAsync(episodeEntity);
-
-        // Act
-        Episode? episode = await _episodeService.GetById(episodeEntity.Id, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.NotNull(episode);
-        Assert.Equal(episodeEntity.Id, episode.Id);
-        Assert.Equal("My Episode", episode.Title);
-        Assert.Equal(new DateOnly(2024, 5, 10), episode.ReleaseDate);
-        Assert.Equal("https://patreon.com/200", episode.PatreonPostLink);
-        Assert.Equal("<p>A summary</p>", episode.SummaryHtml);
+        // Act & Assert
+        await ThrowsAsync<ArgumentNullException>(() => episodeService.GetByPersonId(
+            1,
+            null!,
+            sortDescending: true,
+            TestContext.Current.CancellationToken));
     }
 
-    #endregion
+    [Fact]
+    public async Task GetMostRecentByPersonId_WhenEpisodesExist_ReturnsMostRecentEpisode()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "Episode Test Show");
+        PersonEntity person = await EpisodeTestDataHelper.CreatePersonAsync(dbContext, "Matty", cancellationToken);
 
-    #region GetByPersonId
+        EpisodeEntity olderEpisode = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Older Appearance",
+            new DateTimeOffset(2026, 1, 15, 12, 0, 0, TimeSpan.Zero),
+            5201,
+            cancellationToken);
+
+        EpisodeEntity newerEpisode = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Latest Appearance",
+            new DateTimeOffset(2026, 4, 15, 12, 0, 0, TimeSpan.Zero),
+            5202,
+            cancellationToken);
+
+        await EpisodeTestDataHelper.LinkPersonToEpisodeAsync(dbContext, person, olderEpisode, cancellationToken);
+        await EpisodeTestDataHelper.LinkPersonToEpisodeAsync(dbContext, person, newerEpisode, cancellationToken);
+
+        EpisodeService episodeService = CreateSut();
+
+        // Act
+        Episode? result = await episodeService.GetMostRecentByPersonId(person.Id, cancellationToken);
+
+        // Assert
+        NotNull(result);
+        Equal(newerEpisode.Id, result.Id);
+        Equal("Latest Appearance", result.Title);
+    }
+
+    [Fact]
+    public async Task GetMostRecentByPersonId_WhenPersonHasNoEpisodes_ReturnsNull()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        PersonEntity person = await EpisodeTestDataHelper.CreatePersonAsync(dbContext, "Stelly", cancellationToken);
+        EpisodeService episodeService = CreateSut();
+
+        // Act
+        Episode? result = await episodeService.GetMostRecentByPersonId(person.Id, cancellationToken);
+
+        // Assert
+        Null(result);
+    }
 
     [Theory]
-    [InlineData(-1)]
     [InlineData(0)]
-    public async Task GetByPersonId_WithInvalidId_ThrowsArgumentOutOfRangeException(int id)
-    {
-#pragma warning disable IDE0022
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            _episodeService.GetByPersonId(id, new PagedItemRequest(), true, TestContext.Current.CancellationToken));
-#pragma warning restore IDE0022
-    }
-
-    [Fact]
-    public async Task GetByPersonId_WithNullPagedRequest_ThrowsArgumentNullException()
-    {
-#pragma warning disable IDE0022
-        await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            _episodeService.GetByPersonId(1, null!, true, TestContext.Current.CancellationToken));
-#pragma warning restore IDE0022
-    }
-
-    [Fact]
-    public async Task GetByPersonId_WithNoAssociatedEpisodes_ReturnsEmptyPagedResponse()
+    [InlineData(-1)]
+    public async Task GetMostRecentByPersonId_WhenIdIsInvalid_ThrowsArgumentOutOfRangeException(int id)
     {
         // Arrange
-        PersonEntity person = new() { Name = "Lonely Person", NormalizedName = "lonelyperson" };
-        await InsertSingleInstanceOfEntityAsync(person);
+        EpisodeService episodeService = CreateSut();
+
+        // Act & Assert
+        await ThrowsAsync<ArgumentOutOfRangeException>(() => episodeService.GetMostRecentByPersonId(id, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task GetRecent_WhenRecentEpisodesExist_ReturnsOnlyEpisodesFromLastSevenDaysInDescendingOrder()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "Episode Test Show");
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+
+        EpisodeEntity oldestIncluded = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Week-Old Episode",
+            now.AddDays(-6),
+            5301,
+            cancellationToken);
+
+        EpisodeEntity newestIncluded = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Fresh Episode",
+            now.AddDays(-1),
+            5302,
+            cancellationToken);
+
+        await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Archive Episode",
+            now.AddDays(-12),
+            5303,
+            cancellationToken);
+
+        EpisodeService episodeService = CreateSut();
 
         // Act
-        PagedResponse<PersonTimelineEntry> result = await _episodeService.GetByPersonId(
-            person.Id, new PagedItemRequest(), true, TestContext.Current.CancellationToken);
+        List<Episode> result = await episodeService.GetRecent(cancellationToken);
 
         // Assert
-        Assert.Empty(result.Items);
-        Assert.Equal(0, result.TotalCount);
+        Equal(2, result.Count);
+        Equal([newestIncluded.Id, oldestIncluded.Id], result.Select(episode => episode.Id).ToList());
     }
 
     [Fact]
-    public async Task GetByPersonId_WithAssociatedEpisodes_ReturnsPagedEntries()
+    public async Task GetRecent_WhenNoRecentEpisodesExist_ReturnsEmptyList()
     {
         // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "Episode Test Show");
+        DateTimeOffset now = DateTimeOffset.UtcNow;
 
-        PersonEntity person = new() { Name = "Test Person", NormalizedName = "testperson" };
-        await InsertSingleInstanceOfEntityAsync(person);
+        await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Old Episode",
+            now.AddDays(-20),
+            5401,
+            cancellationToken);
 
-        PatreonPostEntity post1 = new()
-        {
-            PatreonId = 301, Title = "Post 301", Link = "https://patreon.com/301",
-            Summary = "Summary 301", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/301", ShowId = show.Id
-        };
-        PatreonPostEntity post2 = new()
-        {
-            PatreonId = 302, Title = "Post 302", Link = "https://patreon.com/302",
-            Summary = "Summary 302", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/302", ShowId = show.Id
-        };
-
-        EpisodeEntity ep1 = new()
-        {
-            Title = "Alpha Episode", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-2),
-            PatreonPost = post1, ShowId = show.Id
-        };
-        EpisodeEntity ep2 = new()
-        {
-            Title = "Beta Episode", ReleaseDateUtc = DateTimeOffset.UtcNow.AddDays(-1),
-            PatreonPost = post2, ShowId = show.Id
-        };
-
-        await InsertSingleInstanceOfEntityAsync(ep1);
-        await InsertSingleInstanceOfEntityAsync(ep2);
-
-        PersonEpisodeEntity pe1 = new() { PersonId = person.Id, EpisodeId = ep1.Id };
-        PersonEpisodeEntity pe2 = new() { PersonId = person.Id, EpisodeId = ep2.Id };
-        await InsertSingleInstanceOfEntityAsync(pe1);
-        await InsertSingleInstanceOfEntityAsync(pe2);
+        EpisodeService episodeService = CreateSut();
 
         // Act
-        PagedResponse<PersonTimelineEntry> result = await _episodeService.GetByPersonId(
-            person.Id, new PagedItemRequest(), true, TestContext.Current.CancellationToken);
+        List<Episode> result = await episodeService.GetRecent(cancellationToken);
 
         // Assert
-        Assert.Equal(2, result.TotalCount);
-        Assert.Equal(2, result.Items.Count);
+        Empty(result);
     }
 
     [Fact]
-    public async Task GetByPersonId_WithSearchTerm_FiltersResults()
+    public async Task GetRandomEpisodeId_WhenNoEpisodesExist_ThrowsInvalidOperationException()
     {
         // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
+        EpisodeService episodeService = CreateSut();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-        PersonEntity person = new() { Name = "Test Person", NormalizedName = "testperson" };
-        await InsertSingleInstanceOfEntityAsync(person);
-
-        PatreonPostEntity post1 = new()
-        {
-            PatreonId = 401, Title = "Post 401", Link = "https://patreon.com/401",
-            Summary = "Summary about gaming", Published = DateTimeOffset.UtcNow,
-            AudioUrl = "https://audio.com/401", ShowId = show.Id
-        };
-        PatreonPostEntity post2 = new()
-        {
-            PatreonId = 402, Title = "Post 402", Link = "https://patreon.com/402",
-            Summary = "Summary about cooking", Published = DateTimeOffset.UtcNow,
-            AudioUrl = "https://audio.com/402", ShowId = show.Id
-        };
-
-        EpisodeEntity ep1 = new()
-        {
-            Title = "Gaming Discussion", ReleaseDateUtc = DateTimeOffset.UtcNow,
-            PatreonPost = post1, ShowId = show.Id
-        };
-        EpisodeEntity ep2 = new()
-        {
-            Title = "Cooking Tips", ReleaseDateUtc = DateTimeOffset.UtcNow,
-            PatreonPost = post2, ShowId = show.Id
-        };
-
-        await InsertSingleInstanceOfEntityAsync(ep1);
-        await InsertSingleInstanceOfEntityAsync(ep2);
-
-        PersonEpisodeEntity pe1 = new() { PersonId = person.Id, EpisodeId = ep1.Id };
-        PersonEpisodeEntity pe2 = new() { PersonId = person.Id, EpisodeId = ep2.Id };
-        await InsertSingleInstanceOfEntityAsync(pe1);
-        await InsertSingleInstanceOfEntityAsync(pe2);
-
-        // Act — search by title
-        PagedResponse<PersonTimelineEntry> result = await _episodeService.GetByPersonId(
-            person.Id, new PagedItemRequest(SearchTerm: "Gaming"), true, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(1, result.TotalCount);
-        Assert.Single(result.Items);
-        Assert.Equal("Gaming Discussion", result.Items[0].Title);
+        // Act & Assert
+        await ThrowsAsync<InvalidOperationException>(
+            () => episodeService.GetRandomEpisodeId(cancellationToken));
     }
 
     [Fact]
-    public async Task GetByPersonId_WithPaging_ReturnsCorrectPage()
+    public async Task GetRandomEpisodeId_WhenOnlyOneEpisodeExists_ReturnsThatEpisodeId()
     {
         // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "Episode Test Show");
+        EpisodeEntity episode = await EpisodeTestDataHelper.CreateEpisodeAsync(
+            dbContext,
+            show,
+            "Only Episode",
+            new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero),
+            5501,
+            cancellationToken);
 
-        PersonEntity person = new() { Name = "Test Person", NormalizedName = "testperson" };
-        await InsertSingleInstanceOfEntityAsync(person);
-
-        PatreonPostEntity post1 = new() { PatreonId = 501, Title = "Post 501", Link = "https://patreon.com/501", Summary = "S", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/501", ShowId = show.Id };
-        PatreonPostEntity post2 = new() { PatreonId = 502, Title = "Post 502", Link = "https://patreon.com/502", Summary = "S", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/502", ShowId = show.Id };
-        PatreonPostEntity post3 = new() { PatreonId = 503, Title = "Post 503", Link = "https://patreon.com/503", Summary = "S", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/503", ShowId = show.Id };
-
-        EpisodeEntity ep1 = new() { Title = "Alpha", ReleaseDateUtc = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero), PatreonPost = post1, ShowId = show.Id };
-        EpisodeEntity ep2 = new() { Title = "Beta", ReleaseDateUtc = new DateTimeOffset(2024, 2, 1, 0, 0, 0, TimeSpan.Zero), PatreonPost = post2, ShowId = show.Id };
-        EpisodeEntity ep3 = new() { Title = "Gamma", ReleaseDateUtc = new DateTimeOffset(2024, 3, 1, 0, 0, 0, TimeSpan.Zero), PatreonPost = post3, ShowId = show.Id };
-
-        await InsertSingleInstanceOfEntityAsync(ep1);
-        await InsertSingleInstanceOfEntityAsync(ep2);
-        await InsertSingleInstanceOfEntityAsync(ep3);
-
-        PersonEpisodeEntity pe1 = new() { PersonId = person.Id, EpisodeId = ep1.Id };
-        PersonEpisodeEntity pe2 = new() { PersonId = person.Id, EpisodeId = ep2.Id };
-        PersonEpisodeEntity pe3 = new() { PersonId = person.Id, EpisodeId = ep3.Id };
-        await InsertSingleInstanceOfEntityAsync(pe1);
-        await InsertSingleInstanceOfEntityAsync(pe2);
-        await InsertSingleInstanceOfEntityAsync(pe3);
-
-        // Act — page 2, size 1, descending (ordered by date desc: Gamma, Beta, Alpha)
-        PagedResponse<PersonTimelineEntry> result = await _episodeService.GetByPersonId(
-            person.Id, new PagedItemRequest(PageNumber: 2, PageSize: 1), true, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(3, result.TotalCount);
-        Assert.Single(result.Items);
-        Assert.Equal("Beta", result.Items[0].Title);
-    }
-
-    [Fact]
-    public async Task GetByPersonId_SortDescending_ReturnsNewestFirst()
-    {
-        // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
-
-        PersonEntity person = new() { Name = "Test Person", NormalizedName = "testperson" };
-        await InsertSingleInstanceOfEntityAsync(person);
-
-        PatreonPostEntity post1 = new() { PatreonId = 601, Title = "Post 601", Link = "https://patreon.com/601", Summary = "S", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/601", ShowId = show.Id };
-        PatreonPostEntity post2 = new() { PatreonId = 602, Title = "Post 602", Link = "https://patreon.com/602", Summary = "S", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/602", ShowId = show.Id };
-
-        EpisodeEntity older = new() { Title = "Older Episode", ReleaseDateUtc = new DateTimeOffset(2024, 1, 10, 0, 0, 0, TimeSpan.Zero), PatreonPost = post1, ShowId = show.Id };
-        EpisodeEntity newer = new() { Title = "Newer Episode", ReleaseDateUtc = new DateTimeOffset(2024, 6, 15, 0, 0, 0, TimeSpan.Zero), PatreonPost = post2, ShowId = show.Id };
-
-        await InsertSingleInstanceOfEntityAsync(older);
-        await InsertSingleInstanceOfEntityAsync(newer);
-
-        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = person.Id, EpisodeId = older.Id });
-        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = person.Id, EpisodeId = newer.Id });
+        EpisodeService episodeService = CreateSut();
 
         // Act
-        PagedResponse<PersonTimelineEntry> result = await _episodeService.GetByPersonId(
-            person.Id, new PagedItemRequest(), true, TestContext.Current.CancellationToken);
+        int result = await episodeService.GetRandomEpisodeId(cancellationToken);
 
         // Assert
-        Assert.Equal(2, result.Items.Count);
-        Assert.Equal("Newer Episode", result.Items[0].Title);
-        Assert.Equal("Older Episode", result.Items[1].Title);
+        Equal(episode.Id, result);
     }
 
-    [Fact]
-    public async Task GetByPersonId_SortAscending_ReturnsOldestFirst()
-    {
-        // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
-
-        PersonEntity person = new() { Name = "Test Person", NormalizedName = "testperson" };
-        await InsertSingleInstanceOfEntityAsync(person);
-
-        PatreonPostEntity post1 = new() { PatreonId = 701, Title = "Post 701", Link = "https://patreon.com/701", Summary = "S", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/701", ShowId = show.Id };
-        PatreonPostEntity post2 = new() { PatreonId = 702, Title = "Post 702", Link = "https://patreon.com/702", Summary = "S", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/702", ShowId = show.Id };
-
-        EpisodeEntity older = new() { Title = "Older Episode", ReleaseDateUtc = new DateTimeOffset(2024, 1, 10, 0, 0, 0, TimeSpan.Zero), PatreonPost = post1, ShowId = show.Id };
-        EpisodeEntity newer = new() { Title = "Newer Episode", ReleaseDateUtc = new DateTimeOffset(2024, 6, 15, 0, 0, 0, TimeSpan.Zero), PatreonPost = post2, ShowId = show.Id };
-
-        await InsertSingleInstanceOfEntityAsync(older);
-        await InsertSingleInstanceOfEntityAsync(newer);
-
-        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = person.Id, EpisodeId = older.Id });
-        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = person.Id, EpisodeId = newer.Id });
-
-        // Act
-        PagedResponse<PersonTimelineEntry> result = await _episodeService.GetByPersonId(
-            person.Id, new PagedItemRequest(), false, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(2, result.Items.Count);
-        Assert.Equal("Older Episode", result.Items[0].Title);
-        Assert.Equal("Newer Episode", result.Items[1].Title);
-    }
-
-    [Fact]
-    public async Task GetByPersonId_IncludesTopicsInEntries()
-    {
-        // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
-
-        PersonEntity person = new() { Name = "Test Person", NormalizedName = "testperson" };
-        await InsertSingleInstanceOfEntityAsync(person);
-
-        TopicEntity topic1 = new() { Name = "Topic Alpha", NormalizedName = "topicalpha" };
-        TopicEntity topic2 = new() { Name = "Topic Beta", NormalizedName = "topicbeta" };
-        await InsertSingleInstanceOfEntityAsync(topic1);
-        await InsertSingleInstanceOfEntityAsync(topic2);
-
-        PatreonPostEntity post = new() { PatreonId = 801, Title = "Post 801", Link = "https://patreon.com/801", Summary = "S", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/801", ShowId = show.Id };
-
-        EpisodeEntity episode = new() { Title = "Episode With Topics", ReleaseDateUtc = DateTimeOffset.UtcNow, PatreonPost = post, ShowId = show.Id };
-        await InsertSingleInstanceOfEntityAsync(episode);
-
-        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = person.Id, EpisodeId = episode.Id });
-        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = topic1.Id, EpisodeId = episode.Id });
-        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = topic2.Id, EpisodeId = episode.Id });
-
-        // Act
-        PagedResponse<PersonTimelineEntry> result = await _episodeService.GetByPersonId(
-            person.Id, new PagedItemRequest(), true, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Single(result.Items);
-        Assert.Equal(2, result.Items[0].Topics.Count);
-        Assert.Contains(result.Items[0].Topics, t => t.Name == "Topic Alpha");
-        Assert.Contains(result.Items[0].Topics, t => t.Name == "Topic Beta");
-    }
-
-    [Fact]
-    public async Task GetByPersonId_WithSearchTermMatchingTopicName_FiltersResults()
-    {
-        // Arrange
-        ShowEntity show = new() { Name = "Show 1" };
-        await InsertSingleInstanceOfEntityAsync(show);
-
-        PersonEntity person = new() { Name = "Test Person", NormalizedName = "testperson" };
-        await InsertSingleInstanceOfEntityAsync(person);
-
-        TopicEntity gamingTopic = new() { Name = "Gaming", NormalizedName = "gaming" };
-        TopicEntity cookingTopic = new() { Name = "Cooking", NormalizedName = "cooking" };
-        await InsertSingleInstanceOfEntityAsync(gamingTopic);
-        await InsertSingleInstanceOfEntityAsync(cookingTopic);
-
-        PatreonPostEntity post1 = new() { PatreonId = 901, Title = "Post 901", Link = "https://patreon.com/901", Summary = "S", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/901", ShowId = show.Id };
-        PatreonPostEntity post2 = new() { PatreonId = 902, Title = "Post 902", Link = "https://patreon.com/902", Summary = "S", Published = DateTimeOffset.UtcNow, AudioUrl = "https://audio.com/902", ShowId = show.Id };
-
-        EpisodeEntity ep1 = new() { Title = "Episode One", ReleaseDateUtc = DateTimeOffset.UtcNow, PatreonPost = post1, ShowId = show.Id };
-        EpisodeEntity ep2 = new() { Title = "Episode Two", ReleaseDateUtc = DateTimeOffset.UtcNow, PatreonPost = post2, ShowId = show.Id };
-
-        await InsertSingleInstanceOfEntityAsync(ep1);
-        await InsertSingleInstanceOfEntityAsync(ep2);
-
-        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = person.Id, EpisodeId = ep1.Id });
-        await InsertSingleInstanceOfEntityAsync(new PersonEpisodeEntity { PersonId = person.Id, EpisodeId = ep2.Id });
-        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = gamingTopic.Id, EpisodeId = ep1.Id });
-        await InsertSingleInstanceOfEntityAsync(new TopicEpisodeEntity { TopicId = cookingTopic.Id, EpisodeId = ep2.Id });
-
-        // Act — search by topic name
-        PagedResponse<PersonTimelineEntry> result = await _episodeService.GetByPersonId(
-            person.Id, new PagedItemRequest(SearchTerm: "Gaming"), true, TestContext.Current.CancellationToken);
-
-        // Assert
-        Assert.Equal(1, result.TotalCount);
-        Assert.Single(result.Items);
-        Assert.Equal("Episode One", result.Items[0].Title);
-    }
-
-    #endregion
+    private EpisodeService CreateSut() => new(Get<ILogger<EpisodeService>>(), Get<LsmArchiveDbContext>());
 }
+

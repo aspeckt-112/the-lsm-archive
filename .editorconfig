@@ -226,6 +226,12 @@ dotnet_naming_rule.parameters_should_be_camel_case.severity = warning
 # IDE0058: Expression value is never used
 dotnet_diagnostic.IDE0058.severity = none
 
+# IDE0051: Remove unused private members
+# Work around Roslyn false positives for private methods referenced from C# extension blocks:
+# https://github.com/dotnet/roslyn/issues/82061
+# Remove in the future
+dotnet_diagnostic.IDE0051.severity = none
+
 ############################################################
 # Analyzer severity defaults (optional)
 ############################################################

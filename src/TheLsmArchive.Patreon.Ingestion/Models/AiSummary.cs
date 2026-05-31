@@ -1,7 +1,7 @@
 namespace TheLsmArchive.Patreon.Ingestion.Models;
 
 /// <summary>
-/// The AI-generated summary of hosts, guests and topics.
+/// The AI-extracted metadata describing hosts, guests, and topics.
 /// </summary>
 /// <param name="Hosts">The hosts of the episode.</param>
 /// <param name="Guests">The guests of the episode.</param>

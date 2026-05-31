@@ -5,8 +5,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\TheLsmArchive.Models\TheLsmArchive.Models.csproj" />
         <ProjectReference Include="..\TheLsmArchive.Database\TheLsmArchive.Database.csproj" />
+        <ProjectReference Include="..\TheLsmArchive.Models\TheLsmArchive.Models.csproj" />
     </ItemGroup>
 
     <ItemGroup>
@@ -14,6 +14,10 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
+        <PackageReference Include="Serilog" />
+        <PackageReference Include="Serilog.AspNetCore" />
+        <PackageReference Include="Serilog.Settings.Configuration" />
+        <PackageReference Include="Serilog.Sinks.File" />
     </ItemGroup>
 
     <ItemGroup>
@@ -22,8 +26,6 @@
         <Using Include="TheLsmArchive.Models.Enums" />
         <Using Include="TheLsmArchive.Models.Request" />
         <Using Include="TheLsmArchive.Models.Response" />
-        <Using Include="Microsoft.EntityFrameworkCore" />
-        <Using Include="TheLsmArchive.Database.DbContext" />
     </ItemGroup>
 
     <ItemGroup>

@@ -11,6 +11,8 @@ namespace TheLsmArchive.Database;
 /// </summary>
 public static class Extensions
 {
+    private const string ConnectionStringName = "thelsmarchive";
+
     /// <summary>
     /// Extends IServiceCollection.
     /// </summary>
@@ -28,28 +30,63 @@ public static class Extensions
             IConfiguration configuration,
             ServiceLifetime serviceLifetime)
         {
-            string connectionString = configuration.GetConnectionString("thelsmarchive")
-                                      ?? throw new InvalidOperationException(
-                                          "The connection string 'thelsmarchive' is not configured. " +
-                                          "Please add it to your appsettings.json or environment variables."
-                                      );
+            string connectionString = GetConnectionStringOrThrow(configuration, ConnectionStringName);
 
-            void configureOptions(DbContextOptionsBuilder options)
-            {
-                options.UseNpgsql(
-                    connectionString,
-                    npgsqlOptions => npgsqlOptions.EnableRetryOnFailure(
-                        maxRetryCount: 3,
-                        maxRetryDelay: TimeSpan.FromSeconds(5),
-                        errorCodesToAdd: null));
-                options.UseSnakeCaseNamingConvention();
-            }
-
-            services.AddDbContext<ReadOnlyDbContext>(configureOptions, serviceLifetime);
-            services.AddDbContext<ReadWriteDbContext>(configureOptions, serviceLifetime);
-
+            services.AddDbContext<LsmArchiveDbContext>(options => ConfigureDbContextOptions(options, connectionString), serviceLifetime);
 
             return services;
         }
+
+        /// <summary>
+        /// Adds a factory for creating DbContext instances to the service collection, allowing for more flexible lifetime management and on-demand creation of DbContext instances.
+        /// </summary>
+        /// <param name="configuration">The application configuration.</param>
+        /// <returns>The updated service collection.</returns>
+        public IServiceCollection AddDbContextFactory(IConfiguration configuration)
+        {
+            string connectionString = GetConnectionStringOrThrow(configuration, ConnectionStringName);
+
+            services.AddDbContextFactory<LsmArchiveDbContext>(options => ConfigureDbContextOptions(options, connectionString));
+
+            return services;
+        }
+
+        public static void ConfigureDbContextOptions(DbContextOptionsBuilder options, string connectionString)
+        {
+            options.UseNpgsql(
+                connectionString,
+                npgsqlOptions => npgsqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 3,
+                    maxRetryDelay: TimeSpan.FromSeconds(5),
+                    errorCodesToAdd: null));
+
+            options.UseSnakeCaseNamingConvention();
+        }
+    }
+
+    private static string GetConnectionStringOrThrow(IConfiguration configuration, string name)
+    {
+        string? connectionString = configuration.GetConnectionString(name);
+
+        if (string.IsNullOrEmpty(connectionString))
+        {
+            // In Testing environment, return a placeholder that will be overridden by WebApplicationFactory
+            if (IsTestingEnvironment())
+            {
+                return "Host=localhost;Database=placeholder;Username=placeholder;Password=placeholder";
+            }
+
+            throw new InvalidOperationException(
+                $"The connection string '{name}' is not configured. " +
+                "Please add it to your appsettings.json or environment variables.");
+        }
+
+        return connectionString;
+    }
+
+    private static bool IsTestingEnvironment()
+    {
+        string? environment = System.Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        return environment?.Equals("Testing", System.StringComparison.OrdinalIgnoreCase) ?? false;
     }
 }

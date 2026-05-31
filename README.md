@@ -1,6 +1,6 @@
 # The LSM Archive
 
-The LSM Archive is a comprehensive system designed to archive, summarize, and search through episodes, topics, and people from **Last Stand Media** (LSM) podcasts. It ingests content directly from Patreon RSS feeds, uses Google Gemini AI to generate structured summaries, and provides a modern web interface for exploration.
+The LSM Archive is a comprehensive system designed to archive, index, and search through episodes, topics, and people from **Last Stand Media** (LSM) podcasts. It ingests content directly from Patreon RSS feeds, uses Google Gemini AI to extract structured metadata, and provides a modern web interface for exploration.
 
 ## Project Structure
 
@@ -14,7 +14,7 @@ The solution follows a modular architecture split into seven distinct projects:
 | `TheLsmArchive.ApiClient` | A typed HTTP client for the Web API, used by the frontend. |
 | `TheLsmArchive.Web.Api` | ASP.NET Core Minimal API providing the backend services. |
 | `TheLsmArchive.Web.Frontend` | Blazor WebAssembly SPA using MudBlazor for the UI. |
-| `TheLsmArchive.Patreon.Ingestion` | A worker application that parses Patreon RSS feeds and summarizes them via Gemini. |
+| `TheLsmArchive.Patreon.Ingestion` | A worker application that parses Patreon RSS feeds, extracts structured metadata via Gemini, and writes the results to the database. |
 
 ## Prerequisites
 
@@ -79,6 +79,29 @@ Run the Frontend:
 dotnet run --project src/TheLsmArchive.Web.Frontend
 ```
 *Note: The frontend is pre-configured to connect to the API at `https://localhost:7229` (the default HTTPS profile). Ensure the API is running before launching the frontend. If you're using VS Code, you can use the provided `launch.json` to run the API and Frontend together. The recommended scenario is to run the ingestion tool first to get data in the database, then run the API and Frontend to develop features and test against real data.*
+
+## Logging
+
+The API and Patreon ingestion worker use Serilog and route all `ILogger<T>` messages through the same Serilog pipeline. Logs are written to both standard output and daily rolling files relative to each application's content root:
+
+- API: `logs/api-.log` (`/app/logs/api-.log` in Docker)
+- Patreon ingestion: `logs/patreon-ingestion-.log` (`/app/logs/patreon-ingestion-.log` in Docker)
+
+To persist API log files on the host in production, mount a volume into the API container:
+
+```yaml
+web-api:
+   volumes:
+      - /opt/the-lsm-archive/logs/api:/app/logs
+```
+
+To persist Patreon ingestion log files on the host, mount a separate directory into the worker container:
+
+```yaml
+patreon-ingestion:
+   volumes:
+      - /opt/the-lsm-archive/logs/patreon-ingestion:/app/logs
+```
 
 ## Testing
 

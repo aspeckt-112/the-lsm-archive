@@ -1,5 +1,8 @@
 using System.Linq.Expressions;
 
+using Microsoft.EntityFrameworkCore;
+
+using TheLsmArchive.Database.DbContext;
 using TheLsmArchive.Database.Entities;
 
 namespace TheLsmArchive.Web.Api.Features.Persons;
@@ -11,19 +14,19 @@ public sealed class PersonService : IPersonService
 {
     private readonly ILogger<PersonService> _logger;
 
-    private readonly ReadOnlyDbContext _dbContext;
+    private readonly LsmArchiveDbContext _dbContext;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PersonService"/> class.
     /// </summary>
     /// <param name="logger">The logger.</param>
-    /// <param name="readOnlyDbContext">The read-only database context.</param>
+    /// <param name="dbContext">The database context.</param>
     public PersonService(
         ILogger<PersonService> logger,
-        ReadOnlyDbContext readOnlyDbContext)
+        LsmArchiveDbContext dbContext)
     {
         _logger = logger;
-        _dbContext = readOnlyDbContext;
+        _dbContext = dbContext;
     }
 
     /// <inheritdoc />
@@ -42,6 +45,7 @@ public sealed class PersonService : IPersonService
                 Name: mapToPerson.Name);
 
         return _dbContext.Persons
+            .AsNoTracking()
             .Where(p => p.Id == id)
             .Select(mapToPerson)
             .FirstOrDefaultAsync(cancellationToken);
@@ -56,6 +60,7 @@ public sealed class PersonService : IPersonService
         _logger.LogInformation("Getting details for person with ID: {Id}", id);
 
         var result = await _dbContext.Persons
+        .AsNoTracking()
         .Include(p => p.PersonEpisodes)
         .ThenInclude(pe => pe.Episode)
         .Where(p => p.Id == id)
@@ -90,6 +95,7 @@ public sealed class PersonService : IPersonService
                 Name: mapToPerson.Person.Name);
 
         return _dbContext.PersonEpisodes
+            .AsNoTracking()
             .Include(pe => pe.Person)
             .Where(pe => pe.EpisodeId == id)
             .OrderBy(pe => pe.Person.Name)

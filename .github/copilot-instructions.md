@@ -31,7 +31,7 @@ Seven projects:
 | `TheLsmArchive.ApiClient` | Typed HTTP client wrapping the Web API (used by the Frontend). |
 | `TheLsmArchive.Web.Api` | ASP.NET Core minimal API — the backend. |
 | `TheLsmArchive.Web.Frontend` | Blazor WebAssembly SPA using MudBlazor. |
-| `TheLsmArchive.Patreon.Ingestion` | Console app: parses Patreon RSS, calls Google Gemini for summaries, writes to DB. |
+| `TheLsmArchive.Patreon.Ingestion` | Worker app: parses Patreon RSS, calls Google Gemini to extract structured metadata, writes to DB. |
 
 The **database** runs EF Core 10 on Postgres 13 with `UseSnakeCaseNamingConvention()`. All entity type configurations live in `TheLsmArchive.Database/Configurations/` and are auto-discovered via `ApplyConfigurationsFromAssembly`. EF migrations are in `TheLsmArchive.Database/Migrations/`.
 
@@ -69,9 +69,9 @@ internal static class EpisodeEndpoints
 
 Always use `TypedResults` and `Results<T1, T2>` return types on handlers.
 
-### Read/write DbContext split
+### Database context
 
-Services that only read use `ReadOnlyDbContext`; services that write use `ReadWriteDbContext`. Both share the same `BaseDbContext` and configuration; the split is intentional for CQRS-style clarity.
+Use the single `LsmArchiveDbContext` everywhere. Read-heavy services should call `AsNoTracking()` explicitly at query roots instead of relying on a separate read-only context type, and background ingestion creates short-lived contexts via `IDbContextFactory<LsmArchiveDbContext>`.
 
 ### Centralized NuGet versions
 
