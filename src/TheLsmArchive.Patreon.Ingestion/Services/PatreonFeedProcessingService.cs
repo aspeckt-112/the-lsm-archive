@@ -49,6 +49,8 @@ public sealed partial class PatreonFeedProcessingService : IPatreonFeedProcessin
 
         LogIngestingFeed(feed.Title, showId);
 
+        await IngestFeedAsync(showId, feed, cancellationToken);
+
         ImmutableList<PendingPost> postsToProcess = await GetPendingPostsAsync(showId, cancellationToken);
 
         int retryCount = postsToProcess.Count(p => p.ProcessingError is not null);
