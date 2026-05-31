@@ -64,6 +64,12 @@
           "Microsoft.Extensions.Options": "10.0.5"
         }
       },
+      "Nerdbank.GitVersioning": {
+        "type": "Direct",
+        "requested": "[3.9.50, )",
+        "resolved": "3.9.50",
+        "contentHash": "HtOgGF6jZ+WYbXnCUCYPT8Y2d6mIJo9ozjK/FINTRsXdm4Zgv9GehUMa7EFoGQkqrMcDJNOIDwCmENnvXg4UbA=="
+      },
       "Sentry.Serilog": {
         "type": "Direct",
         "requested": "[6.6.0, )",

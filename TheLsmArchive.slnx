@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/.config/">
+    <File Path=".config/dotnet-tools.json" />
+  </Folder>
   <Folder Name="/.github/">
     <File Path=".github/copilot-instructions.md" />
   </Folder>
@@ -17,6 +20,7 @@
     <File Path="global.json" />
     <File Path="LICENSE" />
     <File Path="README.md" />
+    <File Path="version.json" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/TheLsmArchive.ApiClient/TheLsmArchive.ApiClient.csproj" />

@@ -111,7 +111,7 @@ Services project directly to model records inside LINQ `.Select()` using inline 
 
 - Nullable reference types are enabled globally.
 - XML doc comments on all public and `internal` API surface.
-- PRs target the `develop` branch.
+- PRs target the `main` branch. Use `release/v*` branches for release stabilization.
 
 ## MCP Servers
 
