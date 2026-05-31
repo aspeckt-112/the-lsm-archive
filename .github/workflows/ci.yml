@@ -2,17 +2,20 @@ name: CI
 
 on:
   push:
-    branches: [main, develop, "issue/**"]
+    branches: [main, "release/**"]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   test:
     name: Run Tests
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -27,11 +30,9 @@ jobs:
 
       - name: Test
         run: dotnet test --no-build
-
   build-images:
     name: Build Docker Images
-    needs: test
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/'))
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -50,6 +51,20 @@ jobs:
             appsettings_file: src/TheLsmArchive.Patreon.Ingestion/appsettings.Production.json
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore local tools
+        run: dotnet tool restore
+
+      - name: Calculate image version
+        id: nbgv
+        run: echo "version=$(dotnet tool run nbgv get-version --public-release=true -v NuGetPackageVersion)" >> "$GITHUB_OUTPUT"
 
       # Each project has its own Sentry DSN secret: SENTRY_DSN_API, SENTRY_DSN_FRONTEND, SENTRY_DSN_INGESTION.
       - name: Inject Sentry DSN
@@ -58,14 +73,14 @@ jobs:
         run: sed -i "s|__SENTRY_DSN__|${SENTRY_DSN}|g" ${{ matrix.appsettings_file }}
 
       - name: Build Docker image
-        run: docker build -f ${{ matrix.dockerfile }} -t thelsmarchive/${{ matrix.name }}:${{ github.sha }} .
+        run: docker build -f ${{ matrix.dockerfile }} -t thelsmarchive/${{ matrix.name }}:${{ steps.nbgv.outputs.version }} .
 
       - name: Save Docker image
-        run: docker save thelsmarchive/${{ matrix.name }}:${{ github.sha }} -o ${{ matrix.name }}.tar
+        run: docker save thelsmarchive/${{ matrix.name }}:${{ steps.nbgv.outputs.version }} -o ${{ matrix.name }}-${{ steps.nbgv.outputs.version }}.tar
 
       - name: Upload Docker image artifact
         uses: actions/upload-artifact@v4
         with:
-          name: docker-${{ matrix.name }}
-          path: ${{ matrix.name }}.tar
+          name: docker-${{ matrix.name }}-${{ steps.nbgv.outputs.version }}
+          path: ${{ matrix.name }}-${{ steps.nbgv.outputs.version }}.tar
           retention-days: 3

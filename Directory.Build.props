@@ -4,12 +4,20 @@
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
+        <RepositoryRootNormalized>$([System.String]::Copy('$(MSBuildThisFileDirectory)').Replace('\', '/'))</RepositoryRootNormalized>
+        <SourceProjectRootNormalized>$(RepositoryRootNormalized)src/</SourceProjectRootNormalized>
+        <ProjectDirectoryNormalized>$([System.String]::Copy('$(MSBuildProjectDirectory)').Replace('\', '/'))/</ProjectDirectoryNormalized>
+        <IsVersionedSourceProject Condition="$([System.String]::Copy('$(ProjectDirectoryNormalized)').StartsWith('$(SourceProjectRootNormalized)'))">true</IsVersionedSourceProject>
     </PropertyGroup>
 
     <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
         <IsPackable>false</IsPackable>
         <OutputType>Exe</OutputType>
     </PropertyGroup>
+
+    <ItemGroup Condition="'$(IsVersionedSourceProject)' == 'true'">
+        <PackageReference Include="Nerdbank.GitVersioning" PrivateAssets="all" />
+    </ItemGroup>
 
     <ItemGroup Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
     

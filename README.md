@@ -119,7 +119,7 @@ Contributions are welcome! To maintain quality and consistency, please follow th
 2. **Code Style**: 
    - Respect the `.editorconfig` settings.
    - Run `dotnet format` before submitting your changes to ensure consistent formatting.
-3. **Pull Requests**: Target the `develop` branch for all PRs.
+3. **Pull Requests**: Target the `main` branch for regular PRs. Use `release/v*` branches for release stabilization and release-specific fixes.
 
 ---
 *This project is an unofficial fan-made archive for Last Stand Media.*
