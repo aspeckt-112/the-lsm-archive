@@ -72,6 +72,10 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
                 await ProcessPendingPostAsync(showId, post, cancellationToken);
                 successCount++;
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception postEx)
             {
                 _logger.LogError(postEx, "Failed to process post '{PostTitle}'", post.Title);
