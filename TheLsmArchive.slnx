@@ -31,6 +31,8 @@
     <Project Path="tests/TheLsmArchive.ApiClient.Tests/TheLsmArchive.ApiClient.Tests.csproj" />
     <Project Path="tests/TheLsmArchive.Models.Tests/TheLsmArchive.Models.Tests.csproj" />
     <Project Path="tests/TheLsmArchive.Patreon.Ingestion.Tests/TheLsmArchive.Patreon.Ingestion.Tests.csproj" />
+    <Project Path="tests/TheLsmArchive.Web.Api.Tests/TheLsmArchive.Web.Api.Tests.csproj" />
+    <Project Path="tests/TheLsmArchive.Web.Frontend.Tests/TheLsmArchive.Web.Frontend.Tests.csproj" />
     <Project Path="tests/TheLsmArchive.Testing.Database/TheLsmArchive.Testing.Database.csproj" />
   </Folder>
 </Solution>
