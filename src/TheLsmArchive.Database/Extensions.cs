@@ -70,11 +70,23 @@ public static class Extensions
 
         if (string.IsNullOrEmpty(connectionString))
         {
+            // In Testing environment, return a placeholder that will be overridden by WebApplicationFactory
+            if (IsTestingEnvironment())
+            {
+                return "Host=localhost;Database=placeholder;Username=placeholder;Password=placeholder";
+            }
+
             throw new InvalidOperationException(
                 $"The connection string '{name}' is not configured. " +
                 "Please add it to your appsettings.json or environment variables.");
         }
 
         return connectionString;
+    }
+
+    private static bool IsTestingEnvironment()
+    {
+        string? environment = System.Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        return environment?.Equals("Testing", System.StringComparison.OrdinalIgnoreCase) ?? false;
     }
 }

@@ -33,6 +33,10 @@ public abstract class EndpointIntegrationTestBase : DatabaseIntegrationTestBase<
     /// <inheritdoc />
     protected override ValueTask InitializeAsyncCore()
     {
+        // Set the environment variable before creating the factory
+        // so that the database extension knows we're in a testing environment
+        System.Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
+
         _webApiFactory = new WebApiFactory(_connectionString);
         HttpClient = _webApiFactory.CreateClient(new WebApplicationFactoryClientOptions
         {
