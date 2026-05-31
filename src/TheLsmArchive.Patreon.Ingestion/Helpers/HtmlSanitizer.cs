@@ -40,6 +40,6 @@ internal static partial class HtmlSanitizer
     [GeneratedRegex(@"</?(?:address|article|aside|blockquote|br|dd|div|dl|dt|figcaption|figure|footer|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|table|tbody|td|tfoot|th|thead|tr|ul)(?:\s+[^<>]*)?\s*/?>", RegexOptions.IgnoreCase)]
     private static partial Regex HtmlSeparatorTagRegex();
 
-    [GeneratedRegex(@"</?(?:a|abbr|address|article|aside|audio|b|blockquote|br|code|dd|del|div|dl|dt|em|figcaption|figure|footer|h[1-6]|header|hr|i|iframe|img|ins|li|main|mark|nav|ol|p|picture|pre|section|small|source|span|strong|sub|sup|table|tbody|td|tfoot|th|thead|time|tr|u|ul|video)(?:\s+[^<>]*)?\s*/?>", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"<[^>]+>", RegexOptions.IgnoreCase)]
     private static partial Regex HtmlTagRegex();
 }
