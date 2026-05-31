@@ -315,7 +315,6 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
 
                 throw;
             }
-            }
         });
     }
 

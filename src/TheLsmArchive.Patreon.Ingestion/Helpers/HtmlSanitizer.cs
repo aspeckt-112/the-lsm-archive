@@ -22,7 +22,9 @@ internal static partial class HtmlSanitizer
 
         string stripped = RemoveHtmlTags(input);
         stripped = WebUtility.HtmlDecode(stripped);
-        stripped = RemoveHtmlTags(stripped);
+        // After decoding, only remove known structural HTML tags. Using the generic tag
+        // pattern here would incorrectly strip decoded non-HTML content such as "<Encoded>".
+        stripped = HtmlSeparatorTagRegex().Replace(stripped, " ");
         stripped = WhitespaceRegex().Replace(stripped, " ").Trim();
 
         return stripped;
