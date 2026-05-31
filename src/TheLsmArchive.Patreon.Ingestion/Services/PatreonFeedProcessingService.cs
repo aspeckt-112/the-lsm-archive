@@ -297,6 +297,11 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
 
                 _logger.LogInformation("Successfully processed post '{PostTitle}'", pendingPost.Title);
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                await transaction.RollbackAsync(CancellationToken.None);
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(
@@ -309,6 +314,7 @@ public sealed class PatreonFeedProcessingService : IPatreonFeedProcessingService
                 await SaveProcessingErrorAsync(pendingPost.Id, ex.Message, cancellationToken);
 
                 throw;
+            }
             }
         });
     }
