@@ -24,10 +24,13 @@ builder.Services.AddSerilog((services, loggerConfiguration) => loggerConfigurati
 
 builder.WebHost.UseSentry();
 
-builder.Services
-    .AddOptionsWithValidateOnStart<CorsSettingsOptions>()
-    .BindConfiguration(CorsSettingsOptions.SectionName)
-    .ValidateDataAnnotations();
+if (builder.Environment.IsProduction())
+{
+    builder.Services
+        .AddOptionsWithValidateOnStart<CorsSettingsOptions>()
+        .BindConfiguration(CorsSettingsOptions.SectionName)
+        .ValidateDataAnnotations();
+}
 
 builder.Services
     .AddOptions<CorsOptions>()
@@ -38,19 +41,20 @@ builder.Services
     {
         corsOptions.AddDefaultPolicy(policy =>
         {
-            if (environment.IsDevelopment())
+            if (environment.IsProduction())
             {
-                policy
-                    .AllowAnyOrigin()
+                CorsSettingsOptions corsSettingsOptions =
+                    corsSettingsOptionsAccessor.Value ?? throw new InvalidOperationException("CORS settings are not configured.");
+
+                policy.WithOrigins(corsSettingsOptions.AllowedOrigins)
                     .AllowAnyHeader()
                     .AllowAnyMethod();
 
                 return;
             }
 
-            CorsSettingsOptions corsSettingsOptions = corsSettingsOptionsAccessor.Value;
-
-            policy.WithOrigins(corsSettingsOptions.AllowedOrigins)
+            policy
+                .AllowAnyOrigin()
                 .AllowAnyHeader()
                 .AllowAnyMethod();
         });
