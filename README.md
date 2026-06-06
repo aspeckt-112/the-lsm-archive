@@ -57,6 +57,54 @@ The feeds are configured as a list of `RssFeedSource` objects. You can set them 
 dotnet user-secrets set "RssFeedSources" '[{"Name": "YOUR_RSS_FEED_NAME", "Url": "YOUR_PRIVATE_RSS_URL"}, {"Name": "ANOTHER_RSS_FEED_NAME", "Url": "YOUR_PRIVATE_RSS_URL"}]' --project src/TheLsmArchive.Patreon.Ingestion
 ```
 
+#### CORS Configuration for Production Environments
+
+The API uses ASP.NET Core's built-in CORS middleware for handling cross-origin requests. The CORS policy varies between development and production environments:
+
+**Development Environment**
+In development, all origins are allowed for easier testing.
+
+**Production Environment** 
+In production, only specific origins should be permitted, for example:
+- https://lsmarchive.com
+- https://www.lsmarchive.com
+
+#### Configuring Custom Allowed Origins
+
+There are two primary ways to configure allowed origins:
+
+**1. Direct Configuration in appsettings.Production.json**
+You can modify the `AllowedOrigins` array in the `appsettings.Production.json` file:
+```json
+{
+  "Cors": {
+    "AllowedOrigins": [
+      "https://yourdomain.com",
+      "https://www.yourdomain.com"
+    ]
+  }
+}
+```
+
+**2. Environment Variables with Docker Compose**
+When deploying via Docker, you can use environment variables to customize the allowed origins:
+
+```yaml
+services:
+  web-api:
+    build: ./src/TheLsmArchive.Web.Api
+    environment:
+      - Cors__AllowedOrigins__0=https://yourdomain.com
+      - Cors__AllowedOrigins__1=https://www.yourdomain.com
+    # ... other configurations
+```
+
+**Best Practices for CORS Configuration**
+- Keep allowed origins as restrictive as possible for security
+- Use environment-specific configuration files (appsettings.Production.json) for production deployments
+- When using Docker, consider using environment variables instead of hardcoded values in JSON files
+- Test CORS settings thoroughly in staging environments before deploying to production
+
 ### 3. Build & Run
 Restore dependencies and build the solution:
 ```bash

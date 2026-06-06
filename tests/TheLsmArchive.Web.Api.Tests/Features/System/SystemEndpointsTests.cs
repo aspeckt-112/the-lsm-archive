@@ -64,4 +64,54 @@ public sealed class SystemEndpointsTests(IntegrationTestFixture fixture) : Endpo
         Equal("An error occurred while processing your request.", problemDetails.Detail);
         Equal("InvalidOperationException", problemDetails.Type);
     }
+
+    [Fact]
+    public async Task GetLastDataSyncDateTime_WhenOriginIsAllowed_ReturnsCorsHeader()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        await SeedProcessedPatreonPostAsync(cancellationToken);
+
+        using HttpRequestMessage request = new(HttpMethod.Get, "/system/last-data-sync");
+        request.Headers.Add("Origin", "https://lsmarchive.com");
+
+        // Act
+        HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
+        response.Headers.TryGetValues("Access-Control-Allow-Origin", out IEnumerable<string>? headerValues);
+
+        // Assert
+        Equal(HttpStatusCode.OK, response.StatusCode);
+        Equal("https://lsmarchive.com", headerValues?.Single());
+    }
+
+    [Fact]
+    public async Task GetLastDataSyncDateTime_WhenOriginIsNotAllowed_DoesNotReturnCorsHeader()
+    {
+        // Arrange
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        await SeedProcessedPatreonPostAsync(cancellationToken);
+
+        using HttpRequestMessage request = new(HttpMethod.Get, "/system/last-data-sync");
+        request.Headers.Add("Origin", "https://example.com");
+
+        // Act
+        HttpResponseMessage response = await HttpClient.SendAsync(request, cancellationToken);
+
+        // Assert
+        Equal(HttpStatusCode.OK, response.StatusCode);
+        False(response.Headers.TryGetValues("Access-Control-Allow-Origin", out _));
+    }
+
+    private async Task SeedProcessedPatreonPostAsync(CancellationToken cancellationToken)
+    {
+        LsmArchiveDbContext dbContext = Get<LsmArchiveDbContext>();
+        ShowEntity show = await ShowTestDataHelper.CreateShowAsync(dbContext, cancellationToken, "System Test Show");
+
+        await SystemTestDataHelper.CreateProcessedPatreonPostAsync(
+            dbContext,
+            show,
+            new DateTimeOffset(2026, 5, 21, 14, 30, 0, TimeSpan.Zero),
+            2001,
+            cancellationToken);
+    }
 }

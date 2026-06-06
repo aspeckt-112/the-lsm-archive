@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 using Serilog;
 
@@ -11,6 +13,7 @@ using TheLsmArchive.Web.Api.Features.Search;
 using TheLsmArchive.Web.Api.Features.System;
 using TheLsmArchive.Web.Api.Features.Topics;
 using TheLsmArchive.Web.Api.Infrastructure;
+using TheLsmArchive.Web.Api.Options;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +25,38 @@ builder.Services.AddSerilog((services, loggerConfiguration) => loggerConfigurati
 builder.WebHost.UseSentry();
 
 builder.Services
+    .AddOptionsWithValidateOnStart<CorsSettingsOptions>()
+    .BindConfiguration(CorsSettingsOptions.SectionName)
+    .ValidateDataAnnotations();
+
+builder.Services
+    .AddOptions<CorsOptions>()
+    .Configure<IOptions<CorsSettingsOptions>, IWebHostEnvironment>((
+        corsOptions,
+        corsSettingsOptionsAccessor,
+        environment) =>
+    {
+        corsOptions.AddDefaultPolicy(policy =>
+        {
+            if (environment.IsDevelopment())
+            {
+                policy
+                    .AllowAnyOrigin()
+                    .AllowAnyHeader()
+                    .AllowAnyMethod();
+
+                return;
+            }
+
+            CorsSettingsOptions corsSettingsOptions = corsSettingsOptionsAccessor.Value;
+
+            policy.WithOrigins(corsSettingsOptions.AllowedOrigins)
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
+    });
+
+builder.Services
     .AddDbContext(builder.Configuration, ServiceLifetime.Scoped)
     .AddProblemDetails()
     .AddScoped<ISearchService, SearchService>()
@@ -30,28 +65,7 @@ builder.Services
     .AddScoped<ITopicService, TopicService>()
     .AddScoped<ISystemService, SystemService>()
     .AddExceptionHandler<GlobalExceptionHandler>()
-    .AddCors(options =>
-    {
-        if (builder.Environment.IsDevelopment())
-        {
-            options.AddDefaultPolicy(policy =>
-            {
-                policy
-                    .AllowAnyOrigin()
-                    .AllowAnyHeader()
-                    .AllowAnyMethod();
-            });
-        }
-        else
-        {
-            options.AddDefaultPolicy(policy =>
-            {
-                policy.WithOrigins("https://lsmarchive.com", "https://www.lsmarchive.com")
-                      .AllowAnyHeader()
-                      .AllowAnyMethod();
-            });
-        }
-    });
+    .AddCors();
 
 WebApplication app = builder.Build();
 
@@ -88,4 +102,3 @@ await app.RunAsync();
 /// Exposes the web application's entry point to integration tests.
 /// </summary>
 public partial class Program;
-
